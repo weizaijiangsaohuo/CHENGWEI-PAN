@@ -53,7 +53,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(user?.email_confirmed_at || user?.confirmed_at) void ensureWelcomeEmail(user.id);
   },[user?.id, user?.email_confirmed_at, user?.confirmed_at]);
   useEffect(()=>{if(!user){setIsAdmin(false);return;}
-    db().rpc('is_platform_admin').then(({data,error})=>{setIsAdmin(!error&&data===true)}).catch(()=>setIsAdmin(false));
+    db().rpc('is_platform_admin').then(({data,error})=>{setIsAdmin(!error&&data===true)},()=>setIsAdmin(false));
   },[user?.id]);
   useEffect(()=>{
     if(!user){setSelf(null);return;}
