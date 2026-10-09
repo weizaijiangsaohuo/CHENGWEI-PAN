@@ -27,7 +27,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [user,setUser]=useState<User|null>(null);const [self,setSelf]=useState<Profile|null>(null);
   const [checking,setChecking]=useState(true);const [loading,setLoading]=useState(false);
   const [posts,setPosts]=useState<Post[]>([]);const [metrics,setMetrics]=useState<Metrics>({});
-  const [profile,setProfile]=useState<Profile|null>(null);const [following,setFollowing]=useState<string[]>([]);
+  const [profileLookup,setProfileLookup]=useState<{handle:string;status:'found'|'missing'|'error';data:Profile|null}|null>(null);const [following,setFollowing]=useState<string[]>([]);
+  const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
+  const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
   const [tab,setTab]=useState<'all'|'following'>('all');const [search,setSearch]=useState('');
   const [accounts,setAccounts]=useState<Profile[]>([]);const [notifs,setNotifs]=useState<Notif[]>([]);
   const [message,setMessage]=useState('');const [draft,setDraft]=useState('');
@@ -84,7 +86,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       else if(view==='profile'){
         const {data:p,error:pe}=await client.from('profiles').select('*').eq('handle',target||'').maybeSingle();
         if(pe)throw pe;
-        currentProfile=p as Profile|null;setProfile(currentProfile);
+        currentProfile=p as Profile|null;setProfileLookup({handle:target||'',status:currentProfile?'found':'missing',data:currentProfile});
         if(currentProfile)query=query.eq('author_id',currentProfile.id).is('parent_id',null).order('created_at',{ascending:false}).limit(80);
         else {setPosts([]);setLoading(false);return;}
       }
@@ -123,7 +125,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           setAccounts((u||[]) as Profile[]);}
         else setAccounts([]);
       }
-    }catch(e){showMessage(e instanceof Error?e.message:(lang==='en'?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
+    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(lang==='en'?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
     finally{setLoading(false)}
   },[user,view,target,search,tab]);
   useEffect(()=>{if(user)void load();},[load,user]);
@@ -242,10 +244,10 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
       <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
-    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||t('profileMissing')}</h2></div>
+    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang==='en'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
       {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button>}</div>
-      <h2>{profile.display_name}</h2><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(lang==='en'?'en-US':'zh-CN')} {t('joined')}</p></div><div className="tab-line">{t('posts')}</div></>:<Empty text="用户不存在" detail={lang==='en'?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
+      <h2>{profile.display_name}</h2><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(lang==='en'?'en-US':'zh-CN')} {t('joined')}</p></div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{lang==='en'?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={lang==='en'?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
     if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={lang==='en'?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
@@ -260,7 +262,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
-    <main className="feed-panel"><div className="sf-top-utility"><span className="sf-top-logo">✦ <b>starflow<span>.</span></b></span><LanguageSwitch/></div>{renderContent()}{!['notifications','settings'].includes(view)&&<div className="posts-list">
+    <main className="feed-panel"><div className="sf-top-utility"><span className="sf-top-logo">✦ <b>starflow<span>.</span></b></span><LanguageSwitch/></div>{renderContent()}{!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&<div className="posts-list">
       {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
       {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):tab==='following'&&view==='home'?t('emptyFollowing'):t('emptyFeed')} detail={t('emptyHint')}/>}
       {ordered.map(card)}
