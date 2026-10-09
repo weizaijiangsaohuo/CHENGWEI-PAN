@@ -1,0 +1,42 @@
+星流 Starflow · iPhone 手机操作步骤（2026-10）
+
+本版本登录方式：Google 注册/登录、邮箱注册/登录、密码找回。
+已彻底移除 Apple ID 登录按钮；欢迎邮件功能需配置邮件服务后才能真正发出。
+
+A. 查看演示页面
+  用“文件”App 打开 preview.html；此页面不会真的注册或发邮件。
+  点击“查看注册成功后收到的欢迎邮件”，可以浏览祝贺邮件的样式。
+
+B. Supabase 项目
+  1. 登录 https://supabase.com/dashboard，进入你已经创建的新加坡项目。
+  2. SQL Editor → New query → 粘贴 supabase/migrations/001_initial.sql → Run。
+  3. 再新建 Query 执行 supabase/migrations/002_welcome_email.sql。
+  4. Authentication → Providers → Email：启用 Email，保留邮箱确认。
+  5. 配置自定义 SMTP，否则 Supabase 的默认邮件服务无法发给所有外部用户。
+  6. Authentication → Providers → Google：配置自己的 Google OAuth Client ID/Secret。
+  7. 配置 Cloudflare Turnstile，前端公开 Site Key + Supabase 后台私密 Secret Key。
+
+C. 自动欢迎邮件
+  1. 到 https://resend.com/ 注册邮件服务账号。
+  2. 验证有发送权限的域名后，创建 Resend API Key。
+  3. Supabase → Edge Functions → Deploy a new function → Via Editor。
+  4. 名称 welcome-email，粘贴 supabase/functions/welcome-email/index.ts。
+  5. 关闭函数的“Verify JWT”网关开关（函数内会对真实用户令牌做 getUser 校验）。
+  6. Edge Functions → Secrets：配置 RESEND_API_KEY、WELCOME_FROM_EMAIL、WELCOME_SITE_NAME、WELCOME_SITE_URL。
+  7. 邮箱验证后首次进入网站、或者 Google 首次注册授权后，系统会自动尝试欢迎邮件。
+  8. 实际送达仍需合法发件地址与验证域名；免费平台子域名不等于你拥有该发信域名。
+
+D. Cloudflare Workers 上线（尚需适配/测试）
+  这是 Next.js 项目，不是直接上传 ZIP 就可以上线的纯静态网站。
+  按 https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/ 的当前说明适配构建流程，
+  再将代码接入 GitHub 和 Cloudflare Workers 进行部署，配置 Supabase、Google、Turnstile 回调域名。
+  可以先使用免费的 workers.dev 子域名，无需立刻购买域名。
+
+警告：不要在聊天截图里发送 Supabase 数据库密码、Google Client Secret、Resend API Key、service_role。
+完整说明见 README.md。正式对公众开放前，请完成安全、邮件送达和多用户权限测试。
+
+V3 更新：
+- 此版新增中文 / English 界面切换，保留 Google、邮箱认证。
+- 运营管理后台需在执行 001、002 后额外执行 supabase/migrations/003_admin_studio.sql，再由管理员在 SQL Editor 手工授权自己的 auth.users UUID；绝不能开放客户端自助授权。
+- preview.html 为本地模拟交互，不会真实注册或发布。
+- 目前源码尚未实际完成 Cloudflare Workers 的打包/上线测试。Cloudflare Next.js 部署可能需要 OpenNext 适配；请不要误认为此 ZIP 上传后一定立即运行。

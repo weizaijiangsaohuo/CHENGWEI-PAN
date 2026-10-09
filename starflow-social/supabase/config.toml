@@ -1,0 +1,4 @@
+# The function authenticates the caller by verifying the USER access token with
+# Supabase Auth getUser(token). Do not remove that validation.
+[functions.welcome-email]
+verify_jwt = false
