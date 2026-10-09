@@ -167,7 +167,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
         if(uploadError)throw uploadError;
         image_url=client.storage.from('post-media').getPublicUrl(path).data.publicUrl;
       }
-      const {error}=await client.from('posts').insert({author_id:user.id,content:draft.trim(),image_url,parent_id:view==='post' ? target : parentId});
+      const {error}=await client.from('posts').insert({author_id:user.id,content:draft.trim(),image_url,parent_id:view==='post' ? target : null});
       if(error)throw error;
       setDraft('');setImage(null);if(imagePreview)URL.revokeObjectURL(imagePreview);setImagePreview(null);
       showMessage(t('posted'));
