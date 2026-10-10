@@ -14,7 +14,7 @@ const BUCKET = 'post-media';
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 type UploadKind = 'avatar' | 'cover';
-type Mounts = { editor: Element | null; cover: Element | null };
+type Mounts = { editor: Element | null; cover: Element | null; avatar: Element | null };
 
 type Picture = { name: string; created_at?: string | null; updated_at?: string | null };
 
@@ -83,7 +83,7 @@ export function StarflowProfileMedia() {
   const pathname = usePathname();
   const isSettings = pathname === '/settings' || pathname === '/settings/';
   const handle = /^\/profile\/([^/]+)\/?$/.exec(pathname ?? '')?.[1] ?? null;
-  const [mounts, setMounts] = useState<Mounts>({ editor: null, cover: null });
+  const [mounts, setMounts] = useState<Mounts>({ editor: null, cover: null, avatar: null });
   const [ownId, setOwnId] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -94,13 +94,15 @@ export function StarflowProfileMedia() {
 
   useEffect(() => {
     if (!isSettings && !handle) {
-      setMounts({ editor: null, cover: null });
+      setMounts({ editor: null, cover: null, avatar: null });
       return;
     }
     const update = () => {
       const editor = isSettings ? document.querySelector('.app-frame .settings-content form.stack') : null;
       const cover = handle ? document.querySelector('.app-frame .profile-cover') : null;
-      setMounts(prev => prev.editor === editor && prev.cover === cover ? prev : { editor, cover });
+      const avatar = handle ? document.querySelector('.app-frame .profile-top .avatar') : null;
+      setMounts(prev => prev.editor === editor && prev.cover === cover && prev.avatar === avatar
+        ? prev : { editor, cover, avatar });
     };
     const observer = new MutationObserver(update);
     observer.observe(document.body, { subtree: true, childList: true });
@@ -132,10 +134,17 @@ export function StarflowProfileMedia() {
         } else if (handle) {
           let decoded: string;
           try { decoded = decodeURIComponent(handle); } catch { return; }
-          const { data: person, error } = await client.from('profiles')
-            .select('id').eq('handle', decoded).maybeSingle();
-          if (error) throw error;
-          if (active) setProfileId(person?.id ?? null);
+          const [account, lookup] = await Promise.all([
+            client.auth.getUser(),
+            client.from('profiles').select('id').eq('handle', decoded).maybeSingle(),
+          ]);
+          if (lookup.error) throw lookup.error;
+          if (active) {
+            setProfileId(lookup.data?.id ?? null);
+            // Only the authenticated owner may see direct-upload controls.
+            setOwnId(!account.error && account.data.user && lookup.data && account.data.user.id === lookup.data.id
+              ? account.data.user.id : null);
+          }
         }
       } catch (reason) {
         if (active && isSettings) setStatus(reason instanceof Error ? reason.message : '读取个人资料失败，请重试。');
@@ -204,7 +213,16 @@ export function StarflowProfileMedia() {
       } else {
         setCoverUrl(publicUrl);
       }
-      setStatus((kind === 'avatar' ? '头像' : '封面') + '已保存！返回个人主页或刷新页面即可看到更新。');
+      if (handle && !isSettings) {
+        setStatus((kind === 'avatar' ? '头像' : '封面') + '已保存，正在更新主页…');
+        // SocialApp owns the original avatar DOM; reload updates all avatars
+        // and ensures the new cover is re-read from Storage after completion.
+        window.setTimeout(() => {
+          if (window.location.pathname === pathname) window.location.reload();
+        }, 850);
+      } else {
+        setStatus((kind === 'avatar' ? '头像' : '封面') + '已保存！返回个人主页或刷新页面即可看到更新。');
+      }
     } catch (reason) {
       setStatus('上传失败：' + (reason instanceof Error ? reason.message : '请稍后重试。'));
     } finally { setBusy(null); }
@@ -231,6 +249,25 @@ export function StarflowProfileMedia() {
   return <>
     {mounts.cover && handle && coverUrl && createPortal(
       <img className="sf-user-cover" src={coverUrl} alt="用户自定义主页封面" loading="eager"/>, mounts.cover,
+    )}
+    {mounts.cover && handle && ownId && ownId === profileId && createPortal(
+      <>
+        <label className="sf-profile-direct-cover" title="点击更换主页封面">
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+            aria-label="更换主页封面" disabled={!!busy} onChange={event => void upload('cover', event)}/>
+          <span className="sf-profile-direct-cover-badge"><Camera size={16}/>{busy === 'cover' ? '上传中…' : '更换封面'}</span>
+        </label>
+        {status && <div role="status" aria-live="polite" className="sf-profile-direct-status">
+          {busy && <LoaderCircle size={15} className="sf-profile-media-spin"/>}{status}
+        </div>}
+      </>, mounts.cover,
+    )}
+    {mounts.avatar && handle && ownId && ownId === profileId && createPortal(
+      <label className="sf-profile-direct-avatar" title="点击更换头像">
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+          aria-label="更换头像" disabled={!!busy} onChange={event => void upload('avatar', event)}/>
+        <span className="sf-profile-direct-avatar-icon"><Camera size={17}/></span>
+      </label>, mounts.avatar,
     )}
     {mounts.editor && isSettings && createPortal(
       <div className="sf-profile-media-settings" aria-label="头像与封面管理">
