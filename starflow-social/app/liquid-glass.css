@@ -227,3 +227,84 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media (prefers-reduced-motion:reduce) {
   .post { transition: none; }
 }
+/* Starflow Liquid Glass — Phase 4 */
+.search-bar {
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(145,153,213,.24);
+  border-radius: 22px;
+  box-shadow: 0 6px 22px rgba(86,100,171,.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.search-bar:focus-within {
+  background: rgba(255,255,255,.94);
+  border-color: #8d8beb;
+  box-shadow: 0 0 0 3px rgba(122,116,225,.12);
+}
+.search-people {
+  border-color: rgba(145,153,213,.18);
+}
+.search-people a {
+  border-radius: 16px;
+  transition: background .18s ease;
+}
+.search-people a:hover {
+  background: rgba(235,235,255,.7);
+}
+.notification {
+  background: rgba(255,255,255,.66);
+  color: var(--ink);
+  border-bottom: 1px solid rgba(145,153,213,.18);
+  transition: background .18s ease;
+}
+.notification.unread {
+  background: rgba(232,231,255,.75);
+}
+.notification:hover {
+  background: rgba(239,239,255,.86);
+}
+.notification small {
+  color: var(--sub);
+}
+.settings-content {
+  background: rgba(255,255,255,.55);
+}
+.settings-icon {
+  background: linear-gradient(145deg,#ecf2ff,#e8e3ff);
+  color: #6762d5;
+  border: 1px solid rgba(255,255,255,.82);
+  border-radius: 18px;
+}
+.settings-divider {
+  border-color: rgba(145,153,213,.21);
+}
+.section-heading {
+  background: rgba(247,248,255,.58);
+  border-color: rgba(145,153,213,.2);
+}
+.right-card {
+  background: rgba(255,255,255,.74);
+  border: 1px solid rgba(255,255,255,.82);
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(91,104,172,.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+@media (max-width:650px) {
+  .search-bar {
+    margin: 14px;
+    padding: 13px 16px;
+  }
+  .notification {
+    padding: 17px 16px;
+  }
+  .settings-content {
+    padding: 20px 17px;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .search-people a,
+  .notification {
+    transition: none;
+  }
+}
