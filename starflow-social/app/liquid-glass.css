@@ -396,3 +396,102 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     transition: none;
   }
 }
+/* Starflow Liquid Glass — Phase 6 */
+body .sfai-panel {
+  background: rgba(249,250,255,.92);
+  border: 1px solid rgba(255,255,255,.88);
+  border-radius: 26px;
+  box-shadow: 0 24px 70px rgba(67,77,156,.23);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
+body .sfai-header {
+  background: rgba(255,255,255,.76);
+  border-bottom: 1px solid rgba(145,153,213,.2);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+body .sfai-mark {
+  background: linear-gradient(135deg,#55b9ef,#7777eb,#aa7ce9);
+  box-shadow: 0 5px 16px rgba(113,112,220,.22);
+}
+body .sfai-iconbtn {
+  background: rgba(233,236,255,.8);
+  color: #6264c7;
+  border-radius: 13px;
+}
+body .sfai-iconbtn:hover {
+  background: rgba(218,222,255,.95);
+}
+body .sfai-sessions {
+  background: rgba(247,247,255,.8);
+  border-bottom: 1px solid rgba(145,153,213,.2);
+}
+body .sfai-session.current > button:first-child {
+  background: rgba(220,224,255,.85);
+  color: #514bc1;
+}
+body .sfai-body {
+  background: linear-gradient(155deg,
+    rgba(250,252,255,.78),
+    rgba(242,241,255,.65));
+}
+body .sfai-line.user {
+  background: linear-gradient(135deg,#e3ebff,#e8e0ff);
+  color: #28345f;
+  box-shadow: 0 4px 14px rgba(105,112,192,.08);
+}
+body .sfai-line.assistant {
+  background: rgba(255,255,255,.88);
+  border: 1px solid rgba(160,170,225,.22);
+  color: #27304d;
+  box-shadow: 0 5px 18px rgba(90,105,169,.07);
+}
+body .sfai-inputrow {
+  background: rgba(255,255,255,.86);
+  border-top: 1px solid rgba(145,153,213,.2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+body .sfai-inputrow input {
+  background: rgba(247,249,255,.92);
+  border: 1px solid rgba(145,153,213,.32);
+  color: #202843;
+}
+body .sfai-inputrow input:focus {
+  border-color: #8781e5;
+  box-shadow: 0 0 0 3px rgba(122,116,225,.13);
+}
+body .sfai-inputrow button {
+  background: linear-gradient(135deg,#528ce8,#8969de);
+}
+body .sfai-inputrow button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+body .sfai-launcher {
+  background: linear-gradient(115deg,#488de9,#786de7,#aa71de);
+  box-shadow: 0 12px 30px rgba(88,87,194,.26);
+}
+body .sfai-alert {
+  border-top: 1px solid rgba(145,153,213,.15);
+}
+body .toast {
+  background: rgba(39,43,80,.94);
+  border: 1px solid rgba(255,255,255,.2);
+  box-shadow: 0 12px 35px rgba(36,39,96,.2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+@media (max-width:650px) {
+  body .sfai-panel {
+    border-radius: 22px;
+  }
+}
+@media (prefers-contrast:more) {
+  body .sfai-panel,
+  body .sfai-line.assistant {
+    background: #fff;
+    border-color: #737b9b;
+  }
+}
