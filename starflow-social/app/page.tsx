@@ -140,6 +140,9 @@ export default function Home(){
             <a className={styles.outlineAction} href="#resources">{en?'Learn more':'了解星流'} <ChevronRight size={17}/></a>
           </div>
           <p className={styles.heroHint}>{en?'Web experience · Chinese & English · Independent platform':'网页端现已开放 · 中文 / English · 独立社交平台'}</p>
+          
+<Link href="/support" style={{display:'inline-flex',marginTop:16,padding:'14px 20px',borderRadius:18,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</Link>
+
         </div>
         <div className={styles.heroVisual} aria-label={en?'Illustration of Starflow features':'星流功能示意图'}>
           <div className={styles.previewGlow}/>
