@@ -84,7 +84,7 @@ function StarflowAiWidget({signedIn,onSignIn,en}:{signedIn:boolean;onSignIn:()=>
         <button type="button" className="sfai-secondary" onClick={()=>setOpen(false)}>{en?'Maybe later':'稍后再说'}</button>
       </div>:<>
         <div className="sfai-body" aria-live="polite">
-          {lines.length===0&&<p style={{color:'#626c8c',fontSize:13,lineHeight:1.8,margin:'5px 0'}}>{en?'Hello! I’m the Starflow AI assistant (text beta). How can I help?':'你好！我是 ✦ Starflow AI 智能助手（文字测试版）。你可以直接输入问题。'}</p>}
+          {lines.length===0&&<p style={{color:'#626c8c',fontSize:13,lineHeight:1.8,margin:'5px 0'}}>{en?'Hello! I’m the Starflow AI assistant (text beta). How can I help?':'你好！我是 ✦ Starflow AI 智能助手，全世界最强大的AI模型，你可以直接输入问题。'}</p>}
           {lines.map((line,index)=><div key={index} className={`sfai-chatline ${line.role==='user'?'sfai-userline':'sfai-botline'}`}>{line.content}</div>)}
           {busy&&<div style={{fontSize:12,color:'#69759c'}} role="status">{en?'AI is thinking…':'AI 正在思考…'}</div>}
         </div>
