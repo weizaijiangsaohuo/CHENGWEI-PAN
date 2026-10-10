@@ -139,3 +139,91 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     background: rgba(220,221,255,.78);
   }
 }
+/* Starflow Liquid Glass — Phase 3 */
+.home-tabs {
+  background: rgba(255,255,255,.58);
+  border-bottom: 1px solid var(--line);
+}
+.home-tabs button {
+  background: transparent;
+  color: #66718c;
+}
+.home-tabs button.active {
+  color: #4f4bc2;
+}
+.home-tabs button.active::after {
+  background: linear-gradient(90deg,#4a91ed,#9469e9);
+  border-radius: 99px;
+}
+.composer {
+  background: rgba(255,255,255,.64);
+  border-bottom: 8px solid rgba(236,239,255,.55);
+}
+.composer textarea {
+  color: var(--ink);
+}
+.composer textarea::placeholder {
+  color: #8791ac;
+}
+.composer-tools button {
+  color: #6863d7;
+}
+.composer-tools button:hover {
+  background: rgba(228,228,255,.72);
+}
+.publish-btn,
+.btn-primary {
+  background: linear-gradient(120deg,#4b8fe9,#8e69df);
+  border: 1px solid rgba(255,255,255,.35);
+  color: #fff;
+  box-shadow: 0 7px 20px rgba(100,103,211,.2);
+}
+.publish-btn:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(120deg,#3979d4,#7856ca);
+}
+.post {
+  background: rgba(255,255,255,.65);
+  border-bottom: 1px solid rgba(140,150,209,.17);
+  transition: background .2s ease;
+}
+.post:hover {
+  background: rgba(248,248,255,.92);
+}
+.post-photo {
+  border-radius: 20px;
+  border-color: rgba(140,150,209,.18);
+}
+.post-actions button {
+  color: #747e99;
+  border-radius: 14px;
+}
+.post-actions button:hover {
+  color: #5e59ce;
+  background: rgba(231,231,255,.75);
+}
+.empty-icon {
+  background: linear-gradient(145deg,#eef2ff,#e8e5ff);
+  color: #6764d7;
+}
+.empty-state a {
+  color: #5b59c9;
+}
+@media (max-width:650px) {
+  .post {
+    margin: 8px 8px 0;
+    padding: 16px 12px;
+    border: 1px solid rgba(255,255,255,.82);
+    border-radius: 20px;
+    box-shadow: 0 6px 22px rgba(91,104,172,.07);
+  }
+  .composer {
+    padding: 18px 14px;
+  }
+  .post-actions button {
+    min-height: 38px;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .post { transition: none; }
+}
