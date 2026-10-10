@@ -7,12 +7,12 @@ import {SocialApp} from '@/components/SocialApp';
 import {LanguageSwitch,useLanguage} from '@/components/LanguageProvider';
 import {db,hasConfig} from '@/lib/supabase';
 import styles from './landing.module.css';
-
+import { StarflowAiWidget } from '@/components/StarflowAiWidget';
 type Screen='checking'|'landing'|'auth'|'member';
 type AiLine={role:'user'|'assistant';content:string};
 const glass:CSSProperties={background:'rgba(255,255,255,.83)',backdropFilter:'blur(28px) saturate(160%)',WebkitBackdropFilter:'blur(28px) saturate(160%)',border:'1px solid rgba(255,255,255,.82)',boxShadow:'0 16px 54px rgba(49,66,135,.19),inset 0 1px 0 rgba(255,255,255,.98)'};
 
-function StarflowAiWidget({signedIn,onSignIn,en}:{signedIn:boolean;onSignIn:()=>void;en:boolean}){
+function LegacyStarflowAiWidget({signedIn,onSignIn,en}:{signedIn:boolean;onSignIn:()=>void;en:boolean}){
   const [open,setOpen]=useState(false);
   const [input,setInput]=useState('');
   const [lines,setLines]=useState<AiLine[]>([]);
