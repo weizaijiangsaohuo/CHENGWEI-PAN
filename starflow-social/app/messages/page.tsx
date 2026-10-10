@@ -226,7 +226,7 @@ export default function MessagesPage(){
           </div>
           :<div style={{
             display:'grid',
-            gridTemplateColumns:'minmax(180px,1fr) minmax(0,2fr)',
+            gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',
             gap:14
           }}>
             <section style={styles.panel}>
