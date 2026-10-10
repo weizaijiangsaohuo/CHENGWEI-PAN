@@ -72,6 +72,9 @@ export function AuthPortal(){
         <div className="auth-switch">{mode==='signup'?<>{t('haveAccount')} <button onClick={()=>change('login')}>{t('signIn')}</button></>:mode==='login'?<>{t('newAccount')} <button onClick={()=>change('signup')}>{t('signUp')}</button></>:<>{t('rememberPassword')} <button onClick={()=>change('login')}>{t('backLogin')}</button></>}
           {mode==='login'&&<button className="forgot-link" onClick={()=>change('forgot')}>{t('forgotLink')}</button>}</div>
         {!configured&&<p className="configuration-note">{t('configNeeded')}</p>}
+        
+<a href="/support" style={{display:'block',textAlign:'center',padding:'14px',margin:'16px 0',borderRadius:16,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</a>
+
         <p className="legal-text">{t('legalLead')} <a href="/terms">{t('terms')}</a> {t('and')} <a href="/privacy">{t('privacy')}</a>{t('legalTail')}</p>
       </div><div className="bottom-credit"><Globe2 size={14}/>{t('authFooter')}</div></section>
     </div>
