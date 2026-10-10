@@ -31,6 +31,7 @@ export default function MessagesPage() {
   const [busy, setBusy] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [check, setCheck] = useState('');
 
   useEffect(() => {
     if (!hasConfig()) {
@@ -59,6 +60,9 @@ export default function MessagesPage() {
     void client.auth.getUser().then(({ data, error }) => {
       if (error) setError(error.message);
       updateUser(data.user?.id ?? null);
+      
+setCheck(error ? '登录错误：' + error.message : data.user ? '账号ID：' + data.user.id : '没有读取到登录账号');
+
     });
 
     const { data: listener } = client.auth.onAuthStateChange(
@@ -320,7 +324,7 @@ export default function MessagesPage() {
         <p style={{marginBottom: 20}}>
           Starflow 2.0 · 一对一私密聊天
         </p>
-
+<p style={{color:'#b91c55',overflowWrap:'anywhere'}}>{check}</p>
         {error && (
           <p role="alert" style={{
             color: '#b91c55',
