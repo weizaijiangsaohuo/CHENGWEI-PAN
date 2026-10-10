@@ -583,3 +583,289 @@ body .sfai-inputrow input {
   background: rgba(255, 250, 253, 0.92) !important;
   border-color: rgba(208, 158, 211, 0.32) !important;
 }
+
+/* ==========================================
+   STARFLOW PINK DREAM — ALL-IN-ONE
+   樱花粉 × 梦幻紫 × 玫瑰粉 × 奶油白
+   全站视觉整合版
+========================================== */
+
+:root {
+  --starflow-pink: #ffe1f0;
+  --starflow-purple: #e9d9ff;
+  --starflow-rose: #e982b5;
+  --starflow-cream: #fff9fc;
+  --starflow-text: #653951;
+  --starflow-border: rgba(226, 153, 195, .24);
+  --starflow-glass: rgba(255, 249, 252, .82);
+  --starflow-gradient: linear-gradient(
+    125deg, #e982b5, #c49df1
+  );
+}
+
+/* 01 — 全站背景 */
+
+html {
+  background: #fff9fc;
+}
+
+body {
+  background:
+    radial-gradient(
+      ellipse at 12% 12%,
+      rgba(255, 205, 232, .6),
+      transparent 52%
+    ),
+    radial-gradient(
+      ellipse at 88% 48%,
+      rgba(226, 205, 255, .6),
+      transparent 54%
+    ),
+    linear-gradient(
+      145deg, #fff9fc, #fff0f8, #f5edff
+    ) !important;
+  background-attachment: fixed !important;
+}
+
+body main {
+  background-color: transparent !important;
+}
+
+/* 02 — 顶部导航和品牌区域 */
+
+body header {
+  background: linear-gradient(
+    120deg,
+    rgba(255, 249, 252, .95),
+    rgba(255, 229, 242, .85),
+    rgba(238, 224, 255, .85)
+  ) !important;
+  border-color: var(--starflow-border) !important;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+body header button,
+body header a {
+  transition: color .2s, background .2s;
+}
+
+body header button:hover,
+body header a:hover {
+  color: #c45f99;
+}
+
+/* 03 — 玻璃卡片 */
+
+body article {
+  border-color: var(--starflow-border) !important;
+  box-shadow:
+    0 8px 30px rgba(207, 137, 185, .08);
+}
+
+body section {
+  border-color: var(--starflow-border);
+}
+
+/* 04 — 首页发布区域 */
+
+body textarea {
+  background: rgba(255, 249, 252, .78) !important;
+  border-color: var(--starflow-border) !important;
+  caret-color: #d66ba4;
+}
+
+body input::placeholder,
+body textarea::placeholder {
+  color: #b69caf;
+}
+
+body button[type="submit"] {
+  background: var(--starflow-gradient) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow:
+    0 8px 24px rgba(218, 128, 184, .23);
+}
+
+body button[type="submit"]:disabled {
+  opacity: .5;
+  box-shadow: none;
+}
+
+/* 05 — 导航栏 */
+
+body nav {
+  border-color: var(--starflow-border) !important;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+body nav a,
+body nav button {
+  transition:
+    color .2s ease,
+    background .2s ease,
+    transform .2s ease;
+}
+
+body nav a:hover,
+body nav button:hover {
+  color: #c568a0 !important;
+}
+
+body nav a:active,
+body nav button:active {
+  transform: scale(.96);
+}
+
+/* 06 — 输入框与表单 */
+
+body input,
+body select,
+body textarea {
+  border-color: var(--starflow-border);
+  transition:
+    border-color .2s ease,
+    box-shadow .2s ease;
+}
+
+body input:focus-visible,
+body select:focus-visible,
+body textarea:focus-visible {
+  outline: 2px solid rgba(233, 130, 181, .55);
+  outline-offset: 2px;
+  border-color: #e982b5;
+}
+
+body input[type="checkbox"],
+body input[type="radio"] {
+  accent-color: #d875ae;
+}
+
+/* 07 — 链接与互动 */
+
+body a {
+  transition: color .2s ease;
+}
+
+body a:hover {
+  color: #bf6199;
+}
+
+body button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 08 — Starflow AI 主窗口 */
+
+body .sfai-panel {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 249, 252, .98),
+    rgba(252, 236, 247, .97),
+    rgba(242, 232, 255, .97)
+  ) !important;
+  border: 1px solid
+    rgba(233, 130, 181, .28) !important;
+  box-shadow:
+    0 22px 60px rgba(190, 112, 171, .2) !important;
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+}
+
+body .sfai-header {
+  background: linear-gradient(
+    115deg,
+    rgba(255, 241, 249, .96),
+    rgba(241, 231, 255, .9)
+  ) !important;
+  border-bottom: 1px solid
+    rgba(233, 130, 181, .18) !important;
+}
+
+/* 09 — AI 消息气泡 */
+
+body .sfai-line.user {
+  background: linear-gradient(
+    120deg, #f6c4df, #e6d5ff
+  ) !important;
+  border-color: rgba(218, 142, 192, .18) !important;
+  color: #573650 !important;
+}
+
+body .sfai-line.assistant {
+  background: rgba(255, 255, 255, .92) !important;
+  border-color: rgba(233, 130, 181, .18) !important;
+  color: #49344a !important;
+  box-shadow:
+    0 5px 20px rgba(210, 156, 193, .08);
+}
+
+/* 10 — AI 输入区域 */
+
+body .sfai-inputrow {
+  background: rgba(255, 249, 252, .96) !important;
+  border-top-color:
+    rgba(233, 130, 181, .18) !important;
+}
+
+body .sfai-inputrow input {
+  background: rgba(255, 251, 253, .95) !important;
+  border-color:
+    rgba(216, 159, 201, .35) !important;
+}
+
+body .sfai-inputrow button:not(:disabled),
+body .sfai-launcher {
+  background: var(--starflow-gradient) !important;
+  color: #fff !important;
+  box-shadow:
+    0 10px 28px rgba(215, 120, 180, .27) !important;
+}
+
+/* 11 — AI 顶部图标按钮 */
+
+body .sfai-close {
+  background: rgba(242, 225, 248, .88) !important;
+  color: #a65c9c !important;
+  border-color:
+    rgba(220, 163, 204, .22) !important;
+}
+
+/* 12 — 反馈提示 */
+
+body .toast {
+  border: 1px solid
+    rgba(233, 130, 181, .24) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* 13 — 手机端 */
+
+@media (max-width: 650px) {
+  body .sfai-panel {
+    border-radius: 24px !important;
+  }
+
+  body article {
+    border-radius: 22px;
+  }
+
+  body header,
+  body nav {
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+}
+
+/* 14 — 减少动态效果偏好 */
+
+@media (prefers-reduced-motion: reduce) {
+  body nav a,
+  body nav button,
+  body header button {
+    transition: none !important;
+  }
+}
