@@ -79,3 +79,27 @@
   .app-frame .sf-profile-direct-cover-badge{padding:9px 11px;font-size:12px;}
   .app-frame .sf-profile-direct-status{font-size:11px;}
 }
+
+
+/* X-inspired normal profile photo viewing: edit affordances appear in preview, never cover a saved photo. */
+.app-frame .profile-cover { position:relative; isolation:isolate; }
+.app-frame .profile-cover .sf-user-cover { z-index:0;pointer-events:none; }
+.app-frame .profile-top .avatar:has(.sf-profile-avatar-trigger) { position:relative; }
+.app-frame .sf-profile-photo-trigger { position:absolute; inset:0; display:block; padding:0; margin:0; border:0; background:transparent; z-index:3; cursor:zoom-in; }
+.app-frame .sf-profile-photo-trigger:focus-visible { outline:3px solid #8339ba;outline-offset:-3px; }
+.app-frame .sf-profile-avatar-trigger { border-radius:50%; }
+.app-frame .sf-profile-direct-status { top:12px;bottom:auto;left:12px;right:12px;pointer-events:none; }
+.sf-photo-lightbox { position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(9,9,15,.95); padding:calc(20px + env(safe-area-inset-top,0px)) 14px calc(24px + env(safe-area-inset-bottom,0px)); }
+.sf-photo-lightbox-dialog { position:relative; width:100%; height:100%; max-width:1000px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px; }
+.sf-photo-lightbox-close { position:absolute; left:0; top:0; z-index:3; width:44px;height:44px;border:1px solid rgba(255,255,255,.3);border-radius:50%;background:#25202ccc;color:#fff;display:flex;justify-content:center;align-items:center;cursor:pointer; }
+.sf-photo-lightbox-photo { width:100%;display:flex;align-items:center;justify-content:center; min-height:0; flex:1; }
+.sf-photo-lightbox-photo img { display:block; width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain; }
+.sf-photo-lightbox-avatar img, .sf-photo-lightbox-avatar-default { width:min(82vw,470px);height:min(82vw,470px);max-width:min(72vh,470px);max-height:min(72vh,470px);border-radius:50%;object-fit:cover;aspect-ratio:1; }
+.sf-photo-lightbox-avatar-default { display:grid;place-items:center;color:white;font-size:88px;background:linear-gradient(110deg,#e18aba,#8663b8); }
+.sf-photo-lightbox-cover img, .sf-photo-lightbox-cover-default { width:100%;max-height:75vh;object-fit:contain; }
+.sf-photo-lightbox-cover-default { aspect-ratio:2.5;background:linear-gradient(110deg,#e18aba,#8663b8); }
+.sf-photo-lightbox-edit { flex:none;display:inline-flex;gap:8px;align-items:center;justify-content:center;position:relative;background:#fcf9fd;color:#28212e;padding:12px 22px;border-radius:999px;font-size:14px;font-weight:750;cursor:pointer;min-height:46px; }
+.sf-photo-lightbox-edit:hover { background:#e9d5ee; }
+.sf-photo-lightbox-edit input[type="file"] { position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer; }
+.sf-photo-lightbox-close:focus-visible, .sf-photo-lightbox-edit:focus-within { outline:3px solid #b78aff;outline-offset:3px; }
+@media(max-width:650px) { .sf-photo-lightbox {padding-left:8px;padding-right:8px}.sf-photo-lightbox-dialog{gap:15px}.sf-photo-lightbox-avatar img,.sf-photo-lightbox-avatar-default { width:min(84vw,380px);height:min(84vw,380px);max-width:min(64vh,380px);max-height:min(64vh,380px); } }

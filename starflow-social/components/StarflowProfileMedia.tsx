@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
-import { Camera, ImagePlus, LoaderCircle, ShieldCheck } from 'lucide-react';
+import { Camera, ImagePlus, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 
 // Reuses the existing public post-media bucket and the existing avatar_url
@@ -91,6 +91,11 @@ export function StarflowProfileMedia() {
   const [coverLoading, setCoverLoading] = useState(false);
   const [busy, setBusy] = useState<UploadKind | null>(null);
   const [status, setStatus] = useState('');
+  const [preview, setPreview] = useState<UploadKind | null>(null);
+
+  useEffect(() => {
+    setPreview(null);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isSettings && !handle) {
@@ -136,11 +141,12 @@ export function StarflowProfileMedia() {
           try { decoded = decodeURIComponent(handle); } catch { return; }
           const [account, lookup] = await Promise.all([
             client.auth.getUser(),
-            client.from('profiles').select('id').eq('handle', decoded).maybeSingle(),
+            client.from('profiles').select('id,avatar_url').eq('handle', decoded).maybeSingle(),
           ]);
           if (lookup.error) throw lookup.error;
           if (active) {
             setProfileId(lookup.data?.id ?? null);
+            setAvatar(lookup.data?.avatar_url ?? null);
             // Only the authenticated owner may see direct-upload controls.
             setOwnId(!account.error && account.data.user && lookup.data && account.data.user.id === lookup.data.id
               ? account.data.user.id : null);
@@ -174,6 +180,20 @@ export function StarflowProfileMedia() {
     void load();
     return () => { active = false; };
   }, [profileId, isSettings]);
+
+  useEffect(() => {
+    if (!preview) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreview(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [preview]);
 
   async function upload(kind: UploadKind, event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -250,24 +270,41 @@ export function StarflowProfileMedia() {
     {mounts.cover && handle && coverUrl && createPortal(
       <img className="sf-user-cover" src={coverUrl} alt="用户自定义主页封面" loading="eager"/>, mounts.cover,
     )}
-    {mounts.cover && handle && ownId && ownId === profileId && createPortal(
+    {mounts.cover && handle && createPortal(
       <>
-        <label className="sf-profile-direct-cover" title="点击更换主页封面">
-          <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-            aria-label="更换主页封面" disabled={!!busy} onChange={event => void upload('cover', event)}/>
-          <span className="sf-profile-direct-cover-badge"><Camera size={16}/>{busy === 'cover' ? '上传中…' : '更换封面'}</span>
-        </label>
-        {status && <div role="status" aria-live="polite" className="sf-profile-direct-status">
+        <button className="sf-profile-photo-trigger sf-profile-cover-trigger" type="button"
+          aria-label="放大查看主页封面" onClick={() => setPreview('cover')}/>
+        {ownId && ownId === profileId && status && <div role="status" aria-live="polite" className="sf-profile-direct-status">
           {busy && <LoaderCircle size={15} className="sf-profile-media-spin"/>}{status}
         </div>}
       </>, mounts.cover,
     )}
-    {mounts.avatar && handle && ownId && ownId === profileId && createPortal(
-      <label className="sf-profile-direct-avatar" title="点击更换头像">
-        <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-          aria-label="更换头像" disabled={!!busy} onChange={event => void upload('avatar', event)}/>
-        <span className="sf-profile-direct-avatar-icon"><Camera size={17}/></span>
-      </label>, mounts.avatar,
+    {mounts.avatar && handle && createPortal(
+      <button className="sf-profile-photo-trigger sf-profile-avatar-trigger" type="button"
+        aria-label="放大查看头像" onClick={() => setPreview('avatar')}/>, mounts.avatar,
+    )}
+    {preview && handle && createPortal(
+      <div className="sf-photo-lightbox" role="presentation" onClick={() => setPreview(null)}>
+        <section className="sf-photo-lightbox-dialog" role="dialog" aria-modal="true"
+          aria-label={preview === 'avatar' ? '头像大图预览' : '封面大图预览'}
+          onClick={event => event.stopPropagation()}>
+          <button className="sf-photo-lightbox-close" type="button" aria-label="关闭图片预览"
+            onClick={() => setPreview(null)}><X size={23}/></button>
+          <div className={'sf-photo-lightbox-photo sf-photo-lightbox-' + preview}>
+            {preview === 'avatar' ? (
+              avatar ? <img src={avatar} alt="头像大图"/> : <div className="sf-photo-lightbox-avatar-default" aria-label="默认头像">✦</div>
+            ) : (
+              coverUrl ? <img src={coverUrl} alt="主页封面大图"/> : <div className="sf-photo-lightbox-cover-default" aria-label="默认渐变封面"/>
+            )}
+          </div>
+          {ownId && ownId === profileId && <label className="sf-photo-lightbox-edit">
+            <Camera size={18}/> {preview === 'avatar' ? '更换头像' : '更换封面'}
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+              aria-label={preview === 'avatar' ? '选择新头像' : '选择新封面'} disabled={!!busy}
+              onChange={event => { const kind = preview; setPreview(null); if (kind) void upload(kind, event); }}/>
+          </label>}
+        </section>
+      </div>, document.body,
     )}
     {mounts.editor && isSettings && createPortal(
       <div className="sf-profile-media-settings" aria-label="头像与封面管理">
