@@ -69,3 +69,73 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     border-color:#697393;
   }
 }
+/* Starflow Liquid Glass — Phase 2 */
+.app-frame {
+  background: transparent;
+}
+.feed-panel {
+  background: rgba(255,255,255,.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.sf-top-utility {
+  background: rgba(255,255,255,.72);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+.profile-cover {
+  background: radial-gradient(circle at 20% 80%,rgba(179,205,255,.9),transparent 48%),
+    linear-gradient(115deg,#4d5eaa,#8b86d2 55%,#d6c6fa);
+}
+.profile-info {
+  background: rgba(255,255,255,.66);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.profile-info .btn-outline {
+  background: rgba(255,255,255,.82);
+  border: 1px solid rgba(148,155,209,.3);
+  border-radius: 999px;
+  box-shadow: 0 5px 20px rgba(87,96,160,.08);
+}
+.tab-line {
+  border-color: #7771dc;
+}
+.main-nav a.nav-active {
+  color: #5e5bcb;
+  background: rgba(226,226,255,.72);
+}
+@media (max-width:650px) {
+  .feed-panel {
+    background: rgba(255,255,255,.66);
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+  .mobile-nav {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: auto;
+    height: 62px;
+    padding: 0 6px;
+    border: 1px solid rgba(255,255,255,.86);
+    border-radius: 24px;
+    background: rgba(246,247,255,.78);
+    box-shadow: 0 12px 35px rgba(69,77,148,.16);
+    backdrop-filter: blur(26px) saturate(160%);
+    -webkit-backdrop-filter: blur(26px) saturate(160%);
+  }
+  .mobile-nav a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    min-height: 44px;
+    padding: 7px;
+    border-radius: 15px;
+    color: #737b9d;
+  }
+  .mobile-nav a:active {
+    background: rgba(220,221,255,.78);
+  }
+}
