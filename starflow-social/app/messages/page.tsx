@@ -134,7 +134,7 @@ export default function MessagesPage(){
     setBusy(false);
 
     if(e){
-      setError(e.message);
+      setError(e.code==='42501'?'无法发送消息：对方可能已屏蔽你，或当前账号没有发送权限。':e.message);
       return;
     }
 
