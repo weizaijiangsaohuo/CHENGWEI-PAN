@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
+import './liquid-glass.css';
 import { LanguageProvider } from '@/components/LanguageProvider';
 export const metadata: Metadata = {
   title: '星流 Starflow · 分享此刻，连接彼此',
