@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { Bell, Bookmark, LayoutDashboard, Camera, Check, ChevronLeft, Compass, Ellipsis, Heart, Home, ImagePlus, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import { Bell, Bookmark, LayoutDashboard, Camera, Check, ChevronLeft, Compass, Ellipsis, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
@@ -15,7 +15,7 @@ import { ago, unwrap } from '@/lib/types';
 
 type View = 'home' | 'explore' | 'notifications' | 'bookmarks' | 'settings' | 'profile' | 'post';
 type Metrics = Record<string,{likes:number; reposts:number; replies:number; liked:boolean; reposted:boolean; saved:boolean}>;
-const postFields='id,author_id,content,image_url,parent_id,created_at,profiles!posts_author_id_fkey(id,handle,display_name,bio,avatar_url,created_at)';
+const postFields='id,author_id,content,image_url,video_url,parent_id,created_at,profiles!posts_author_id_fkey(id,handle,display_name,bio,avatar_url,created_at)';
 const nav = [
   {to:'/',name:'home',icon:Home}, {to:'/explore',name:'explore',icon:Compass}, {to:'/notifications',name:'notifications',icon:Bell},
   {to:'/bookmarks',name:'bookmarks',icon:Bookmark}, {to:'/settings',name:'settings',icon:Settings}
@@ -34,10 +34,12 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [accounts,setAccounts]=useState<Profile[]>([]);const [notifs,setNotifs]=useState<Notif[]>([]);
   const [message,setMessage]=useState('');const [draft,setDraft]=useState('');
   const [image,setImage]=useState<File|null>(null);const [imagePreview,setImagePreview]=useState<string|null>(null);
+  const [video,setVideo]=useState<File|null>(null);const [videoPreview,setVideoPreview]=useState<string|null>(null);
   const [sending,setSending]=useState(false);
   const [display,setDisplay]=useState('');const [bio,setBio]=useState('');const [handle,setHandle]=useState('');
   const [unread,setUnread]=useState(0);const [isAdmin,setIsAdmin]=useState(false);
   const inputRef=useRef<HTMLInputElement>(null);
+  const videoInputRef=useRef<HTMLInputElement>(null);
   const showMessage=(msg:string)=>{setMessage(msg);window.setTimeout(()=>setMessage(''),6500)};
 
   useEffect(()=>{
@@ -155,23 +157,45 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     const file=e.target.files?.[0];if(!file)return;
     if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)){showMessage(t('onlyImage'));return;}
     setImage(file);if(imagePreview)URL.revokeObjectURL(imagePreview);setImagePreview(URL.createObjectURL(file));
+    // A post may contain an image or a video, not both.
+    setVideo(null);if(videoPreview)URL.revokeObjectURL(videoPreview);setVideoPreview(null);
+    e.currentTarget.value='';
+  }
+  function chooseVideo(e:ChangeEvent<HTMLInputElement>){
+    const file=e.currentTarget.files?.[0];if(!file)return;
+    if(file.size>50*1024*1024 || file.size===0 || !['video/mp4','video/webm','video/quicktime'].includes(file.type)){
+      showMessage(lang==='en'?'Video must be MP4, WebM or MOV and no larger than 50 MB.':'请选择 50 MB 以内的 MP4、WebM 或 MOV 视频');
+      e.currentTarget.value='';return;
+    }
+    if(videoPreview)URL.revokeObjectURL(videoPreview);
+    setVideo(file);setVideoPreview(URL.createObjectURL(file));
+    setImage(null);if(imagePreview)URL.revokeObjectURL(imagePreview);setImagePreview(null);
+    e.currentTarget.value='';
   }
   async function publish(e:FormEvent){
     e.preventDefault();if(!user||sending)return;
-    if(!draft.trim()&&!image){showMessage(t('mustPost'));return;}
+    if(!draft.trim()&&!image&&!video){showMessage(t('mustPost'));return;}
     if(Array.from(draft).length>280){showMessage(t('postLimit'));return;}
     setSending(true);
     try{
-      let image_url:string|null=null;const client=db();
+      let image_url:string|null=null;let video_url:string|null=null;const client=db();
       if(image){const ext:Record<string,string>={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'};
         const path=`${user.id}/${crypto.randomUUID()}.${ext[image.type]}`;
         const {error:uploadError}=await client.storage.from('post-media').upload(path,image,{contentType:image.type,upsert:false,cacheControl:'3600'});
         if(uploadError)throw uploadError;
         image_url=client.storage.from('post-media').getPublicUrl(path).data.publicUrl;
       }
-      const {error}=await client.from('posts').insert({author_id:user.id,content:draft.trim(),image_url,parent_id:view==='post' ? target : null});
+      if(video){
+        const ext:Record<string,string>={'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov'};
+        const path=`${user.id}/${crypto.randomUUID()}.${ext[video.type]}`;
+        const {error:videoUploadError}=await client.storage.from('post-videos').upload(path,video,{contentType:video.type,upsert:false,cacheControl:'3600'});
+        if(videoUploadError)throw videoUploadError;
+        video_url=client.storage.from('post-videos').getPublicUrl(path).data.publicUrl;
+      }
+      const {error}=await client.from('posts').insert({author_id:user.id,content:draft.trim(),image_url,video_url,parent_id:view==='post' ? target : null});
       if(error)throw error;
       setDraft('');setImage(null);if(imagePreview)URL.revokeObjectURL(imagePreview);setImagePreview(null);
+      setVideo(null);if(videoPreview)URL.revokeObjectURL(videoPreview);setVideoPreview(null);
       showMessage(t('posted'));
       if(view==='home'||view==='profile'||view==='post')void load();else router.push('/');
     }catch(e){showMessage(e instanceof Error?e.message:(lang==='en'?'Failed to publish':'发布失败'));}
@@ -212,11 +236,14 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const composer=(reply=false)=><form className="composer" onSubmit={publish}>
     <Avatar name={self?.display_name||'我'} size={42} image={self?.avatar_url}/>
     <div className="composer-main"><textarea placeholder={reply?t('replyPlaceholder'):t('compose')} value={draft} onChange={e=>setDraft(e.target.value)} rows={reply?3:2} maxLength={560}/>
-    {imagePreview&&<div className="upload-preview"><img src={imagePreview} alt={t('photo')}/><button type="button" onClick={()=>{setImage(null);setImagePreview(null)}} aria-label={t('removePhoto')}><X size={16}/></button></div>}
+    {imagePreview&&<div className="upload-preview"><img src={imagePreview} alt={t('photo')}/><button type="button" disabled={sending} onClick={()=>{setImage(null);URL.revokeObjectURL(imagePreview);setImagePreview(null)}} aria-label={t('removePhoto')}><X size={16}/></button></div>}
+    {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={lang==='en'?'Remove video':'移除视频'}><X size={16}/></button></div>}
     <div className="composer-actions"><div className="composer-tools"><input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={chooseImage}/>
-    <button type="button" title={t('photo')} aria-label={t('photo')} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
+    <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" className="sr-only" onChange={chooseVideo}/>
+    <button type="button" title={t('photo')} aria-label={t('photo')} disabled={sending} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button>
+    <button type="button" title={lang==='en'?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={lang==='en'?'Select video':'选择视频'} disabled={sending} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
     <span className={Array.from(draft).length>280?'char-count over':'char-count'}>{280-Array.from(draft).length}</span>
-    <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
+    <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
   </form>;
   const card=(post:Post)=>{
     const a=unwrap(post.profiles);const m=metrics[post.id]||{likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
@@ -227,6 +254,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <div className="post-menu">{user?.id===post.author_id?<button title={t('deletePost')} aria-label={t('deletePost')} onClick={()=>deletePost(post)}><Trash2 size={17}/></button>:<button title={t('report')} aria-label={t('report')} onClick={()=>reportPost(post)}><Ellipsis size={19}/></button>}</div></div>
       <Link href={`/post/${post.parent_id || post.id}`} className="post-content">{post.content}</Link>
       {post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={lang==='en'?'Post image':'动态配图'} loading="lazy"/></a>}
+      {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={lang==='en'?'Post video':'帖子视频'}/></div>}
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
       <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
       <button className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} onClick={()=>toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
