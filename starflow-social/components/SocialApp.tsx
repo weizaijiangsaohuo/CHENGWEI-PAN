@@ -242,8 +242,11 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(view==='settings')return <><div className="section-heading"><h2>{t('settingsTitle')}</h2></div><div className="settings-content"><div className="settings-icon"><Shield size={24}/></div><h3>{t('profileEdit')}</h3><p className="muted">{t('settingsIntro')}</p>
       <form onSubmit={saveProfile} className="stack"><label>{t('name')}<input className="text-input" value={display} onChange={e=>setDisplay(e.target.value)} required minLength={1} maxLength={60}/></label><label>{t('handle')}<input className="text-input" value={handle} onChange={e=>setHandle(e.target.value)} pattern="[a-z0-9_]{3,24}" required/></label>
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
+      
+<Link href="/support" className="btn btn-outline" style={{display:'flex',justifyContent:'center',margin:'16px 0',padding:'14px',borderRadius:16}}>✦ AI 客服中心 · 无需登录</Link>
+
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
-      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
+     <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang==='en'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
       {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button>}</div>
@@ -253,6 +256,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
     return <><div className="section-heading"><h2>{t('home')} <span className="live-mark">✦</span></h2><p>{t('yourWorld')}</p></div><div className="home-tabs"><button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>{t('forYou')}</button><button className={tab==='following'?'active':''} onClick={()=>setTab('following')}>{t('following')}</button></div>{composer()}</>;
+<Link href="/support" style={{display:'block',margin:16,padding:16,borderRadius:18,background:'#f5e5ff',color:'#7a3d6a',textAlign:'center',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 点击咨询 →</Link>
+
   };
 
   if(checking)return <main className="center-screen"><div className="spinner" aria-label="加载中"/></main>;
