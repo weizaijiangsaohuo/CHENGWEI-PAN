@@ -4,19 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { Bell, Bookmark, LayoutDashboard, Camera, Check, ChevronLeft, Compass, Ellipsis, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
 import { LanguageSwitch, useLanguage } from './LanguageProvider';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
+import { PollCard } from './PollCard';
+import { PostGallery } from './PostGallery';
+import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
 import { ago, unwrap } from '@/lib/types';
 
 type View = 'home' | 'explore' | 'notifications' | 'bookmarks' | 'settings' | 'profile' | 'post';
 type Metrics = Record<string,{likes:number; reposts:number; replies:number; liked:boolean; reposted:boolean; saved:boolean}>;
-const postFields='id,author_id,content,image_url,video_url,parent_id,created_at,profiles!posts_author_id_fkey(id,handle,display_name,bio,avatar_url,created_at)';
+const postFields='id,author_id,content,image_url,video_url,has_poll,has_gallery,parent_id,created_at,profiles!posts_author_id_fkey(id,handle,display_name,bio,avatar_url,created_at)';
 const nav = [
   {to:'/',name:'home',icon:Home}, {to:'/explore',name:'explore',icon:Compass}, {to:'/notifications',name:'notifications',icon:Bell},
   {to:'/bookmarks',name:'bookmarks',icon:Bookmark}, {to:'/settings',name:'settings',icon:Settings}
@@ -37,12 +40,31 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [message,setMessage]=useState('');const [draft,setDraft]=useState('');
   const [image,setImage]=useState<File|null>(null);const [imagePreview,setImagePreview]=useState<string|null>(null);
   const [video,setVideo]=useState<File|null>(null);const [videoPreview,setVideoPreview]=useState<string|null>(null);
+  const [galleryFiles,setGalleryFiles]=useState<File[]>([]);const [galleryPreviews,setGalleryPreviews]=useState<string[]>([]);
+  const [pollOpen,setPollOpen]=useState(false);const [pollQuestion,setPollQuestion]=useState('');
+  const [pollOptions,setPollOptions]=useState(['','']);const [pollHours,setPollHours]=useState(24);
+  const [draftHydrated,setDraftHydrated]=useState(false);
   const [sending,setSending]=useState(false);
   const [display,setDisplay]=useState('');const [bio,setBio]=useState('');const [handle,setHandle]=useState('');
   const [unread,setUnread]=useState(0);const [isAdmin,setIsAdmin]=useState(false);
   const inputRef=useRef<HTMLInputElement>(null);
   const videoInputRef=useRef<HTMLInputElement>(null);
   const showMessage=(msg:string)=>{setMessage(msg);window.setTimeout(()=>setMessage(''),6500)};
+  useEffect(()=>{
+    if(!user)return;
+    setDraftHydrated(false);
+    try{setDraft(localStorage.getItem(`sf-draft-${user.id}-${view}-${target||''}`)||'')}catch{}
+    setDraftHydrated(true);
+  },[user?.id,view,target]);
+  useEffect(()=>{
+    if(!user||!draftHydrated)return;
+    try{localStorage.setItem(`sf-draft-${user.id}-${view}-${target||''}`,draft)}catch{}
+  },[draft,user?.id,view,target,draftHydrated]);
+  useEffect(()=>{
+    if(view!=='explore')return;
+    const tag=new URLSearchParams(window.location.search).get('tag');
+    if(tag)setSearch('#'+tag.slice(0,50));
+  },[view]);
 
   useEffect(()=>{
     if(!hasConfig()){setChecking(false);return;}
@@ -102,6 +124,10 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       let currentProfile:Profile|null=null;
       if(view==='home'||view==='explore'){
         query=query.is('parent_id',null).order('created_at',{ascending:false}).limit(80);
+        if(view==='explore'&&search.trim()){
+          const term=search.trim().slice(0,50).replace(/[%_\\]/g,'');
+          if(term)query=query.ilike('content',`%${term}%`);
+        }
         if(view==='home' && tab==='following'){
           const only=[...new Set([...followIds,user.id])];
           query=query.in('author_id',only);
@@ -179,11 +205,17 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(error)showMessage(error.message);else void load();
   }
   function chooseImage(e:ChangeEvent<HTMLInputElement>){
-    const file=e.target.files?.[0];if(!file)return;
-    if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)){showMessage(t('onlyImage'));return;}
-    setImage(file);if(imagePreview)URL.revokeObjectURL(imagePreview);setImagePreview(URL.createObjectURL(file));
-    // A post may contain an image or a video, not both.
+    const files=Array.from(e.currentTarget.files||[]);
+    if(!files.length)return;
+    if(files.length>4||files.some(f=>f.size===0||f.size>5*1024*1024||!['image/jpeg','image/png','image/webp','image/gif'].includes(f.type))){
+      showMessage('最多选择4张图片，每张不超过5 MB（JPG、PNG、WebP、GIF）');e.currentTarget.value='';return;
+    }
+    galleryPreviews.forEach(u=>URL.revokeObjectURL(u));
+    if(imagePreview)URL.revokeObjectURL(imagePreview);
+    const previews=files.map(f=>URL.createObjectURL(f));
+    setGalleryFiles(files);setGalleryPreviews(previews);setImage(files[0]);setImagePreview(null);
     setVideo(null);if(videoPreview)URL.revokeObjectURL(videoPreview);setVideoPreview(null);
+    setPollOpen(false);
     e.currentTarget.value='';
   }
   function chooseVideo(e:ChangeEvent<HTMLInputElement>){
@@ -195,21 +227,34 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(videoPreview)URL.revokeObjectURL(videoPreview);
     setVideo(file);setVideoPreview(URL.createObjectURL(file));
     setImage(null);if(imagePreview)URL.revokeObjectURL(imagePreview);setImagePreview(null);
+    galleryPreviews.forEach(u=>URL.revokeObjectURL(u));setGalleryFiles([]);setGalleryPreviews([]);setPollOpen(false);
     e.currentTarget.value='';
   }
   async function publish(e:FormEvent){
     e.preventDefault();if(!user||sending)return;
-    if(!draft.trim()&&!image&&!video){showMessage(t('mustPost'));return;}
+    if(!draft.trim()&&!image&&!video&&!pollOpen){showMessage(t('mustPost'));return;}
     if(Array.from(draft).length>280){showMessage(t('postLimit'));return;}
     setSending(true);
     try{
       let image_url:string|null=null;let video_url:string|null=null;const client=db();
-      if(image){const ext:Record<string,string>={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'};
-        const path=`${user.id}/${crypto.randomUUID()}.${ext[image.type]}`;
-        const {error:uploadError}=await client.storage.from('post-media').upload(path,image,{contentType:image.type,upsert:false,cacheControl:'3600'});
+      if(pollOpen){
+        const valid=pollOptions.map(x=>x.trim()).filter(Boolean);
+        if(!pollQuestion.trim()||valid.length<2||valid.length>4)throw new Error('请填写投票问题和2至4个选项');
+        const {error:pollError}=await client.rpc('create_poll_post',{
+          p_content:draft.trim(),p_question:pollQuestion.trim(),p_options:valid,p_hours:pollHours
+        });
+        if(pollError)throw pollError;
+      }else{
+      const files=galleryFiles.length?galleryFiles:image?[image]:[];
+      const urls:string[]=[];
+      for(const file of files){
+        const ext:Record<string,string>={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'};
+        const path=`${user.id}/${crypto.randomUUID()}.${ext[file.type]}`;
+        const {error:uploadError}=await client.storage.from('post-media').upload(path,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
         if(uploadError)throw uploadError;
-        image_url=client.storage.from('post-media').getPublicUrl(path).data.publicUrl;
+        urls.push(client.storage.from('post-media').getPublicUrl(path).data.publicUrl);
       }
+      image_url=urls[0]||null;
       if(video){
         const ext:Record<string,string>={'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov'};
         const path=`${user.id}/${crypto.randomUUID()}.${ext[video.type]}`;
@@ -217,9 +262,17 @@ export function SocialApp({view,target}:{view:View;target?:string}){
         if(videoUploadError)throw videoUploadError;
         video_url=client.storage.from('post-videos').getPublicUrl(path).data.publicUrl;
       }
-      const {error}=await client.from('posts').insert({author_id:user.id,content:draft.trim(),image_url,video_url,parent_id:view==='post' ? target : null});
-      if(error)throw error;
+      if(urls.length>1){
+        const {error:galleryError}=await client.rpc('create_gallery_post',{p_content:draft.trim(),p_urls:urls,p_parent_id:view==='post'?target:null});
+        if(galleryError)throw galleryError;
+      }else{
+        const {error}=await client.from('posts').insert({author_id:user.id,content:draft.trim(),image_url,video_url,parent_id:view==='post'?target:null});
+        if(error)throw error;
+      }
+      }
       setDraft('');setImage(null);if(imagePreview)URL.revokeObjectURL(imagePreview);setImagePreview(null);
+      galleryPreviews.forEach(u=>URL.revokeObjectURL(u));setGalleryFiles([]);setGalleryPreviews([]);
+      setPollOpen(false);setPollQuestion('');setPollOptions(['','']);
       setVideo(null);if(videoPreview)URL.revokeObjectURL(videoPreview);setVideoPreview(null);
       showMessage(t('posted'));
       if(view==='home'||view==='profile'||view==='post')void load();else router.push('/');
@@ -261,14 +314,22 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const composer=(reply=false)=><form className="composer" onSubmit={publish}>
     <Avatar name={self?.display_name||'我'} size={42} image={self?.avatar_url}/>
     <div className="composer-main"><textarea placeholder={reply?t('replyPlaceholder'):t('compose')} value={draft} onChange={e=>setDraft(e.target.value)} rows={reply?3:2} maxLength={560}/>
-    {imagePreview&&<div className="upload-preview"><img src={imagePreview} alt={t('photo')}/><button type="button" disabled={sending} onClick={()=>{setImage(null);URL.revokeObjectURL(imagePreview);setImagePreview(null)}} aria-label={t('removePhoto')}><X size={16}/></button></div>}
+    {galleryPreviews.length>0&&<div className="sf-gallery-preview">{galleryPreviews.map((src,index)=><div key={src}><img src={src} alt={`待发布图片${index+1}`}/><button type="button" disabled={sending} aria-label={`移除第${index+1}张图片`} onClick={()=>{
+      URL.revokeObjectURL(src);const updated=galleryFiles.filter((_,i)=>i!==index);
+      setGalleryFiles(updated);setGalleryPreviews(galleryPreviews.filter((_,i)=>i!==index));setImage(updated[0]||null);
+    }}><X size={16}/></button></div>)}</div>}
     {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={lang==='en'?'Remove video':'移除视频'}><X size={16}/></button></div>}
-    <div className="composer-actions"><div className="composer-tools"><input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={chooseImage}/>
+    {pollOpen&&<div className="sf-poll-editor"><strong>创建投票</strong><input value={pollQuestion} onChange={e=>setPollQuestion(e.target.value)} placeholder="投票问题（最多160字）" maxLength={160}/>
+     {pollOptions.map((choice,index)=><div key={index}><input value={choice} maxLength={100} placeholder={`选项${index+1}`} onChange={e=>setPollOptions(v=>v.map((x,i)=>i===index?e.target.value:x))}/>{pollOptions.length>2&&<button type="button" onClick={()=>setPollOptions(v=>v.filter((_,i)=>i!==index))} aria-label="删除选项"><X size={16}/></button>}</div>)}
+     <div><button type="button" className="btn btn-outline" disabled={pollOptions.length>=4} onClick={()=>setPollOptions(v=>[...v,''])}>＋ 添加选项</button><select value={pollHours} onChange={e=>setPollHours(Number(e.target.value))}><option value={1}>1小时</option><option value={6}>6小时</option><option value={24}>24小时</option><option value={72}>3天</option><option value={168}>7天</option></select></div>
+    </div>}
+    <div className="composer-actions"><div className="composer-tools"><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={chooseImage}/>
     <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" className="sr-only" onChange={chooseVideo}/>
-    <button type="button" title={t('photo')} aria-label={t('photo')} disabled={sending} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button>
-    <button type="button" title={lang==='en'?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={lang==='en'?'Select video':'选择视频'} disabled={sending} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
+    <button type="button" title={t('photo')} aria-label={t('photo')} disabled={sending||pollOpen} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button>
+    <button type="button" title={lang==='en'?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={lang==='en'?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
+    <button type="button" title="发布投票" aria-label="发布投票" disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
     <span className={Array.from(draft).length>280?'char-count over':'char-count'}>{280-Array.from(draft).length}</span>
-    <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
+    <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video&&!pollOpen)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
   </form>;
   const card=(post:Post)=>{
     const a=unwrap(post.profiles);const m=metrics[post.id]||{likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
@@ -277,8 +338,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <div className="post-body"><div className="post-head"><Link href={a?`/profile/${a.handle}`:'/'} className="post-name">{a?.display_name||'星流用户'}</Link><VerificationBadge kind={verified[post.author_id]} size={16}/>
       <span className="post-handle">@{a?.handle||'unknown'} · {ago(post.created_at,lang)}</span>
       <div className="post-menu">{user?.id===post.author_id?<button title={t('deletePost')} aria-label={t('deletePost')} onClick={()=>deletePost(post)}><Trash2 size={17}/></button>:<button title={t('report')} aria-label={t('report')} onClick={()=>reportPost(post)}><Ellipsis size={19}/></button>}</div></div>
-      <Link href={`/post/${post.parent_id || post.id}`} className="post-content">{post.content}</Link>
-      {post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={lang==='en'?'Post image':'动态配图'} loading="lazy"/></a>}
+      <div className="post-content">{post.content.split(/(#[\p{L}\p{N}_]+)/gu).map((part,index)=>part.startsWith('#')?<Link key={index} href={`/explore?tag=${encodeURIComponent(part.slice(1))}`} style={{color:'#8854c5'}}>{part}</Link>:<span key={index}>{part}</span>)}</div>
+      {post.has_gallery?<PostGallery postId={post.id} fallback={post.image_url}/>:post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={lang==='en'?'Post image':'动态配图'} loading="lazy"/></a>}
+      {post.has_poll&&<PollCard postId={post.id}/>}
       {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={lang==='en'?'Post video':'帖子视频'}/></div>}
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
       <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
@@ -298,6 +360,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       
 <Link href="/support" className="btn btn-outline" style={{display:'flex',justifyContent:'center',margin:'16px 0',padding:'14px',borderRadius:16}}>✦ AI 客服中心 · 无需登录</Link>
 <Link href="/verification" className="btn btn-outline" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,margin:'12px 0',padding:'14px',borderRadius:16}}><Shield size={16}/> 账号认证中心 · 蓝 / 金 / 灰</Link>
+<Link href="/hub" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>社交社区与关注列表 →</Link>
+<Link href="/creator" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>创作者数据中心 →</Link>
+{isAdmin&&<Link href="/admin/verifications" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>管理员：三色认证审核 →</Link>}
 
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
@@ -310,6 +375,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
     return <><div className="section-heading"><h2>{t('home')} <span className="live-mark">✦</span></h2><p>{t('yourWorld')}</p></div><div className="home-tabs"><button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>{t('forYou')}</button><button className={tab==='following'?'active':''} onClick={()=>setTab('following')}>{t('following')}</button></div>{composer()}
+<div style={{display:'flex',gap:8,margin:'8px 16px',flexWrap:'wrap'}}><Link href="/hub" className="btn btn-outline">社交社区 / 列表</Link><Link href="/creator" className="btn btn-outline">创作者数据</Link></div>
 <Link href="/support" style={{display:'block',margin:16,padding:16,borderRadius:18,background:'#f5e5ff',color:'#7a3d6a',textAlign:'center',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 点击咨询 →</Link>
 </>;
   };
@@ -317,7 +383,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   if(checking)return <main className="center-screen"><div className="spinner" aria-label="加载中"/></main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
   return <div className="app-frame"><div className="app-layout">
-    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
+    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
       <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>

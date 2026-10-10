@@ -1,41 +1,73 @@
 'use client';
-import {useCallback,useEffect,useState} from 'react';
+import {useEffect,useState,useCallback} from 'react';
 import Link from 'next/link';
-import {ArrowLeft,CheckCircle2,LayoutDashboard,ShieldCheck,Users,FileText,Flag,RefreshCw,LockKeyhole} from 'lucide-react';
 import {db,hasConfig} from '@/lib/supabase';
-import {LanguageSwitch,useLanguage} from './LanguageProvider';
+import './StarflowExtras.css';
 
 type Report={id:string;reason:string;post_id:string;created_at:string;reviewed_at:string|null};
 export function AdminStudio(){
- const {lang,t}=useLanguage(); const en=lang==='en';
- const [authorized,setAuthorized]=useState<boolean|null>(null);const [reports,setReports]=useState<Report[]>([]);
- const [stats,setStats]=useState({users:0,posts:0,reports:0});const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');
- const refresh=useCallback(async()=>{
-  if(!hasConfig()){setAuthorized(false);return}
-  setBusy(true);const client=db();
-  try{
-   const {data:{user}}=await client.auth.getUser();if(!user){setAuthorized(false);return}
-   const {data:admin,error:roleError}=await client.rpc('is_platform_admin');if(roleError)throw roleError;
-   if(!admin){setAuthorized(false);return}setAuthorized(true);
-   const [u,p,r,queue]=await Promise.all([
-    client.from('profiles').select('id',{count:'exact',head:true}),
-    client.from('posts').select('id',{count:'exact',head:true}),
-    client.from('reports').select('id',{count:'exact',head:true}).is('reviewed_at',null),
-    client.from('reports').select('id,reason,post_id,created_at,reviewed_at').is('reviewed_at',null).order('created_at',{ascending:false}).limit(35)
-   ]);
-   if(u.error||p.error||r.error||queue.error)throw new Error(u.error?.message||p.error?.message||r.error?.message||queue.error?.message);
-   setStats({users:u.count??0,posts:p.count??0,reports:r.count??0});setReports((queue.data||[]) as Report[]);
-  }catch(err){setMessage(err instanceof Error?err.message:String(err));setAuthorized(false)}finally{setBusy(false)}
+ const [authorized,setAuthorized]=useState<boolean|null>(null);
+ const [userId,setUserId]=useState('');
+ const [counts,setCounts]=useState({users:0,posts:0,reports:0});
+ const [reports,setReports]=useState<Report[]>([]);
+ const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
+ const load=useCallback(async()=>{
+  if(!hasConfig()){setAuthorized(false);return;}
+  setBusy(true);
+  const client=db();const {data:{user}}=await client.auth.getUser();
+  if(!user){setAuthorized(false);setBusy(false);return;}
+  setUserId(user.id);
+  const {data:isAdmin,error:authError}=await client.rpc('is_platform_admin');
+  if(authError||isAdmin!==true){setAuthorized(false);setBusy(false);return;}
+  setAuthorized(true);
+  const [u,p,r,queue]=await Promise.all([
+   client.from('profiles').select('id',{head:true,count:'exact'}),
+   client.from('posts').select('id',{head:true,count:'exact'}),
+   client.from('reports').select('id',{head:true,count:'exact'}).is('reviewed_at',null),
+   client.from('reports').select('id,reason,post_id,created_at,reviewed_at').is('reviewed_at',null).order('created_at',{ascending:false}).limit(50)
+  ]);
+  const firstError=u.error||p.error||r.error||queue.error;
+  if(firstError)setNotice('读取管理数据失败：'+firstError.message);
+  else{setCounts({users:u.count||0,posts:p.count||0,reports:r.count||0});setReports((queue.data||[]) as Report[])}
+  setBusy(false);
  },[]);
- useEffect(()=>{void refresh()},[refresh]);
- async function review(id:string){setBusy(true);const {error}=await db().from('reports').update({reviewed_at:new Date().toISOString()}).eq('id',id).is('reviewed_at',null);if(error){setMessage(error.message);setBusy(false)}else await refresh()}
- return <div className="sf-admin-app"><div className="sf-admin-top"><Link href="/" className="sf-admin-back"><ArrowLeft size={18}/>{t('home')}</Link><b>✦ starflow<span>.</span> <small>STUDIO</small></b><LanguageSwitch/></div>
-  {authorized===null?<div className="sf-admin-message">{t('loading')}</div>:!authorized?<div className="sf-admin-message"><LockKeyhole size={30}/><h2>{en?'Admin access required':'需要管理员权限'}</h2><p>{en?'Only accounts explicitly authorized by the database owner can access this area.':'只有数据库所有者明确授权的账号可以访问管理中心。'}</p><Link href="/" className="btn btn-primary">{t('home')}</Link>{message&&<p>{message}</p>}</div>:<div className="sf-admin-container">
-   <div className="sf-admin-hero"><div className="sf-admin-eyebrow"><LayoutDashboard size={15}/> STARFLOW · STUDIO</div><h1>{t('admin')}</h1><p>{en?'Manage your community with a clear view of activity and reported content.':'在统一的工作台查看社区数据、处理举报并维护平台秩序。'}</p></div>
-   <div className="sf-admin-controls"><h2>{en?'Overview':'运营总览'}</h2><button className="btn btn-outline" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={16}/>{en?'Refresh':'刷新数据'}</button></div>
-   <div className="sf-admin-stats"><div><Users/><small>{en?'Total profiles':'用户总数'}</small><strong>{stats.users.toLocaleString()}</strong></div><div><FileText/><small>{en?'Total posts':'动态总数'}</small><strong>{stats.posts.toLocaleString()}</strong></div><div><Flag/><small>{en?'Open reports':'待审核举报'}</small><strong>{stats.reports.toLocaleString()}</strong></div></div>
-   <div className="sf-admin-table"><div className="sf-admin-table-head"><h3><ShieldCheck size={19}/>{en?'Report review queue':'内容举报审核队列'}</h3><span>{en?'Live database':'真实数据库'}</span></div>{reports.length?reports.map(r=><div className="sf-admin-report" key={r.id}><div className="sf-admin-report-text"><strong>{r.reason}</strong><small>{new Date(r.created_at).toLocaleString(en?'en-US':'zh-CN')} · {r.post_id.slice(0,8)}…</small></div><button className="btn btn-outline" disabled={busy} onClick={()=>void review(r.id)}><CheckCircle2 size={15}/>{en?'Mark reviewed':'标记已审核'}</button></div>):<p className="sf-admin-empty">{en?'No pending reports.':'暂无待审核举报。'}</p>}</div>
-   {message&&<p role="alert" className="form-error">{message}</p>}<p className="sf-admin-note">{en?'Administrative access and report updates are verified by Supabase RLS policies, not by hiding buttons in the UI.':'管理员权限和审核操作由 Supabase 数据库 RLS 策略验证，而不仅仅是隐藏页面按钮。'}</p>
-  </div>}
- </div>
+ useEffect(()=>{void load()},[load]);
+ async function review(id:string){
+  if(!confirm('确定标记这条举报已经完成审核吗？'))return;
+  setBusy(true);
+  const {error}=await db().from('reports').update({reviewed_at:new Date().toISOString()}).eq('id',id).is('reviewed_at',null);
+  setNotice(error?'操作失败：'+error.message:'审核状态已经保存');await load();setBusy(false);
+ }
+ async function removePost(report:Report){
+  if(!confirm('确认删除被举报的公开帖子吗？此操作会删除该帖子及其关联数据，不能直接撤回。'))return;
+  setBusy(true);
+  const {error}=await db().from('posts').delete().eq('id',report.post_id);
+  if(error){setNotice('删除失败：'+error.message);setBusy(false);return;}
+  const {error:markError}=await db().from('reports').update({reviewed_at:new Date().toISOString()}).eq('id',report.id);
+  setNotice(markError?'帖子已删除，但举报审核状态更新失败：'+markError.message:'帖子已删除，举报审核已完成');await load();setBusy(false);
+ }
+ return <main className="sf-hub"><div className="sf-hub-inner">
+  <header><Link href="/">← 返回 Starflow</Link><Link href="/admin/verifications">认证审核 →</Link></header>
+  <h1>✦ Starflow 管理中心</h1>
+  {authorized===null?<p>正在检查权限…</p>:authorized===false?<section className="sf-hub-card">
+   <h2>需要管理员权限</h2><p className="sf-hub-help">账号必须由数据库所有者明确授权，普通用户不能自行获取管理员身份。</p>
+   {userId&&<p className="sf-hub-help">当前登录账号 ID：<code style={{wordBreak:'break-all'}}>{userId}</code></p>}
+   <Link href="/">返回首页</Link>
+  </section>:<>
+   <div className="sf-stat-grid">
+    <div className="sf-stat"><span>注册用户</span><strong>{counts.users}</strong></div>
+    <div className="sf-stat"><span>公开帖子</span><strong>{counts.posts}</strong></div>
+    <div className="sf-stat"><span>待处理举报</span><strong>{counts.reports}</strong></div>
+   </div>
+   <section className="sf-hub-card"><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}><h2>内容举报审核</h2><button className="sf-hub-outline" disabled={busy} onClick={()=>void load()}>刷新</button></div>
+    {reports.length===0?<p className="sf-hub-help">当前没有待审核举报。</p>:reports.map(r=><div key={r.id} className="sf-hub-feed">
+     <strong>{r.reason}</strong><p className="sf-hub-help">举报时间：{new Date(r.created_at).toLocaleString('zh-CN')} · 帖子：<Link href={`/post/${r.post_id}`}>查看内容</Link></p>
+     <div style={{display:'flex',flexWrap:'wrap',gap:8}}><button className="sf-hub-outline" disabled={busy} onClick={()=>void review(r.id)}>标记已审核</button><button className="sf-hub-outline" disabled={busy} onClick={()=>void removePost(r)}>删除违规内容</button></div>
+    </div>)}
+   </section>
+   <section className="sf-hub-card"><h2>认证与角色管理</h2><p className="sf-hub-help">认证发放由受控服务端执行并记录审计日志。</p><Link href="/admin/verifications" className="sf-hub-btn" style={{display:'inline-block',textDecoration:'none'}}>打开蓝／金／灰审核队列</Link></section>
+   <p className="sf-hub-help">审核及删除操作均须通过数据库管理员权限检查。</p>
+  </>}
+  {notice&&<div className="sf-hub-status" role="status">{notice}</div>}
+ </div></main>;
 }
