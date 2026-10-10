@@ -255,7 +255,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
-    return <><div className="section-heading"><h2>{t('home')} <span className="live-mark">✦</span></h2><p>{t('yourWorld')}</p></div><div className="home-tabs"><button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>{t('forYou')}</button><button className={tab==='following'?'active':''} onClick={()=>setTab('following')}>{t('following')}</button></div>{composer()}</>;
+    return <><div className="section-heading"><h2>{t('home')} <span className="live-mark">✦</span></h2><p>{t('yourWorld')}</p></div><div className="home-tabs"><button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>{t('forYou')}</button><button className={tab==='following'?'active':''} onClick={()=>setTab('following')}>{t('following')}</button></div>{composer()}
 <Link href="/support" style={{display:'block',margin:16,padding:16,borderRadius:18,background:'#f5e5ff',color:'#7a3d6a',textAlign:'center',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 点击咨询 →</Link>
 
   };
