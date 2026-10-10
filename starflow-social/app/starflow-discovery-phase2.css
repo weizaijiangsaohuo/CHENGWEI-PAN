@@ -64,3 +64,30 @@
 .app-frame .sf2-thread-tools button:hover{background:#f7e8f4}
 .app-frame .sf2-thread-tools small{color:#b14c6c}
 @media(max-width:699px){.app-frame .sf2-page-title{padding:13px 15px;min-height:67px}.app-frame .sf2-search-input-wrap{margin:12px 13px}.app-frame .sf2-group h3{padding-left:15px}.app-frame .sf2-person,.app-frame .sf2-topic,.app-frame .sf2-post{padding:13px 13px}.app-frame .sf2-notice-link{padding:15px 13px}.app-frame .sf2-thread-tools{padding:10px 12px}.app-frame .sf2-tabs button{font-size:13px}}
+
+/* UX quality pass: explain genuinely empty community instead of huge vacant panels. */
+.app-frame .sf2-first-post{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:24px 21px 27px;border-bottom:6px solid #faf7fb;background:#fff}
+.app-frame .sf2-first-post-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:linear-gradient(115deg,#fde9f5,#eee2ff);color:#a53e94;font-size:24px}
+.app-frame .sf2-first-post h3{font-size:18px;line-height:1.35;margin:0;font-weight:800;color:#27202a}
+.app-frame .sf2-first-post p{margin:0;line-height:1.65;font-size:14px;color:#736b77;max-width:51ch}
+.app-frame .sf2-first-post-action{display:inline-flex;align-items:center;gap:12px;justify-content:center;padding:10px 19px;min-height:44px;border-radius:999px;background:linear-gradient(105deg,#d44796,#8d57cf);color:#fff!important;text-decoration:none!important;font-size:13px;font-weight:750}
+.app-frame .sf2-first-post-action:hover{background:linear-gradient(105deg,#b93b82,#7548af)}
+.app-frame .sf2-first-post small{font-size:11px;line-height:1.5;color:#978f9d}
+.app-frame .sf2-retry{display:block;margin:10px auto 0;border:1px solid #d8b4d3;border-radius:999px;padding:8px 15px;background:#fff;color:#984084;font-weight:750;min-height:39px}
+/* Old generic emoji should not visually overwhelm the empty state. */
+.app-frame .empty-state .empty-icon{display:none!important}
+.app-frame .empty-state{min-height:0!important;padding:28px 18px 40px!important;border-radius:0!important;background:#fff!important}
+.app-frame .empty-state h3{font-size:18px!important;line-height:1.4;font-weight:780!important;color:#2a2430!important;margin:0 0 8px!important}
+.app-frame .empty-state p{font-size:13px!important;line-height:1.7!important;color:#857d88!important;max-width:340px;margin:0 auto 13px!important}
+.app-frame .empty-state a{border-radius:999px;padding:10px 18px;background:#f8edf7;color:#a83f90!important;display:inline-flex;min-height:39px;align-items:center;justify-content:center;font-size:13px;font-weight:750}
+@media(max-width:699px){.app-frame .sf2-first-post{padding:21px 16px 24px}.app-frame .sf2-first-post p{font-size:13px}}
+
+/* Real follow/unfollow actions beside discovered users, without nested interactive elements. */
+.app-frame .sf2-person-row{display:flex;align-items:center;gap:9px;border-top:1px solid #f1eaf1;padding-right:16px;min-width:0}
+.app-frame .sf2-person-row>.sf2-person{flex:1;min-width:0;border-top:0}
+.app-frame .sf2-person-follow{flex:none;min-width:68px;min-height:36px;border-radius:999px;border:1px solid #dfd5df;background:#211b25;color:#fff;font-size:12px;font-weight:750;padding:6px 12px;cursor:pointer}
+.app-frame .sf2-person-follow[aria-label^="取消关注"]{background:#fff;color:#3f3541}
+.app-frame .sf2-person-follow:disabled{opacity:.55;cursor:wait}
+.app-frame .sf2-self-label{font-size:12px;color:#8f8691}
+.app-frame .sf2-follow-error{margin:0;padding:9px 16px;color:#a63857;font-size:12px}
+@media(max-width:699px){.app-frame .sf2-person-row{padding-right:13px}.app-frame .sf2-person-follow{min-width:64px;padding:7px 10px}}

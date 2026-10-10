@@ -41,7 +41,7 @@ function readError(reason: unknown): string {
 }
 
 function stripWildcards(s: string) {
-  return s.trim().slice(0, 48).replace(/[\\%_]/g, '').replace(/[(),]/g, '');
+  return s.trim().slice(0, 48).replace(/[\\%]/g, '').replace(/[(),]/g, '');
 }
 
 function SearchExperience({ host }: { host: Element }) {
@@ -51,9 +51,56 @@ function SearchExperience({ host }: { host: Element }) {
   const [people, setPeople] = useState<Profile[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  // Number of visible top-level posts sampled from the actual public database.
+  const [recentCount, setRecentCount] = useState<number | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  const [following, setFollowing] = useState<string[]>([]);
+  const [followBusyId, setFollowBusyId] = useState<string | null>(null);
+  const [followError, setFollowError] = useState('');
   const [badges, setBadges] = useState<Record<string, VerificationKind>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Real account relationships, not simulated buttons or frontend-only counters.
+  useEffect(() => {
+    if (!hasConfig()) return;
+    let active = true;
+    const init = async () => {
+      try {
+        const client = db();
+        const { data, error } = await client.auth.getUser();
+        if (error || !data.user || !active) return;
+        const { data: relations, error: relationsError } = await client.from('follows')
+          .select('following_id').eq('follower_id', data.user.id).limit(1000);
+        if (relationsError) throw relationsError;
+        if (active) {
+          setViewerId(data.user.id);
+          setFollowing((relations ?? []).map(record => record.following_id));
+        }
+      } catch (cause) { if (active) setFollowError(readError(cause)); }
+    };
+    void init();
+    return () => { active = false; };
+  }, []);
+
+  async function toggleFollow(id: string) {
+    if (!viewerId || viewerId === id || followBusyId) return;
+    const exists = following.includes(id);
+    setFollowBusyId(id);
+    setFollowError('');
+    try {
+      const client = db();
+      const action = exists ? client.from('follows').delete()
+        .eq('follower_id', viewerId).eq('following_id', id)
+        : client.from('follows').insert({ follower_id: viewerId, following_id: id });
+      const { error } = await action;
+      if (error) throw error;
+      setFollowing(prev => exists ? prev.filter(item => item !== id) :
+        prev.includes(id) ? prev : [...prev, id]);
+    } catch (cause) { setFollowError('关注操作失败：' + readError(cause)); }
+    finally { setFollowBusyId(null); }
+  }
 
   useEffect(() => {
     try {
@@ -75,13 +122,15 @@ function SearchExperience({ host }: { host: Element }) {
       try {
         const client = db();
         const needle = stripWildcards(debounced);
-        const actualNeedle = needle.startsWith('#') ? needle : needle;
+        const actualNeedle = needle;
         const [recent, foundPosts, peopleByHandle, peopleByName] = await Promise.all([
           client.from('posts').select('content').is('parent_id', null)
             .order('created_at', { ascending: false }).limit(150),
+          // A blank search shows real recent posts; it should not pretend there are no results.
           needle ? client.from('posts').select(postSelect).is('parent_id', null)
             .ilike('content', '%' + actualNeedle + '%').order('created_at', { ascending: false }).limit(60)
-            : Promise.resolve({ data: [], error: null }),
+            : client.from('posts').select(postSelect).is('parent_id', null)
+              .order('created_at', { ascending: false }).limit(30),
           needle ? client.from('profiles').select('id,handle,display_name,bio,avatar_url,created_at')
             .ilike('handle', '%' + needle.replace(/^@/, '') + '%').limit(14)
             : client.from('profiles').select('id,handle,display_name,bio,avatar_url,created_at')
@@ -124,6 +173,7 @@ function SearchExperience({ host }: { host: Element }) {
           setPeople(profiles);
           setPosts((foundPosts.data ?? []) as unknown as Post[]);
           setTopics(list);
+          setRecentCount((recent.data ?? []).length);
           setBadges(kindMap);
         }
       } catch (cause) {
@@ -132,9 +182,10 @@ function SearchExperience({ host }: { host: Element }) {
     };
     void load();
     return () => { active = false; };
-  }, [debounced]);
+  }, [debounced, retry]);
 
   const filled = stripWildcards(debounced).length > 0;
+  const communityWithoutPosts = recentCount === 0;
   const showPeople = tab === 'all' || tab === 'people';
   const showPosts = tab === 'all' || tab === 'posts';
   const showTopics = tab === 'all' || tab === 'topics';
@@ -142,7 +193,7 @@ function SearchExperience({ host }: { host: Element }) {
   const trimmedPeople = tab === 'all' ? people.slice(0, 5) : people;
   const trimmedTopics = tab === 'all' ? topics.slice(0, 5) : topics;
   return createPortal(<section className="sf2-search" aria-label="探索与搜索">
-    <div className="sf2-page-title"><h2>探索</h2><p>搜索用户、帖子和公开话题</p></div>
+    <div className="sf2-page-title"><h2>探索</h2><p>{communityWithoutPosts ? '认识新用户，发布第一条公开动态' : '发现用户、帖子和正在讨论的话题'}</p></div>
     <div className="sf2-search-input-wrap">
       <Search size={20} aria-hidden="true" />
       <input aria-label="搜索" type="search" value={term} placeholder="搜索用户、帖子或 #话题"
@@ -155,28 +206,35 @@ function SearchExperience({ host }: { host: Element }) {
           onClick={() => setTab(id)}>{name}</button>)}
     </div>
     {loading ? <p className="sf2-state" role="status">正在搜索…</p>
-      : error ? <p className="sf2-state sf2-error" role="alert">搜索失败：{error}</p>
+      : error ? <div className="sf2-state sf2-error" role="alert">搜索失败：{error}<button className="sf2-retry" type="button" onClick={() => setRetry(n => n + 1)}>重新加载</button></div>
       : <>
         {showPeople && <div className="sf2-group"><h3>{filled ? '相关用户' : '新加入的用户'}</h3>
           {trimmedPeople.length ? trimmedPeople.map(person =>
-            <Link href={'/profile/' + encodeURIComponent(person.handle)} key={person.id} className="sf2-person">
+            <div className="sf2-person-row" key={person.id}><Link href={'/profile/' + encodeURIComponent(person.handle)} className="sf2-person">
               <Avatar name={person.display_name} image={person.avatar_url} size={42}/>
               <span><span className="sf2-person-name"><strong>{person.display_name}</strong>
                 <VerificationBadge kind={badges[person.id]} size={16}/></span>
                 <small>@{person.handle}</small>{person.bio && <em>{person.bio}</em>}
               </span>
-            </Link>) : <p className="sf2-empty">没有匹配的用户。</p>}
+            </Link>
+            {viewerId === person.id ? <span className="sf2-self-label">自己</span> :
+              <button className="sf2-person-follow" type="button" disabled={!viewerId || followBusyId !== null}
+                onClick={() => void toggleFollow(person.id)}
+                aria-label={(following.includes(person.id) ? '取消关注 ' : '关注 ') + person.display_name}>
+                {followBusyId === person.id ? '处理中…' : following.includes(person.id) ? '已关注' : '关注'}
+              </button>}
+            </div>) : <p className="sf2-empty">没有匹配的用户。</p>}
+          {followError && <p role="alert" className="sf2-follow-error">{followError}</p>}
         </div>}
-        {showTopics && <div className="sf2-group"><h3>近期公开话题 <small>最近最多 150 条公开帖子统计</small></h3>
+        {showTopics && !communityWithoutPosts && <div className="sf2-group"><h3>近期公开话题 <small>最近最多 150 条公开帖子统计</small></h3>
           {trimmedTopics.length ? trimmedTopics.map(topic =>
             <Link href={'/explore?tag=' + encodeURIComponent(topic.name)} key={topic.name} className="sf2-topic"
               onClick={() => { setTerm('#' + topic.name); setTab('posts'); }}>
               <Hash size={19}/><span><strong>#{topic.name}</strong><small>近期 {topic.count} 条帖子</small></span>
             </Link>) : <p className="sf2-empty">没有匹配的近期公开话题。</p>}
         </div>}
-        {showPosts && <div className="sf2-group"><h3>{filled ? '相关帖子' : '查找帖子'}</h3>
-          {!filled ? <p className="sf2-empty">输入关键词、#话题，即可搜索公开帖子。</p>
-            : trimmedPosts.length ? trimmedPosts.map(post => {
+        {showPosts && !communityWithoutPosts && <div className="sf2-group"><h3>{filled ? '相关帖子' : '最新公开动态'}</h3>
+          {trimmedPosts.length ? trimmedPosts.map(post => {
               const author = unwrap(post.profiles);
               return <Link className="sf2-post" href={'/post/' + encodeURIComponent(post.id)} key={post.id}>
                 <div className="sf2-post-user"><Avatar name={author?.display_name ?? '用户'} image={author?.avatar_url} size={36}/>
@@ -187,10 +245,18 @@ function SearchExperience({ host }: { host: Element }) {
                 {post.video_url && <span className="sf2-post-video">视频内容 · 点击查看</span>}
                 <small className="sf2-post-link">查看帖子与互动 →</small>
               </Link>;
-            }) : <p className="sf2-empty">没有找到匹配的公开帖子。</p>}
+            }) : <p className="sf2-empty">{filled ? '没有找到匹配的公开帖子，可试试其他关键词。' : '还没有公开动态。'}</p>}
         </div>}
+        {communityWithoutPosts && (tab === 'all' || tab === 'posts' || tab === 'topics') &&
+          <div className="sf2-first-post">
+            <span className="sf2-first-post-icon" aria-hidden="true">✦</span>
+            <h3>社区还没有公开动态</h3>
+            <p>用户已经可以注册和关注，但目前还没有可展示的公开帖子。发布第一条动态后，它才会真实出现在信息流和搜索里。</p>
+            <Link href="/" className="sf2-first-post-action">去首页发一条动态 <span aria-hidden="true">→</span></Link>
+            <small>这不是示例帖子；内容会以真实账号写入现有数据库。</small>
+          </div>}
       </>}
-    <p className="sf2-footnote">搜索结果来自当前数据库；话题仅是近期样本，不代表全站实时热搜。</p>
+    <p className="sf2-footnote">内容来自当前公开可读的数据库；话题仅是近期样本，不代表全站实时热搜。</p>
   </section>, host);
 }
 
