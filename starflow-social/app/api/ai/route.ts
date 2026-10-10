@@ -3,6 +3,35 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
+type ChatMessage = {
+  role: "system" | "user";
+  content: string;
+};
+
+type AiResult = {
+  response?: string;
+  choices?: Array<{ message?: { content?: string } }>;
+};
+
+type AiService = {
+  run: (
+    model: string,
+    input: {
+      messages: ChatMessage[];
+      max_tokens: number;
+      temperature?: number;
+      top_p?: number;
+    }
+  ) => Promise<AiResult>;
+};
+
+function getAnswer(result: AiResult): string {
+  const raw = result.choices?.[0]?.message?.content ?? result.response ?? "";
+  if (typeof raw !== "string") return "";
+  if (raw.includes("<think>") && !raw.includes("</think>")) return "";
+  return raw.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+
 export async function POST(request: Request) {
   const reply = (data: object, status = 200) =>
     Response.json(data, {
@@ -53,39 +82,52 @@ export async function POST(request: Request) {
       return reply({ error: "请输入不超过600字的问题" }, 400);
     }
 
-    type AiService = {
-      run: (
-        model: string,
-        input: {
-          messages: { role: "system" | "user"; content: string }[];
-          max_tokens: number;
-        }
-      ) => Promise<{ response?: string }>;
-    };
-
     const { env } = getCloudflareContext();
     const ai = (env as unknown as { AI?: AiService }).AI;
     if (!ai) {
       return reply({ error: "AI 模型尚未连接" }, 503);
     }
 
-    const result = await ai.run(
-      "@cf/meta/llama-3.1-8b-instruct-fp8",
+    const messages: ChatMessage[] = [
       {
-        messages: [
-          {
-            role: "system",
-            content:
-              "你是星流 Starflow 的 AI 官方客服测试版。请用简体中文清晰回答。不得编造平台规则、付款结果、账号状态或认证审批结果。你目前没有实时数据库查询和后台操作能力。遇到不能确认的事项，明确说明并建议联系人工客服。"
-          },
-          { role: "user", content: message }
-        ],
-        max_tokens: 500
-      }
-    );
+        role: "system",
+        content: [
+          "你是星流 Starflow 的官方 AI 智能助手，既能解答星流平台问题，也能进行日常聊天、学习辅导、写作和创意讨论。",
+          "优先直接回答用户真正的问题，不要每次都重复身份或让用户去找客服。",
+          "使用自然、清楚、有亲和力的简体中文；简单问题简短回答，复杂问题分步骤解释；避免机械套话和无意义的客套。",
+          "用户要求写文案、改文字或举例时，直接给出可用的内容。",
+          "对于星流的具体账号状态、付款、认证、政策、人工审批、平台数据，不要编造或声称查到了后台信息；没有实时查询和后台操作能力时如实说明。",
+          "不知道的事情明确说不确定；医疗、法律和财务等重要问题提醒用户核实专业信息。",
+          "不要自称是 ChatGPT 或 OpenAI 官方助手，也不要声称具备未接入的联网、图片分析或历史记录功能。",
+          "/no_think"
+        ].join("\n")
+      },
+      { role: "user", content: message }
+    ];
+
+    let answer = "";
+    try {
+      const result = await ai.run("@cf/qwen/qwen3-30b-a3b-fp8", {
+        messages,
+        max_tokens: 900,
+        temperature: 0.7,
+        top_p: 0.8
+      });
+      answer = getAnswer(result);
+    } catch {
+      // If Qwen is unavailable, use the original model.
+    }
+
+    if (!answer) {
+      const fallback = await ai.run("@cf/meta/llama-3.1-8b-instruct-fp8", {
+        messages,
+        max_tokens: 700
+      });
+      answer = getAnswer(fallback);
+    }
 
     return reply({
-      reply: result.response || "暂时无法生成回复，请稍后重试。"
+      reply: answer || "暂时无法生成回复，请稍后重试。"
     });
   } catch {
     return reply({ error: "AI 服务暂时不可用，请稍后重试" }, 503);
