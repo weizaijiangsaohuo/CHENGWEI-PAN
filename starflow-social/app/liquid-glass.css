@@ -1,0 +1,71 @@
+
+/* Starflow Liquid Glass — Phase 1 */
+:root {
+  --ink:#18213a;
+  --sub:#64718b;
+  --line:rgba(134,151,207,.23);
+  --mint:#6666dc;
+  --mintdark:#4b4ac1;
+  --mintlight:#eef0ff;
+  --bg:#f7f8ff;
+  --card:rgba(255,255,255,.77);
+  --soft:rgba(239,242,255,.72);
+  --shadow:0 18px 60px rgba(79,86,159,.12);
+  --sf-glass:rgba(255,255,255,.7);
+  --sf-glass-border:rgba(255,255,255,.85);
+}
+html { color-scheme:light; }
+body {
+  background:radial-gradient(ellipse at 5% 4%,rgba(187,218,255,.45),transparent 43%),radial-gradient(ellipse at 95% 9%,rgba(220,195,255,.36),transparent 45%),linear-gradient(155deg,#fbfcff 0%,#f5f7ff 53%,#faf7ff 100%);
+  background-attachment:fixed;
+}
+button,input,textarea,select { font:inherit; }
+button,a,input,textarea,select {
+  -webkit-tap-highlight-color:transparent;
+}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible {
+  outline:3px solid rgba(105,114,235,.52);
+  outline-offset:3px;
+}
+.sf-glass {
+  background:var(--sf-glass);
+  border:1px solid var(--sf-glass-border);
+  box-shadow:0 12px 40px rgba(91,104,172,.12),inset 0 1px rgba(255,255,255,.8);
+  border-radius:24px;
+  -webkit-backdrop-filter:blur(22px) saturate(145%);
+  backdrop-filter:blur(22px) saturate(145%);
+}
+.sf-glass-button {
+  border:1px solid rgba(255,255,255,.82);
+  background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(232,237,255,.67));
+  color:#303a69;
+  box-shadow:0 5px 20px rgba(85,98,170,.11),inset 0 1px 0 rgba(255,255,255,.94);
+  border-radius:18px;
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.sf-glass-button:active {
+  transform:scale(.97);
+}
+.sf-gradient-action {
+  color:white;
+  background:linear-gradient(125deg,#4d8fee 0%,#7770e9 56%,#9c79ec 100%);
+  border:1px solid rgba(255,255,255,.4);
+  box-shadow:0 9px 24px rgba(103,101,218,.25);
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  .sf-glass { background:#f1f3ff; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .sf-glass-button { transition:none; }
+}
+@media (prefers-contrast:more) {
+  :root {
+    --sub:#3b4260;
+    --line:#697393;
+    --card:#fff;
+  }
+  .sf-glass {
+    background:#fff;
+    border-color:#697393;
+  }
+}
