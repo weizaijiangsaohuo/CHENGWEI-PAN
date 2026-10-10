@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - starflow-release.zip
+      - .github/workflows/starflow-zip-auto-update.yml
   workflow_dispatch:
 
 permissions:
@@ -95,8 +96,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: starflow-social/package-lock.json
 
       - name: Install dependencies
         working-directory: starflow-social
