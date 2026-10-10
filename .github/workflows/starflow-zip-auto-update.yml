@@ -119,5 +119,5 @@ jobs:
             echo 'No source changes to apply.'
             exit 0
           fi
-          git commit -m 'Apply tested Starflow release bundle [skip ci]'
+          git commit -m 'Apply tested Starflow release bundle'
           git push origin HEAD:main
