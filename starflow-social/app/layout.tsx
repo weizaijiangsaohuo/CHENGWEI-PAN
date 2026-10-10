@@ -3,8 +3,10 @@ import type { ReactNode } from 'react';
 import './globals.css';
 import './liquid-glass.css';
 import './starflow-x.css';
+import './profile-experience.css';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { StarflowDiscovery } from '@/components/StarflowDiscovery';
+import { StarflowProfileEnhancements } from '@/components/StarflowProfileEnhancements';
 
 export const metadata: Metadata = {
   title: '星流 Starflow · 分享此刻，连接彼此',
@@ -14,5 +16,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="zh-CN"><body><LanguageProvider>{children}<StarflowDiscovery /></LanguageProvider></body></html>;
+  return <html lang="zh-CN"><body><LanguageProvider>{children}<StarflowDiscovery /><StarflowProfileEnhancements /></LanguageProvider></body></html>;
 }
