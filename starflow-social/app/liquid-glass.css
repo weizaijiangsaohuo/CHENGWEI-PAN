@@ -308,3 +308,91 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
     transition: none;
   }
 }
+/* Starflow Liquid Glass — Phase 5 */
+.sf-auth-premium .welcome-form {
+  background:
+    radial-gradient(circle at 85% 12%,rgba(214,198,255,.38),transparent 50%),
+    linear-gradient(145deg,#f9fbff,#f3f3ff);
+}
+.sf-auth-premium .auth-card {
+  background: rgba(255,255,255,.74);
+  border: 1px solid rgba(255,255,255,.85);
+  border-radius: 26px;
+  box-shadow: 0 18px 55px rgba(87,97,170,.1);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+.sf-auth-premium .field-wrap {
+  background: rgba(255,255,255,.8);
+  border: 1px solid rgba(145,153,213,.3);
+  border-radius: 16px;
+  transition: border-color .18s ease,box-shadow .18s ease;
+}
+.sf-auth-premium .field-wrap:focus-within {
+  border-color: #8580e5;
+  box-shadow: 0 0 0 3px rgba(120,112,222,.13);
+}
+.sf-auth-premium .oauth-btn {
+  background: rgba(255,255,255,.84);
+  border: 1px solid rgba(145,153,213,.28);
+  border-radius: 18px;
+  box-shadow: 0 5px 16px rgba(88,99,173,.06);
+}
+.sf-auth-premium .oauth-btn:hover:not(:disabled) {
+  background: #f5f4ff;
+  border-color: #aca9e8;
+}
+.sf-auth-premium .auth-submit {
+  background: linear-gradient(120deg,#4b8fe9,#8e69df);
+  box-shadow: 0 9px 24px rgba(104,101,211,.22);
+}
+.sf-auth-premium .auth-submit:hover:not(:disabled) {
+  background: linear-gradient(120deg,#3979d4,#7856ca);
+}
+.sf-auth-premium .auth-switch button {
+  color: #5d58c8;
+}
+.settings-content .text-input {
+  background: rgba(255,255,255,.8);
+  border: 1px solid rgba(145,153,213,.3);
+  border-radius: 17px;
+  color: var(--ink);
+  box-shadow: inset 0 1px 2px rgba(82,91,151,.025);
+  transition: border-color .18s ease,box-shadow .18s ease;
+}
+.settings-content .text-input:focus {
+  border-color: #8580e5;
+  box-shadow: 0 0 0 3px rgba(120,112,222,.13);
+}
+.settings-content textarea.text-input {
+  min-height: 110px;
+  resize: vertical;
+}
+.btn-outline {
+  background: rgba(255,255,255,.82);
+  border-color: rgba(145,153,213,.3);
+  border-radius: 999px;
+  box-shadow: 0 5px 16px rgba(87,98,164,.07);
+}
+.btn-outline:hover:not(:disabled) {
+  background: rgba(238,238,255,.95);
+}
+.sf-lang-switch {
+  background: rgba(255,255,255,.82);
+  border: 1px solid rgba(145,153,213,.26);
+  box-shadow: 0 4px 14px rgba(87,98,164,.05);
+}
+@media (max-width:650px) {
+  .sf-auth-premium .auth-card {
+    border-radius: 22px;
+  }
+  .settings-content .text-input {
+    font-size: 16px;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .sf-auth-premium .field-wrap,
+  .settings-content .text-input {
+    transition: none;
+  }
+}
