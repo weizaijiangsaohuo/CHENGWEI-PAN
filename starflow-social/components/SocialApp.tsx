@@ -10,6 +10,7 @@ import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
 import { LanguageSwitch, useLanguage } from './LanguageProvider';
+import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import type { Notif, Post, Profile } from '@/lib/types';
 import { ago, unwrap } from '@/lib/types';
 
@@ -27,6 +28,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [user,setUser]=useState<User|null>(null);const [self,setSelf]=useState<Profile|null>(null);
   const [checking,setChecking]=useState(true);const [loading,setLoading]=useState(false);
   const [posts,setPosts]=useState<Post[]>([]);const [metrics,setMetrics]=useState<Metrics>({});
+  const [verified,setVerified]=useState<Record<string,VerificationKind>>({});
   const [profileLookup,setProfileLookup]=useState<{handle:string;status:'found'|'missing'|'error';data:Profile|null}|null>(null);const [following,setFollowing]=useState<string[]>([]);
   const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
   const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
@@ -67,6 +69,26 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     });
   },[user]);
 
+  // Only server-approved account verification records can produce badges.
+  // RLS permits public reads of approved records; no client-side approval path exists.
+  const loadBadges=useCallback(async (profileIds:string[])=>{
+    const unique=[...new Set(profileIds.filter(Boolean))];
+    if(!unique.length)return;
+    const {data,error}=await db().from('account_verifications')
+      .select('profile_id,verification_type').eq('status','approved').in('profile_id',unique);
+    if(error)return;
+    setVerified(previous=>{
+      const next={...previous};
+      for(const id of unique)delete next[id];
+      for(const item of data||[]){
+        if(item.verification_type==='blue'||item.verification_type==='gold'||item.verification_type==='gray'){
+          next[item.profile_id]=item.verification_type as VerificationKind;
+        }
+      }
+      return next;
+    });
+  },[]);
+
   const load=useCallback(async()=>{
     if(!user)return;
     const client=db();setLoading(true);
@@ -101,12 +123,14 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       } else if(view==='notifications'){
         const {data:n,error:ne}=await client.from('notifications').select('id,recipient_id,actor_id,kind,post_id,read_at,created_at,profiles!notifications_actor_id_fkey(id,handle,display_name,bio,avatar_url,created_at)').eq('recipient_id',user.id).order('created_at',{ascending:false}).limit(60);
         if(ne)throw ne;setNotifs((n||[]) as unknown as Notif[]);
+        await loadBadges((n||[]).map(x=>x.actor_id));
         setLoading(false);return;
       } else {setLoading(false);return;}
       const {data:rows,error}=await query;
       if(error)throw error;
       const result=(rows||[]) as unknown as Post[];
       setPosts(result);
+      await loadBadges([...result.map(p=>p.author_id),...(currentProfile?[currentProfile.id]:[]),user.id]);
       const ids=result.map(p=>p.id);
       if(ids.length){
         const [l,r,b,c]=await Promise.all([
@@ -124,12 +148,13 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       if(view==='explore'){
         const needle=search.trim().slice(0,50);
         if(needle){const {data:u}=await client.from('profiles').select('*').or(`handle.ilike.%${needle.replace(/[%_,()]/g,'')}%,display_name.ilike.%${needle.replace(/[%_,()]/g,'')}%`).limit(8);
-          setAccounts((u||[]) as Profile[]);}
+          setAccounts((u||[]) as Profile[]);
+          await loadBadges((u||[]).map(x=>x.id));}
         else setAccounts([]);
       }
     }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(lang==='en'?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
     finally{setLoading(false)}
-  },[user,view,target,search,tab]);
+  },[user,view,target,search,tab,loadBadges]);
   useEffect(()=>{if(user)void load();},[load,user]);
 
   const ordered=useMemo(()=>{
@@ -249,7 +274,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     const a=unwrap(post.profiles);const m=metrics[post.id]||{likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
     return <article className="post" key={post.id}>
       <Link href={a?`/profile/${a.handle}`:'/'} className="post-avatar"><Avatar name={a?.display_name||'用户'} image={a?.avatar_url}/></Link>
-      <div className="post-body"><div className="post-head"><Link href={a?`/profile/${a.handle}`:'/'} className="post-name">{a?.display_name||'星流用户'}</Link>
+      <div className="post-body"><div className="post-head"><Link href={a?`/profile/${a.handle}`:'/'} className="post-name">{a?.display_name||'星流用户'}</Link><VerificationBadge kind={verified[post.author_id]} size={16}/>
       <span className="post-handle">@{a?.handle||'unknown'} · {ago(post.created_at,lang)}</span>
       <div className="post-menu">{user?.id===post.author_id?<button title={t('deletePost')} aria-label={t('deletePost')} onClick={()=>deletePost(post)}><Trash2 size={17}/></button>:<button title={t('report')} aria-label={t('report')} onClick={()=>reportPost(post)}><Ellipsis size={19}/></button>}</div></div>
       <Link href={`/post/${post.parent_id || post.id}`} className="post-content">{post.content}</Link>
@@ -272,13 +297,14 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
       
 <Link href="/support" className="btn btn-outline" style={{display:'flex',justifyContent:'center',margin:'16px 0',padding:'14px',borderRadius:16}}>✦ AI 客服中心 · 无需登录</Link>
+<Link href="/verification" className="btn btn-outline" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,margin:'12px 0',padding:'14px',borderRadius:16}}><Shield size={16}/> 账号认证中心 · 蓝 / 金 / 灰</Link>
 
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang==='en'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
       {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button>}</div>
-      <h2>{profile.display_name}</h2><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(lang==='en'?'en-US':'zh-CN')} {t('joined')}</p></div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{lang==='en'?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={lang==='en'?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
+      <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(lang==='en'?'en-US':'zh-CN')} {t('joined')}</p></div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{lang==='en'?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={lang==='en'?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
     if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={lang==='en'?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
