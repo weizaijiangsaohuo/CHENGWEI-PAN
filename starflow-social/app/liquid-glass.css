@@ -495,3 +495,91 @@ body .toast {
     border-color: #737b9b;
   }
 }
+
+/* Starflow Pink Dream Theme — Phase 1 */
+
+:root {
+  --sf-pink: #ffe1f0;
+  --sf-purple: #e9d9ff;
+  --sf-rose: #e982b5;
+  --sf-cream: #fff9fc;
+  --sf-ink: #653951;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 10% 8%, #ffe1f0 0%, transparent 45%),
+    radial-gradient(ellipse at 90% 35%, #e9d9ff 0%, transparent 50%),
+    linear-gradient(145deg, #fff9fc, #fff0f8 55%, #f5edff) !important;
+  background-attachment: fixed !important;
+}
+
+body header,
+body nav,
+body aside,
+body .bottom-nav,
+body .mobile-nav {
+  border-color: rgba(233, 130, 181, 0.18) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+body input,
+body textarea,
+body select {
+  border-color: rgba(233, 130, 181, 0.24);
+}
+
+body input:focus,
+body textarea:focus,
+body select:focus {
+  outline-color: #e982b5;
+  border-color: #e982b5;
+}
+
+body .sfai-panel {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 249, 252, 0.97),
+    rgba(250, 235, 251, 0.96)
+  ) !important;
+  border-color: rgba(233, 130, 181, 0.25) !important;
+}
+
+body .sfai-header {
+  background: rgba(255, 247, 252, 0.86) !important;
+  border-bottom-color: rgba(233, 130, 181, 0.18) !important;
+}
+
+body .sfai-launcher,
+body .sfai-inputrow button:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    #e982b5,
+    #c6a2f5
+  ) !important;
+  box-shadow: 0 12px 30px rgba(211, 125, 185, 0.26) !important;
+}
+
+body .sfai-line.user {
+  background: linear-gradient(
+    120deg,
+    #f6c5e1,
+    #e5d3ff
+  ) !important;
+}
+
+body .sfai-line.assistant {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(233, 130, 181, 0.17) !important;
+}
+
+body .sfai-inputrow {
+  background: rgba(255, 249, 252, 0.94) !important;
+  border-top-color: rgba(233, 130, 181, 0.16) !important;
+}
+
+body .sfai-inputrow input {
+  background: rgba(255, 250, 253, 0.92) !important;
+  border-color: rgba(208, 158, 211, 0.32) !important;
+}
