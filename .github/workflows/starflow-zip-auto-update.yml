@@ -1,0 +1,124 @@
+name: Starflow ZIP Auto Update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - starflow-release.zip
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: starflow-zip-release-main
+  cancel-in-progress: false
+
+jobs:
+  apply-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Verify and apply release ZIP
+        shell: bash
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path, PurePosixPath
+          import stat
+          import zipfile
+
+          root = Path.cwd().resolve()
+          archive = root / 'starflow-release.zip'
+          if not archive.is_file():
+              raise SystemExit('Missing starflow-release.zip in repository root')
+
+          allowed_suffixes = {
+              '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css',
+              '.json', '.md', '.mdx', '.txt', '.sql', '.svg', '.png',
+              '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.webmanifest',
+              '.html', '.yaml', '.yml', '.toml', '.woff', '.woff2', '.map'
+          }
+          forbidden_parts = {
+              '.git', '.github', 'node_modules', '.next', '.open-next',
+              '.wrangler', 'dist', 'build', '.env', '.secrets'
+          }
+          max_files, max_total_bytes, max_single_bytes = 1000, 150 * 1024 * 1024, 30 * 1024 * 1024
+          total = 0
+          seen = set()
+          selected = []
+          with zipfile.ZipFile(archive) as z:
+              for item in z.infolist():
+                  name = item.filename
+                  if item.is_dir():
+                      continue
+                  if '\\' in name or name.startswith('/') or chr(0) in name:
+                      raise SystemExit(f'Invalid release path: {name!r}')
+                  rel = PurePosixPath(name)
+                  if '..' in rel.parts or '.' in rel.parts or rel.is_absolute():
+                      raise SystemExit(f'Unsafe release path: {name!r}')
+                  if len(rel.parts) < 2 or rel.parts[0] != 'starflow-social':
+                      raise SystemExit(f'Each ZIP file must start with starflow-social/: {name!r}')
+                  if any(part in forbidden_parts or part.startswith('.env') for part in rel.parts):
+                      raise SystemExit(f'Forbidden generated/configuration path: {name!r}')
+                  if rel.suffix.lower() not in allowed_suffixes:
+                      raise SystemExit(f'Unsupported file extension: {name!r}')
+                  if stat.S_IFMT(item.external_attr >> 16) == stat.S_IFLNK:
+                      raise SystemExit(f'ZIP symlinks are forbidden: {name!r}')
+                  if item.file_size > max_single_bytes:
+                      raise SystemExit(f'Release file too large: {name!r}')
+                  total += item.file_size
+                  if total > max_total_bytes:
+                      raise SystemExit('Release uncompressed total exceeds 150 MB')
+                  if name in seen:
+                      raise SystemExit(f'Duplicate entry in ZIP: {name!r}')
+                  seen.add(name)
+                  selected.append((item, rel))
+              if not selected or len(selected) > max_files:
+                  raise SystemExit('The release must contain 1–1000 project files')
+              # Validate ALL entries before touching any project file.
+              for item, rel in selected:
+                  destination = (root / str(rel)).resolve()
+                  if not destination.is_relative_to(root / 'starflow-social'):
+                      raise SystemExit(f'Invalid extracted target: {rel}')
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(z.read(item))
+          print(f'Applied {len(selected)} project files ({total} bytes); no deletions performed.')
+          PYCODE
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: starflow-social/package-lock.json
+
+      - name: Install dependencies
+        working-directory: starflow-social
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript check
+        working-directory: starflow-social
+        run: npm run lint
+
+      - name: Production build
+        working-directory: starflow-social
+        run: npm run build
+
+      - name: Commit tested project files
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- starflow-social
+          if git diff --cached --quiet; then
+            echo 'No source changes to apply.'
+            exit 0
+          fi
+          git commit -m 'Apply tested Starflow release bundle [skip ci]'
+          git push origin HEAD:main
