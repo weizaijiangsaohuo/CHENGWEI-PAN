@@ -1,0 +1,51 @@
+/* Starflow unified activity and official notifications.
+ * Hide the legacy notification content only when the replacement is mounted.
+ * Existing exploration and post sharing components remain intact. */
+.app-frame main.feed-panel:has(> .sf3-notifications) > .sf2-notifications,
+.app-frame main.feed-panel:has(> .sf3-notifications) > .section-heading,
+.app-frame main.feed-panel:has(> .sf3-notifications) > .posts-list,
+.app-frame main.feed-panel:has(> .sf3-notifications) > .feed-end {display:none!important}
+.app-frame .sf3-notifications{box-sizing:border-box;width:100%;min-width:0;min-height:calc(100dvh - 160px);color:#26202c;background:#fff;padding-bottom:90px}
+.app-frame .sf3-notification-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:80px;border-bottom:1px solid #eee7ef;padding:14px 19px}
+.app-frame .sf3-notification-head h2{font-size:23px;line-height:1.25;margin:0 0 5px;font-weight:840}
+.app-frame .sf3-notification-head span{font-size:12px;color:#8c8091}
+.app-frame .sf3-actions{display:flex;align-items:center;gap:7px}
+.app-frame .sf3-actions button{cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid #eddceb;background:#fff8fc;color:#a23e8a;padding:8px 11px;min-height:39px;border-radius:999px;font-size:12px;font-weight:750}
+.app-frame .sf3-actions button:first-child{min-width:39px;padding:8px}
+.app-frame .sf3-actions button:disabled{opacity:.5;cursor:default}
+.app-frame .sf3-notification-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#fff;border-bottom:1px solid #eee7ef}
+.app-frame .sf3-notification-tabs button{position:relative;border:0;background:transparent;padding:15px 4px;min-height:51px;color:#7a7483;font-weight:700;font-size:14px;cursor:pointer}
+.app-frame .sf3-notification-tabs button[aria-selected="true"]{color:#251a2c;background:#fdf7fc}
+.app-frame .sf3-notification-tabs button[aria-selected="true"]:after{content:'';position:absolute;bottom:0;left:27%;right:27%;height:4px;border-radius:5px;background:linear-gradient(110deg,#d04d9f,#9561d3)}
+.app-frame .sf3-notification{display:flex;align-items:flex-start;gap:13px;padding:17px 18px;color:inherit!important;text-decoration:none;border-bottom:1px solid #f0eaf0;min-height:82px;box-sizing:border-box}
+.app-frame .sf3-notification:hover{background:#fff8fb}
+.app-frame .sf3-notification.sf3-notification-new{background:#fcf4fc}
+.app-frame .sf3-person-avatar,.app-frame .sf3-system-avatar{flex:0 0 45px;width:45px;height:45px;border-radius:50%;display:grid;place-items:center;object-fit:cover;overflow:hidden}
+.app-frame .sf3-person-fallback{background:#7363b0;color:#fff;font-weight:760;font-size:20px}
+.app-frame .sf3-system-avatar{background:linear-gradient(130deg,#efd4fc,#f7e0f0);color:#97469b;border:1px solid #eddbf0}
+.app-frame .sf3-system-avatar.sf3-warning{background:#fff0e9;color:#bb634d;border-color:#f8d8c7}
+.app-frame .sf3-notification-content{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;line-height:1.46}
+.app-frame .sf3-notification-line{display:flex;align-items:center;gap:3px;min-width:0;flex-wrap:wrap}
+.app-frame .sf3-notification-line strong{font-size:15px;overflow-wrap:anywhere}
+.app-frame .sf3-notification-kind{font-size:14px;color:#413644;font-weight:550}
+.app-frame .sf3-notification-message{font-size:13px;color:#645b67;line-height:1.75;overflow-wrap:anywhere;white-space:pre-line}
+.app-frame .sf3-notification-content small{font-size:12px;color:#9a8d9b}
+.app-frame .sf3-notification-side{display:flex;flex-direction:column;align-items:center;gap:9px;color:#ba539b;padding-top:3px;min-width:20px}
+.app-frame .sf3-unread-dot{display:block;width:9px;height:9px;border-radius:50%;background:#c34c9e}
+.app-frame .sf3-empty{text-align:center;padding:55px 23px 38px;display:flex;align-items:center;flex-direction:column;gap:11px}
+.app-frame .sf3-empty>span{display:grid;place-items:center;border-radius:20px;width:60px;height:60px;color:#a24a9c;background:#f9ecf8}
+.app-frame .sf3-empty strong{font-size:19px}
+.app-frame .sf3-empty p{margin:0;font-size:13px;color:#8d8090;line-height:1.7;max-width:360px}
+.app-frame .sf3-notification-footnote{font-size:11px;color:#a297a5;line-height:1.65;padding:11px 18px;margin:0}
+.app-frame .sf3-error{padding:10px 17px;color:#ad3d54;background:#fff4f6;font-size:13px;margin:0}
+.app-frame .sf3-error button{border:0;background:transparent;text-decoration:underline;color:inherit;font-weight:750}
+@media(max-width:699px){
+ .app-frame .sf3-notifications{padding-bottom:calc(125px + env(safe-area-inset-bottom,0px));min-height:calc(100dvh - 118px)}
+ .app-frame .sf3-notification-head{min-height:70px;padding:12px 13px}
+ .app-frame .sf3-notification-head h2{font-size:21px}
+ .app-frame .sf3-notification-tabs button{font-size:13px;min-height:47px}
+ .app-frame .sf3-notification{padding:14px 12px;gap:10px}
+ .app-frame .sf3-person-avatar,.app-frame .sf3-system-avatar{flex-basis:41px;width:41px;height:41px}
+ .app-frame .sf3-notification-line strong{font-size:14px}
+}
+@media(max-width:340px){.app-frame .sf3-actions button{font-size:11px;padding:7px}.app-frame .sf3-notification-head h2{font-size:19px}}
