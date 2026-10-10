@@ -1,14 +1,17 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import './liquid-glass.css';
 import './starflow-x.css';
 import './profile-experience.css';
 import './profile-media.css';
+import './starflow-reference-v2.css';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { StarflowDiscovery } from '@/components/StarflowDiscovery';
 import { StarflowProfileEnhancements } from '@/components/StarflowProfileEnhancements';
 import { StarflowProfileMedia } from '@/components/StarflowProfileMedia';
+import { StarflowProfileEditor } from '@/components/StarflowProfileEditor';
+import { StarflowMobileCompose } from '@/components/StarflowMobileCompose';
 
 export const metadata: Metadata = {
   title: '星流 Starflow · 分享此刻，连接彼此',
@@ -17,6 +20,12 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
+
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="zh-CN"><body><LanguageProvider>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /></LanguageProvider></body></html>;
+  return <html lang="zh-CN"><body><LanguageProvider>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /></LanguageProvider></body></html>;
 }

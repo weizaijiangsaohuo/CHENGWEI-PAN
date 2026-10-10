@@ -1,0 +1,212 @@
+/* Starflow UX refresh, based on the user's annotated X-inspired design packet.
+ * Own pink/lilac identity. Scoped overrides only; no changes to app data or DMs. */
+.app-frame {
+  --sf-r-ink:#201823;
+  --sf-r-secondary:#756d79;
+  --sf-r-line:#ebe5ed;
+  --sf-r-pink:#bc388c;
+  --sf-r-purple:#8c58ce;
+  background:#fff;
+  color:var(--sf-r-ink);
+  min-height:100dvh;
+}
+.app-frame .app-layout {
+  width:100%;max-width:1250px;margin:0 auto;
+  display:grid;grid-template-columns:258px minmax(0,610px) minmax(270px,340px);
+  padding:0 12px;gap:0;align-items:start;
+}
+.app-frame main.feed-panel {
+  background:#fff!important;min-width:0;min-height:100dvh;
+  border-left:1px solid var(--sf-r-line);border-right:1px solid var(--sf-r-line);
+}
+.app-frame .left-sidebar{position:sticky;top:0;max-height:100dvh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.app-frame .right-sidebar{position:sticky;top:0;max-height:100dvh;overflow-y:auto;overscroll-behavior:contain}
+.app-frame .sf-top-utility {
+  position:sticky;top:0;z-index:22;min-height:54px;height:54px;
+  background:rgba(255,252,254,.97)!important;backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--sf-r-line);
+}
+.app-frame .section-heading {padding:13px 18px 12px;min-height:68px}
+.app-frame .section-heading h2 {font-size:20px;line-height:1.2}
+.app-frame .section-heading p {font-size:12px;line-height:1.35}
+.app-frame .home-tabs {top:54px;height:49px}
+.app-frame .composer{padding:13px 17px 13px;border-bottom:6px solid #fbf8fb}
+.app-frame .composer textarea {min-height:56px;font-size:16px;line-height:1.6}
+.app-frame .composer-actions{padding-top:9px}
+.app-frame .post {border-radius:0!important;box-shadow:none!important;padding:15px 17px;border-bottom:1px solid var(--sf-r-line)!important}
+.app-frame .post-head {min-width:0}
+.app-frame .post-content {margin-top:4px}
+.app-frame .post-actions {display:flex;justify-content:space-between;gap:4px}
+.app-frame .post-actions button {min-width:38px;min-height:40px;touch-action:manipulation}
+.app-frame .post-avatar .avatar {flex-shrink:0}
+.app-frame .profile-cover {
+  height:auto!important;aspect-ratio:3/1;min-height:118px;
+  position:relative;overflow:hidden;
+}
+.app-frame .profile-cover img.sf-user-cover{height:100%;width:100%;object-fit:cover}
+.app-frame .profile-top{margin-top:-43px;position:relative;z-index:2}
+.app-frame .profile-top .avatar {box-shadow:0 0 0 1px rgba(25,18,30,.08)}
+.app-frame .profile-info {padding:0 18px 15px}
+.app-frame .profile-info .btn {min-height:42px;border-radius:999px;padding:10px 17px}
+.app-frame .profile-info h2{font-size:21px}
+.app-frame .profile-info p{margin-top:9px}
+.app-frame .sf-profile-extra-counts button{min-height:42px;touch-action:manipulation}
+.app-frame .sf-extra-profile-tabs button{min-height:47px}
+.app-frame .sf-profile-photo-trigger {cursor:zoom-in}
+.app-frame .search-bar{border-radius:999px}
+.app-frame .post-photo img{max-width:100%;height:auto}
+.app-frame .notification{border-bottom:1px solid var(--sf-r-line);border-radius:0!important;box-shadow:none!important}
+.app-frame .settings-content{max-width:none}
+.app-frame button:focus-visible,.app-frame a:focus-visible {outline:2px solid #a13c94;outline-offset:2px}
+/* PWA/mobile browsers: top and bottom tools should not obstruct content. */
+.sf-mobile-compose-fab{display:none}
+@media(min-width:1200px){
+  .app-frame .app-layout{grid-template-columns:258px minmax(0,610px) minmax(272px,340px)}
+  .app-frame .right-sidebar{padding-top:12px}
+}
+@media(min-width:700px) and (max-width:1199px){
+  .app-frame .app-layout{grid-template-columns:80px minmax(0,650px);max-width:760px;padding:0 8px}
+  .app-frame .right-sidebar{display:none}
+  .app-frame .left-sidebar{padding:12px 7px}
+  .app-frame .main-nav a{justify-content:center;padding:10px 5px;min-height:49px}
+}
+@media(max-width:699px){
+  .app-frame .app-layout{display:block;max-width:100%;padding:0}
+  .app-frame .left-sidebar,.app-frame .right-sidebar{display:none!important}
+  .app-frame main.feed-panel{width:100%;max-width:100%;min-height:100dvh;border:0;padding-bottom:calc(85px + env(safe-area-inset-bottom,0px));overflow-x:clip}
+  .app-frame .sf-top-utility{height:52px;min-height:52px;padding:0 14px}
+  .app-frame .home-tabs{top:52px;height:48px}
+  .app-frame .section-heading{padding:12px 14px;min-height:64px}
+  .app-frame .section-heading h2{font-size:20px}
+  .app-frame .composer{padding:12px 13px}
+  .app-frame .composer textarea{font-size:16px;min-height:48px}
+  .app-frame .post{padding:13px 12px 11px;gap:10px}
+  .app-frame .post-actions button{min-width:38px;min-height:44px}
+  .app-frame .post-content{font-size:14px}
+  .app-frame .post-head{flex-wrap:wrap}
+  .app-frame .profile-cover{min-height:108px}
+  .app-frame .profile-info{padding-left:14px;padding-right:14px}
+  .app-frame .profile-top{margin-top:-40px}
+  .app-frame .profile-info .btn{min-height:43px}
+  .app-frame .mobile-nav{
+    display:flex!important;align-items:flex-start;justify-content:space-around;
+    position:fixed;bottom:0;left:0;right:0;z-index:55;
+    width:100%;height:calc(62px + env(safe-area-inset-bottom,0px));
+    padding:6px 6px env(safe-area-inset-bottom,0px);
+    border:1px solid #f2dbe9;border-radius:19px 19px 0 0;
+    background:rgba(255,250,254,.98);backdrop-filter:blur(14px);
+  }
+  .app-frame .mobile-nav a{display:grid;place-items:center;min-width:44px;min-height:44px;padding:8px}
+  body:has(.app-frame) .sf-mobile-compose-fab {
+    display:grid;place-items:center;position:fixed;left:17px;
+    bottom:calc(83px + env(safe-area-inset-bottom,0px));z-index:54;
+    height:53px;width:53px;border:0;border-radius:18px;
+    background:linear-gradient(125deg,#d8499c,#9256d4);color:#fff;
+    box-shadow:0 9px 25px #b13c9180;cursor:pointer
+  }
+  body:has(.app-frame) .sf-mobile-compose-fab:focus-visible{outline:3px solid #702b9f;outline-offset:3px}
+  .app-frame .feed-end{padding-bottom:18px}
+}
+@media(max-width:360px){
+  .app-frame .mobile-nav{padding-left:2px;padding-right:2px}
+  .app-frame .mobile-nav a{min-width:40px;padding:7px}
+  .app-frame .post-handle{font-size:10px}
+  .app-frame .sf-top-utility{padding:0 10px}
+  .app-frame .profile-info{padding:0 10px 14px}
+}
+/* Standalone editing sheet: darkened desktop modal; safe-area-aware mobile page. */
+.sf-profile-editor-overlay {
+  position:fixed;inset:0;z-index:10050;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(23,13,30,.68);padding:18px;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,'SF Pro Display',Arial,'PingFang SC',sans-serif;
+}
+.sf-profile-editor-sheet {
+  display:flex;flex-direction:column;overflow:hidden;
+  width:min(100%,590px);max-height:min(94dvh,910px);
+  border-radius:19px;background:#fff;color:#251d2a;
+  box-shadow:0 25px 85px #180d3060;
+}
+.sf-profile-editor-toolbar {
+  position:relative;z-index:2;display:flex;align-items:center;gap:12px;
+  justify-content:space-between;min-height:62px;padding:8px 16px;
+  border-bottom:1px solid #f0e7ef;background:#fff;
+}
+.sf-profile-editor-toolbar>strong{margin-right:auto;font-size:18px}
+.sf-profile-editor-close{display:grid;place-items:center;width:43px;height:43px;border:0;background:transparent;border-radius:50%;color:#24192d}
+.sf-profile-editor-close:hover{background:#f7edf5}
+.sf-profile-editor-save {
+  display:inline-flex;align-items:center;gap:7px;min-height:39px;
+  padding:8px 16px;border:0;border-radius:999px;
+  background:#25192a;color:#fff;font-size:13px;font-weight:750;cursor:pointer
+}
+.sf-profile-editor-save:disabled{opacity:.48;cursor:wait}
+.sf-profile-editor-form{overflow-y:auto;overscroll-behavior:contain;padding:0 0 25px;min-height:0}
+.sf-profile-editor-photos{position:relative;padding-bottom:55px;margin-bottom:2px}
+.sf-profile-editor-cover {
+  position:relative;display:flex;align-items:center;justify-content:center;
+  height:auto;aspect-ratio:3/1;min-height:128px;overflow:hidden;
+  background:linear-gradient(105deg,#e99cc6,#9874c9)
+}
+.sf-profile-editor-cover>img{display:block;width:100%;height:100%;position:absolute;inset:0;object-fit:cover}
+.sf-profile-editor-avatar{
+  position:absolute;bottom:0;left:21px;height:114px;width:114px;
+  display:grid;place-items:center;overflow:hidden;
+  border:4px solid #fff;border-radius:50%;background:linear-gradient(120deg,#d880ac,#9669cb);
+  color:#fff;font-weight:800;font-size:38px;
+}
+.sf-profile-editor-avatar>img{position:absolute;inset:0;height:100%;width:100%;object-fit:cover}
+.sf-profile-editor-camera {
+  position:absolute;z-index:2;display:grid;place-items:center;
+  width:44px;height:44px;border-radius:50%;background:#211929cb;color:#fff;
+  border:1px solid #ffffff7a;cursor:pointer;backdrop-filter:blur(8px)
+}
+.sf-profile-editor-camera:hover{background:#a52c7f}
+.sf-profile-editor-cover-camera{left:50%;top:50%;transform:translate(-50%,-50%)}
+.sf-profile-editor-avatar-camera{left:50%;top:50%;transform:translate(-50%,-50%)}
+.sf-profile-editor-camera>input[type="file"]{
+  position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer
+}
+.sf-profile-editor-remove-cover {
+  position:absolute;z-index:2;left:calc(50% + 34px);top:50%;transform:translateY(-50%);
+  display:grid;place-items:center;border-radius:50%;border:1px solid #ffffff7a;
+  width:42px;height:42px;background:#2a1d30cc;color:#fff
+}
+.sf-profile-editor-reset-avatar{display:block;margin:7px 20px 3px 150px;padding:5px 0;border:0;background:transparent;color:#994083;font-size:12px;cursor:pointer}
+.sf-profile-editor-fields{display:grid;gap:15px;padding:18px 20px}
+.sf-profile-editor-fields label{display:grid;gap:8px;font-size:13px;font-weight:750;color:#4c3d4f}
+.sf-profile-editor-fields input,.sf-profile-editor-fields textarea{
+  display:block;width:100%;min-height:47px;padding:12px;
+  font:inherit;font-size:15px;color:#2b2330;border:1px solid #e6d8e8!important;
+  background:#fff!important;border-radius:12px;outline:none;box-sizing:border-box;
+}
+.sf-profile-editor-fields textarea{min-height:89px;resize:vertical}
+.sf-profile-editor-fields input:focus,.sf-profile-editor-fields textarea:focus{border-color:#b44c99!important;box-shadow:0 0 0 3px #bd73ad23}
+.sf-profile-editor-fields small{color:#938692;font-weight:400;text-align:right}
+.sf-profile-editor-hint{margin:4px 20px 11px;font-size:12px;line-height:1.6;color:#7f7482}
+.sf-profile-editor-error{margin:12px 20px;padding:11px 13px;border-radius:10px;border:1px solid #e6aebc;background:#fff1f3;color:#9b2c4e;font-size:13px;overflow-wrap:anywhere}
+.sf-profile-editor-cropping {margin:13px 20px 0;padding:13px;border:1px solid #ead8ed;border-radius:13px;background:#fdf8fc;display:grid;gap:8px}
+.sf-profile-editor-cropping>strong{font-size:13px}
+.sf-profile-editor-cropping label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#5c485d}
+.sf-profile-editor-cropping input{flex:1;accent-color:#aa458e;max-width:250px}
+.sf-profile-editor-cropping p{font-size:11px;color:#887987;margin:0}
+.sf-profile-editor-spin{animation:sf-r-spin 1s linear infinite}
+@keyframes sf-r-spin{to{transform:rotate(360deg)}}
+.sf-profile-editor-sheet button:focus-visible,.sf-profile-editor-sheet input:focus-visible,.sf-profile-editor-camera:focus-within{outline:3px solid #a551ba;outline-offset:2px}
+@media(max-width:699px){
+  .sf-profile-editor-overlay{padding:0;align-items:stretch;background:#fff}
+  .sf-profile-editor-sheet{width:100%;max-height:100dvh;height:100dvh;border-radius:0;box-shadow:none}
+  .sf-profile-editor-toolbar{flex:none;min-height:calc(55px + env(safe-area-inset-top,0px));padding:calc(5px + env(safe-area-inset-top,0px)) 14px 5px}
+  .sf-profile-editor-form{padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))}
+  .sf-profile-editor-cover{min-height:113px}
+  .sf-profile-editor-avatar{height:100px;width:100px;left:16px}
+  .sf-profile-editor-reset-avatar{margin-left:129px}
+  .sf-profile-editor-fields{padding:13px 16px}
+  .sf-profile-editor-hint,.sf-profile-editor-error{margin-left:16px;margin-right:16px}
+}
+@media(max-width:360px){
+  .sf-profile-editor-avatar{height:87px;width:87px}
+  .sf-profile-editor-cover{min-height:106px}
+  .sf-profile-editor-photos{padding-bottom:44px}
+}
+@media(prefers-reduced-motion:reduce){.sf-profile-editor-spin{animation:none}}
