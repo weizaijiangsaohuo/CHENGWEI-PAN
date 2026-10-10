@@ -3,7 +3,7 @@ export type Profile = {
   created_at: string;
 };
 export type Post = {
-  id: string; author_id: string; content: string; image_url: string | null; parent_id: string | null;
+  id: string; author_id: string; content: string; image_url: string | null; video_url: string | null; parent_id: string | null;
   created_at: string; profiles?: Profile | Profile[] | null;
 };
 export type Notif = {
