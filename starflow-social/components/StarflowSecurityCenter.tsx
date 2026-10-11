@@ -6,6 +6,8 @@ import Link from 'next/link';
 import {ArrowLeft,CheckCircle2,Eye,EyeOff,KeyRound,Link2,Mail,RefreshCw,ShieldCheck,TriangleAlert} from 'lucide-react';
 import {Brand} from './Brand';
 import {db,hasConfig} from '@/lib/supabase';
+import {verifyCurrentPassword} from '@/lib/verify-current-password';
+import {TurnstileChallenge} from './TurnstileChallenge';
 import {linkedProviders} from '@/lib/account-providers';
 
 function accountLabel(i:UserIdentity){
@@ -28,6 +30,12 @@ export function StarflowSecurityCenter(){
  const [saving,setSaving]=useState(false);
  const [linking,setLinking]=useState<string|null>(null);
  const [recovering,setRecovering]=useState(false);
+ const [revoking,setRevoking]=useState(false);
+ const [captcha,setCaptcha]=useState('');
+ const [captchaVersion,setCaptchaVersion]=useState(0);
+ const publicKey=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()||'';
+ const previewKey=typeof window!=='undefined'&&window.location.hostname==='fix-auth-turnstile-check-weizai.weizai.workers.dev'?'0x4AAAAAAFTiZjZoSmGgJCg6':'';
+ const siteKey=publicKey||previewKey;
  const refresh=useCallback(async()=>{
   setLoading(true);
   try{
@@ -50,10 +58,16 @@ export function StarflowSecurityCenter(){
   if(newPwd.length<8||newPwd.length>72){setError('新密码须为 8–72 位。');return;}
   if(newPwd!==newPwd2){setError('两次输入的新密码不一致。');return;}
   if(passwordAccount&&!oldPwd){setError('请输入当前密码。');return;}
+  if(passwordAccount&&siteKey&&!captcha){setError('请先完成人机验证。');return;}
   if(!passwordAccount&&!verified){setError('第三方登录账号须先具有已验证邮箱，才能设置密码。');return;}
   setSaving(true);setError('');setSuccess('');
   try{
-   // Supabase GoTrue verifies current_password on the server. Never compare only in the browser.
+   // The current_password option is only enforced when that GoTrue setting is enabled.
+   // Independently verify the old password with an isolated, non-persisted auth client.
+   if(passwordAccount){
+    if(!user.email)throw Error('缺少可用于验证旧密码的邮箱。');
+    await verifyCurrentPassword({email:user.email,password:oldPwd,expectedUserId:user.id,captchaToken:captcha||undefined});
+   }
    const attrs=passwordAccount?{password:newPwd,current_password:oldPwd}:{password:newPwd};
    const {error:changeError}=await db().auth.updateUser(attrs);
    if(changeError)throw changeError;
@@ -61,7 +75,7 @@ export function StarflowSecurityCenter(){
    setSuccess('登录密码更新成功。');
    await refresh();
   }catch(e){setError(e instanceof Error?e.message:'密码修改失败');}
-  finally{setSaving(false);}
+  finally{setSaving(false);setCaptcha('');setCaptchaVersion(v=>v+1);}
  }
  async function bind(providerId:string){
   const item=linkedProviders.find(p=>p.key===providerId);
@@ -69,7 +83,7 @@ export function StarflowSecurityCenter(){
   setLinking(providerId);setError('');setSuccess('');
   try{
    // Marker is set BEFORE any OAuth redirect. The callback will only accept an exact local route.
-   sessionStorage.setItem('sf_identity_link_return',JSON.stringify({at:Date.now(),to:'/settings/security'}));
+   sessionStorage.setItem('sf_identity_link_return',JSON.stringify({at:Date.now(),to:'/settings/security',userId:user.id}));
    const {data,error:linkError}=await db().auth.linkIdentity({
     provider:item.provider,options:{redirectTo:location.origin+'/auth/callback',skipBrowserRedirect:true},
    });
@@ -81,6 +95,17 @@ export function StarflowSecurityCenter(){
    setError((e instanceof Error?e.message:'绑定失败')+'。绑定需启用 Supabase 手动身份关联和对应 OAuth 提供商。');
    setLinking(null);
   }
+ }
+ async function revokeOtherSessions(){
+  if(!user||revoking)return;
+  if(!window.confirm('确定退出其他设备上的 Starflow 登录吗？当前设备仍然保留登录。'))return;
+  setRevoking(true);setError('');setSuccess('');
+  try{
+   const {error:logoutError}=await db().auth.signOut({scope:'others'});
+   if(logoutError)throw logoutError;
+   setSuccess('已撤销其他设备的刷新会话；原有访问令牌可能在到期前仍有效。');
+  }catch(e){setError(e instanceof Error?e.message:'退出其他设备失败。');}
+  finally{setRevoking(false);}
  }
  async function sendRecovery(){
   if(!verified||!user?.email||recovering)return;
@@ -114,7 +139,8 @@ export function StarflowSecurityCenter(){
      <label>确认新密码<input type={visible?'text':'password'} autoComplete="new-password" minLength={8} maxLength={72} value={newPwd2} onChange={e=>setNewPwd2(e.target.value)} required/></label>
      <button type="button" className="sf-sec-linkbtn" onClick={()=>setVisible(v=>!v)}>{visible?<EyeOff size={16}/>:<Eye size={16}/>} {visible?'隐藏密码':'显示密码'}</button>
      {!passwordAccount&&<p className="sf-sec-muted">首次通过第三方登录、未设置过邮箱密码的用户，需要已验证邮箱及有效登录会话。</p>}
-     <button className="sf-sec-primary" disabled={saving||(!verified&&!passwordAccount)} type="submit">{saving?'正在保存…':'保存新密码'}</button>
+     {passwordAccount&&siteKey&&<TurnstileChallenge key={captchaVersion} siteKey={siteKey} onToken={setCaptcha} onError={()=>setCaptcha('')}/>}
+     <button className="sf-sec-primary" disabled={saving||(!verified&&!passwordAccount)||Boolean(passwordAccount&&siteKey&&!captcha)} type="submit">{saving?'正在保存…':'保存新密码'}</button>
     </form>
    </section>
    <section className="sf-sec-card">
@@ -136,6 +162,11 @@ export function StarflowSecurityCenter(){
     <div className="sf-sec-line"><span>已验证邮箱</span><button className="sf-sec-bind" type="button" disabled={!verified||recovering} onClick={()=>void sendRecovery()}>{recovering?'正在请求…':'发送密码找回邮件'}</button></div>
     <div className="sf-sec-line"><span>已绑定第三方</span><strong>{linkedProviders.filter(p=>p.enabled&&identities.some(i=>i.provider===p.provider)).map(p=>p.label).join('、')||'暂无已启用的关联身份'}</strong></div>
     <p className="sf-sec-muted">绑定社交身份可以提供额外登录路径，但平台账号必须仍可登录；不等于可以绕过原平台认证。邮箱找回需要 SMTP 服务实际可用。</p>
+   </section>
+   <section className="sf-sec-card">
+    <h2><ShieldCheck size={19}/> 登录设备与会话保护</h2>
+    <p className="sf-sec-muted">如怀疑其他设备存在异常登录，可以撤销它们的刷新会话。当前设备保留登录；已签发的访问令牌可能在到期前仍有效。</p>
+    <button className="sf-sec-bind" type="button" disabled={revoking} onClick={()=>void revokeOtherSessions()}>{revoking?'正在处理…':'退出其他设备'}</button>
    </section>
    <footer className="sf-sec-foot"><button type="button" className="sf-sec-linkbtn" onClick={()=>void refresh()}><RefreshCw size={16}/> 刷新绑定状态</button><Link href="/settings">返回设置</Link></footer>
   </div>
