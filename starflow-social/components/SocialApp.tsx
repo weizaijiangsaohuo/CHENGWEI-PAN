@@ -507,7 +507,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
          </div>:
          <div className="posts-list">
           {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
-          {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):tab==='following'&&view==='home'?t('emptyFollowing'):t('emptyFeed')} detail={t('emptyHint')}/>}
+          {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')} detail={t('emptyHint')}/>}
           {ordered.map(card)}
          </div>
       )}
