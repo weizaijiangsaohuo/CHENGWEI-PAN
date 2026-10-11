@@ -88,7 +88,7 @@ export function StarflowMasonryFeed({posts,metrics,verified,loading,lang,onLike,
      {visible.map((post,index)=>{
       const profile=unwrap(post.profiles);
       const summary=post.content.trim();
-      const m=metrics[post.id]||{likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
+      const m=metrics[post.id]||{likes:0,reposts:0,replies:0,views:0,liked:false,reposted:false,saved:false};
       const isMedia=Boolean(post.image_url||post.video_url);
       const ratio=(post.id.charCodeAt(post.id.length-1)||0)%3;
       return <article key={post.id} className="sf-masonry-card" aria-label={summary.slice(0,50)||'动态'}>
