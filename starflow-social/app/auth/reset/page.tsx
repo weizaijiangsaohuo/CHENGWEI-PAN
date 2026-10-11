@@ -19,14 +19,30 @@ export default function ResetPassword(){
     (async()=>{
       try{
         const params=new URLSearchParams(window.location.search);
+        const tokenHash=params.get('token_hash');
         const code=params.get('code');
-        if(code){const {error}=await supabase.auth.exchangeCodeForSession(code);if(error)throw error;}
+        if(tokenHash){
+          if(params.get('type')!=='recovery')throw new Error('Invalid password recovery link type.');
+          // Unlike a PKCE code, the emailed token hash works in a different browser.
+          const {error}=await supabase.auth.verifyOtp({token_hash:tokenHash,type:'recovery'});
+          if(error)throw error;
+        }else if(code){
+          // Backward compatibility for old recovery emails opened in the same browser.
+          const {error}=await supabase.auth.exchangeCodeForSession(code);
+          if(error)throw error;
+        }
         const {data,error}=await supabase.auth.getSession();
         if(error)throw error;
         if(!active)return;
         if(data.session){setReady(true);setMessage('');}
         else setMessage((en?'Please open a valid reset link from your email.':'请使用邮箱中收到的有效密码重置链接访问本页。'));
-      }catch(err){if(active)setMessage(err instanceof Error?err.message:(en?'Invalid recovery link':'验证链接失败'));}
+      }catch(err){
+        if(!active)return;
+        const detail=err instanceof Error?err.message:(en?'Invalid recovery link':'验证链接失败');
+        setMessage(detail.includes('PKCE code verifier')
+          ? (en?'Open the reset link in the browser where you requested it, or request a new password reset email.':'密码重置链接在另一个浏览器中打开，缺少原始验证信息。请在申请重置时的浏览器打开，或重新申请密码重置邮件。')
+          : detail);
+      }
     })();
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
