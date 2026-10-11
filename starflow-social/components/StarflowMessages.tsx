@@ -253,7 +253,7 @@ export function StarflowMessages() {
     <header className="sf-dm-global"><Brand compact/><nav aria-label="星流导航">
       <Link href="/"><Home size={19}/><span>{en ? 'Home' : '首页'}</span></Link>
       <Link href="/explore"><Search size={19}/><span>{en ? 'Explore' : '探索'}</span></Link>
-      <Link href="/profile/me" className="sf-dm-profile-shortcut"><UserRound size={19}/><span>{en ? 'Profile' : '个人主页'}</span></Link>
+      <Link href="/settings" className="sf-dm-profile-shortcut"><UserRound size={19}/><span>{en ? 'Settings' : '设置'}</span></Link>
     </nav></header>
     <div className={'sf-dm-shell' + (activeId ? ' sf-dm-has-thread' : '')}>
       <aside className="sf-dm-list-panel" aria-label={en ? 'Conversations' : '会话列表'}>

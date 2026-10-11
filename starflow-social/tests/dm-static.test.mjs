@@ -24,7 +24,7 @@ test('private conversations and messages are protected by explicit participant R
 test('DMs use authenticated RPCs and a database-backed messaging screen', () => {
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.sf_dm_open/);
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.sf_dm_mark_read/);
-  assert.match(sql, /ON CONFLICT \(user_low, user_high\) DO NOTHING/);
+  assert.match(sql, /ON CONFLICT \(user_low,\s*user_high\) DO NOTHING/);
   assert.match(ui, /\.rpc\('sf_dm_open'/);
   assert.match(ui, /\.rpc\('sf_dm_mark_read'/);
   assert.match(ui, /\.from\('dm_messages'\)\.insert/);
