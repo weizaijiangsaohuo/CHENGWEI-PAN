@@ -459,7 +459,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video&&!pollOpen)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
   </form>;
   const card=(post:Post)=>{
-    const a=unwrap(post.profiles);const m=metrics[post.id]||{likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
+    const a=unwrap(post.profiles);const m=metrics[post.id]||{likes:0,reposts:0,replies:0,views:0,liked:false,reposted:false,saved:false};
     return <article className="post" key={post.id}>
       <Link href={a?`/profile/${a.handle}`:'/'} className="post-avatar"><Avatar name={a?.display_name||'用户'} image={a?.avatar_url}/></Link>
       <div className="post-body"><div className="post-head"><Link href={a?`/profile/${a.handle}`:'/'} className="post-name">{a?.display_name||'星流用户'}</Link><VerificationBadge kind={verified[post.author_id]} size={16}/>
