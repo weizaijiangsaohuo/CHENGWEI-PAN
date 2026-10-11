@@ -175,3 +175,12 @@
  .sf-cinema-footer{padding:28px 24px;gap:10px;flex-direction:column;align-items:flex-start}
 }
 @media(prefers-reduced-motion:reduce){.sf-cinema *, .sf-cinema *:before,.sf-cinema *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.sf-cinema-reveal{opacity:1!important;transform:none!important}}
+
+/* Reuse the same wave-shaped brand identity on the public landing and signed-in pages. */
+.sf-cinema-brand>span:first-child{display:inline-flex;align-items:center;margin-right:11px}
+.sf-cinema-brand>span:first-child svg{width:43px;height:43px;border-radius:14px;box-shadow:0 9px 30px #8b5bcc48}
+.sf-cinema-intro-mark svg{width:84px;height:84px;border-radius:24px;filter:drop-shadow(0 0 25px #ad75f67d)}
+@media(max-width:700px){
+ .sf-cinema-brand>span:first-child svg{width:35px;height:35px;border-radius:12px}
+ .sf-cinema-brand>span:first-child{margin-right:7px}
+}
