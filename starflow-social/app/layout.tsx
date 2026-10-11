@@ -10,6 +10,7 @@ import './starflow-discovery-phase2.css';
 import './starflow-account-deletion.css';
 import './starflow-affiliations.css';
 import './starflow-official-notifications.css';
+import './starflow-account-about.css';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { StarflowDiscovery } from '@/components/StarflowDiscovery';
 import { StarflowProfileEnhancements } from '@/components/StarflowProfileEnhancements';
@@ -20,6 +21,7 @@ import { StarflowDiscoveryPhase2 } from '@/components/StarflowDiscoveryPhase2';
 import { StarflowAccountDeletion } from '@/components/StarflowAccountDeletion';
 import { StarflowAffiliationBadges } from '@/components/StarflowAffiliationBadges';
 import { StarflowNotificationCenter } from '@/components/StarflowNotificationCenter';
+import { StarflowAccountAboutEntry } from '@/components/StarflowAccountAboutEntry';
 
 export const metadata: Metadata = {
   title: '星流 Starflow · 分享此刻，连接彼此',
@@ -35,5 +37,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="zh-CN"><body><LanguageProvider>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /></LanguageProvider></body></html>;
+  return <html lang="zh-CN"><body><LanguageProvider>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /><StarflowAccountAboutEntry /></LanguageProvider></body></html>;
 }
