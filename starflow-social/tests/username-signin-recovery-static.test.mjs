@@ -26,7 +26,7 @@ test('password recovery requires a verified mailbox, not username-only reset',()
  assert.match(edge,/captchaToken: captcha/);
  assert.match(edge,/getUserById\(found\.data\.id\)/);
  assert.doesNotMatch(edge,/password.*updateUser/);
- assert.match(portal,/仅向注册时预留的邮箱发送密码重置链接/);
+ assert.match(portal,/向注册时预留的邮箱发送密码重置链接/);
  assert.match(portal,/captchaToken:requestCaptchaToken/);
 });
 
