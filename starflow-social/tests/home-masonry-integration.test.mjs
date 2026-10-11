@@ -60,11 +60,11 @@ test('brand appears on public cinematic landing but not as a repeated blocking s
  const publicHome=readFileSync(new URL('../components/StarflowLandingExperience.tsx',import.meta.url),'utf8');
  assert.match(home,/StarflowLandingExperience onJoin=/);
  assert.doesNotMatch(home,/sf-boot-screen/);
- assert.match(publicHome,/starflow-official-mark\\.webp/);
+ assert.match(publicHome,/starflow-official-mark\.webp/);
  assert.match(publicHome,/sf-landing-intro-shown/);
- assert.match(social,/if\\(checking\\)return <main className="sf-section-loading"/);
+ assert.match(social,/if\(checking\)return <main className="sf-section-loading"/);
  const brand=readFileSync(new URL('../components/Brand.tsx',import.meta.url),'utf8');
- assert.match(brand,/starflow-official-mark\\.webp/);
+ assert.match(brand,/starflow-official-mark\.webp/);
 });
 
 test('owner profile shortcuts use supported feature pages only',()=>{
