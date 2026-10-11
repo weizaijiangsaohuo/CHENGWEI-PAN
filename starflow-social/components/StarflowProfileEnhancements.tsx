@@ -40,6 +40,7 @@ export function StarflowProfileEnhancements() {
   }, [pathname]);
   const [slots, setSlots] = useState<Slots>({ info: null, tabs: null, posts: null });
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [viewerId, setViewerId] = useState<string | null>(null);
   const [counts, setCounts] = useState<Counts>(emptyCounts);
   const [refresh, setRefresh] = useState(0);
   const [tab, setTab] = useState<ProfileTab>('posts');
@@ -66,6 +67,14 @@ export function StarflowProfileEnhancements() {
     observer.observe(document.body, { childList: true, subtree: true });
     update();
     return () => observer.disconnect();
+  }, [handle]);
+
+  useEffect(() => {
+    if (!hasConfig()) return;
+    let active = true;
+    void db().auth.getUser().then(({ data }) => { if (active) setViewerId(data.user?.id ?? null); })
+      .catch(() => { if (active) setViewerId(null); });
+    return () => { active = false; };
   }, [handle]);
 
   useEffect(() => {
@@ -98,13 +107,12 @@ export function StarflowProfileEnhancements() {
   const fetchCounts = useCallback(async (profileId: string, active: () => boolean) => {
     try {
       const client = db();
-      const [fans, follows] = await Promise.all([
-        client.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', profileId),
-        client.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', profileId),
-      ]);
+      // Use server-side aggregate counts; private follower identities never leave RLS.
+      const { data, error } = await client.rpc('sf_profile_follow_counts', { p_profile_id: profileId });
+      const summary = Array.isArray(data) ? data[0] : data;
       if (active()) setCounts({
-        followers: fans.error ? null : fans.count ?? 0,
-        following: follows.error ? null : follows.count ?? 0,
+        followers: error || !summary ? null : Number(summary.followers),
+        following: error || !summary ? null : Number(summary.following),
       });
     } catch { if (active()) setCounts(emptyCounts); }
   }, []);
@@ -118,7 +126,7 @@ export function StarflowProfileEnhancements() {
   }, [profile?.id, refresh, fetchCounts]);
 
   useEffect(() => {
-    if (!profile || !connections || !hasConfig()) return;
+    if (!profile || !connections || !hasConfig() || viewerId !== profile.id) return;
     let active = true;
     setPeople([]);
     setPeopleBadges({});
@@ -156,7 +164,7 @@ export function StarflowProfileEnhancements() {
     };
     void load();
     return () => { active = false; };
-  }, [profile?.id, connections, refresh]);
+  }, [profile?.id, connections, refresh, viewerId]);
 
   useEffect(() => {
     if (!profile || tab === 'posts' || !hasConfig()) return;
@@ -191,20 +199,21 @@ export function StarflowProfileEnhancements() {
   }, [slots.posts, tab]);
 
   if (!handle || !profile || !slots.info || !slots.tabs || !slots.posts) return null;
+  const ownProfile = viewerId === profile.id;
   const peopleTitle = connections === 'followers' ? '粉丝' : '正在关注';
   const visibleTotal = connections === 'followers' ? counts.followers : counts.following;
   return <>
     {createPortal(<div className="sf-profile-extra-connections">
       <div className="sf-profile-extra-counts" aria-label="真实关注统计">
-        <button type="button" aria-expanded={connections === 'following'} onClick={() => setConnections(current => current === 'following' ? null : 'following')}>
+        {ownProfile ? <button type="button" aria-expanded={connections === 'following'} onClick={() => setConnections(current => current === 'following' ? null : 'following')}>
           <strong>{counts.following === null ? '—' : counts.following.toLocaleString('zh-CN')}</strong> 正在关注
-        </button>
-        <button type="button" aria-expanded={connections === 'followers'} onClick={() => setConnections(current => current === 'followers' ? null : 'followers')}>
+        </button> : <span title="此账号的关注名单仅本人可见"><strong>{counts.following === null ? '—' : counts.following.toLocaleString('zh-CN')}</strong> 正在关注 <small>🔒</small></span>}
+        {ownProfile ? <button type="button" aria-expanded={connections === 'followers'} onClick={() => setConnections(current => current === 'followers' ? null : 'followers')}>
           <strong>{counts.followers === null ? '—' : counts.followers.toLocaleString('zh-CN')}</strong> 位粉丝
-        </button>
+        </button> : <span title="此账号的粉丝名单仅本人可见"><strong>{counts.followers === null ? '—' : counts.followers.toLocaleString('zh-CN')}</strong> 位粉丝 <small>🔒</small></span>}
         <button type="button" className="sf-extra-refresh" title="重新读取关注统计" onClick={() => setRefresh(value => value + 1)}>↻ 刷新</button>
       </div>
-      {connections && <section className="sf-extra-connections-list" aria-label={peopleTitle}>
+      {ownProfile && connections && <section className="sf-extra-connections-list" aria-label={peopleTitle}>
         <div className="sf-extra-people-top"><strong>{peopleTitle}</strong><button type="button" onClick={() => setConnections(null)}>关闭 ×</button></div>
         {peopleLoading ? <p role="status">正在读取账号…</p>
           : peopleError ? <p role="alert">{peopleError}</p>
