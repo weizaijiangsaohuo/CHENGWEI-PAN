@@ -36,11 +36,21 @@ export default function SupportPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [serviceStatus, setServiceStatus] = useState<'checking'|'ready'|'unavailable'>('checking');
   const [serviceStatus,setServiceStatus] = useState<'checking'|'ready'|'unavailable'>('checking');
   const [error, setError] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    fetch('/api/support', {method:'GET',cache:'no-store',signal:abort.signal})
+      .then(async res=>res.ok ? res.json() as Promise<{ready?:boolean}> : {ready:false})
+      .then(data=>{if(!abort.signal.aborted)setServiceStatus(data.ready?'ready':'unavailable')})
+      .catch(()=>{if(!abort.signal.aborted)setServiceStatus('unavailable')});
+    return ()=>abort.abort();
+  }, []);
   useEffect(()=>{
     let active=true;
     fetch('/api/support',{cache:'no-store'}).then(async response=>{
@@ -97,7 +107,7 @@ export default function SupportPage() {
         !data.reply.trim()
       ) {
         throw new Error(
-          typeof data.error === 'string' && (lang === 'zh' || lang === 'zh-hk')
+          typeof data.error === 'string' && (lang === 'zh' || lang === 'zh-HK')
             ? data.error
             : copy('noReply')
         );
@@ -238,6 +248,7 @@ export default function SupportPage() {
             )}
           </div>
 
+          {serviceStatus!=='ready'&&<p className="support-error" role="status">{serviceStatus==='checking'? (lang==='zh' ? '正在检查 AI 服务状态…' : 'Checking AI service…') : (lang==='zh' ? 'AI 服务暂不可用，请稍后再试。' : 'AI support is temporarily unavailable. Please try again later.')}</p>}
           {error && (
             <p className="support-error" role="alert">
               {error}
