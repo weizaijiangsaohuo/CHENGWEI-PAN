@@ -6,7 +6,7 @@
 
 - 注册时 `emailRedirectTo` 指向实际域名的 `/auth/confirm`。
 - 找回密码时 `redirectTo` 也指向该 `/auth/confirm`，避免 recovery 邮件跨浏览器失败。
-- 增加 Next.js Route Handler `app/auth/confirm/route.ts`：只接受 `token_hash` 与 `type=email|recovery`，在服务端调用 `supabase.auth.verifyOtp`，使用 `@supabase/ssr` 把新会话保存到响应 Cookie。
+- 邮件中的链接先进入 `app/auth/confirm/page.tsx` 的非消耗性网页；页面加载后自动向 `app/api/auth/confirm/route.ts` POST `token_hash` 与 `type=email|recovery`。服务端 `supabase.auth.verifyOtp` 校验成功后由 `@supabase/ssr` 保存响应 Cookie。邮件客户端预扫描的普通 GET 不再消耗验证令牌；用户无需手动复制链接或第二次点击。
 - 确认邮箱成功后重定向到 `/auth/verified`，页面约 1.4 秒后自动进入 Starflow；重置密码成功验证后直接进入 `/auth/reset` 页面。
 - 无效/过期/重复使用的链接转到 `/auth/email-error`，不在重定向中暴露原始 token 和内部技术错误。
 - 现有 Google OAuth 仍使用 `/auth/callback` 的 PKCE code exchange；此变更不触碰 Google OAuth。
@@ -44,7 +44,7 @@
 3. 刷新后会话稳定；进入 Safari 等**另一隔离浏览器**时可能需登录一次（属于不同浏览器 Cookie 隔离，不影响邮箱验证成功，也不需要复制链接）。
 4. 用测试账号测试密码找回，从邮件 App 点击链接直达重置密码表单、完成修改。
 5. 已使用/过期/篡改验证链接不得建立会话。Google OAuth 授权回调不受影响。
-6. 邮件安全扫描程序若预取一次性验证链接，可能导致在人工点击前令牌被消耗；生产扩容前要验证目标邮件系统的扫描行为，并根据需要增加显式确认/扫描防护机制。
+6. 普通 GET 预扫描不会触发 token 使用；但如果某种邮件安全扫描器会执行 JavaScript 并提交 POST，仍有提前消耗令牌的可能，必须在实际 QQ/网易/Outlook 客户端验收；极端场景可能仍需人机交互。
 
 验收通过前不合并 PR、不动正式生产设置。
 

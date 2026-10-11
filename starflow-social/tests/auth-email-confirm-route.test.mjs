@@ -4,23 +4,22 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-// Execute the actual Next.js route with mock Supabase and response cookies.
-// This tests control flow but cannot replace a real SMTP or browser end-to-end test.
-const source = readFileSync(new URL('../app/auth/confirm/route.ts', import.meta.url), 'utf8');
+// Exercises the actual POST handler with mocked Supabase and response cookies.
+// GET is a Next.js page instead of a consuming API request.
+const source = readFileSync(new URL('../app/api/auth/confirm/route.ts', import.meta.url), 'utf8');
+const page = readFileSync(new URL('../app/auth/confirm/page.tsx', import.meta.url), 'utf8');
+
 function handlerWithMock(verification) {
-  let calls = [];
-  let receivedCookies = [];
+  const calls = [];
   const actualCookies = [];
   const NextResponse = {
-    redirect(url, init) {
+    json(body, init) {
       const headers = {};
       return {
-        destination: String(url),
-        status: init?.status || 307,
-        headers: { set(name, value) { headers[name] = value; }, values: headers },
-        cookies: {
-          set(name, value, options) { actualCookies.push({ name, value, options }); }
-        }
+        body,
+        status: init?.status ?? 200,
+        headers: { values: init?.headers ?? headers, set(name, value) { headers[name] = value; } },
+        cookies: { set(name, value, options) { actualCookies.push({ name, value, options }); } },
       };
     }
   };
@@ -30,82 +29,82 @@ function handlerWithMock(verification) {
   }).outputText;
   vm.runInNewContext(code, {
     exports: exported,
-    URL,
     process: { env: { NEXT_PUBLIC_SUPABASE_URL: 'https://staging.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'public-test-key' } },
     require(id) {
       if (id === 'next/server') return { NextResponse };
-      if (id === '@supabase/ssr') {
-        return {
-          createServerClient(_url, _key, config) {
-            return {
-              auth: {
-                async verifyOtp(args) {
-                  calls.push(args);
-                  const result = await verification(args);
-                  if (result.data?.session) config.cookies.setAll([
-                    { name: 'sb-session', value: 'test-cookie', options: { path: '/', sameSite: 'lax' } }
-                  ]);
-                  return result;
-                }
-              }
-            };
-          }
-        };
-      }
-      throw new Error('Unexpected import: ' + id);
-    }
+      if (id === '@supabase/ssr') return {
+        createServerClient(_url, _key, config) {
+          return { auth: { async verifyOtp(args) {
+            calls.push(args);
+            const result = await verification(args);
+            if (result.data?.session) config.cookies.setAll([
+              { name: 'sb-session', value: 'test-cookie', options: { path: '/', sameSite: 'lax' } }
+            ]);
+            return result;
+          } } };
+        }
+      };
+      throw new Error('Unexpected module: ' + id);
+    },
   });
-  const request = (address) => ({
-    url: address,
-    cookies: {
-      getAll() { return []; },
-      set(name, value) { receivedCookies.push({ name, value }); }
-    }
+  const request = ({ token_hash, type, validJSON = true, contentType = 'application/json' }) => ({
+    headers: { get(name) { return name === 'content-type' ? contentType : null; } },
+    async json() { if (!validJSON) throw new Error('Invalid JSON'); return { token_hash, type }; },
+    cookies: { getAll() { return []; }, set() {} },
   });
-  return { GET: exported.GET, calls, actualCookies, receivedCookies, request };
+  return { POST: exported.POST, calls, actualCookies, request };
 }
 
-const approved = async () => ({ data: { session: { access_token: 'test' } }, error: null });
-test('verification succeeds across browser storage and sets a session cookie', async () => {
-  const app = handlerWithMock(approved);
-  const response = await app.GET(app.request('https://preview.example/auth/confirm?token_hash=ABC123&type=email'));
-  assert.equal(new URL(response.destination).pathname, '/auth/verified');
-  assert.equal(new URL(response.destination).search, '');
-  assert.equal(response.status, 303);
+const success = async () => ({ data: { session: { access_token: 'test' } }, error: null });
+const validHash = '12345678901234567890';
+
+test('GET on email landing page does not exchange or consume OTP', () => {
+  assert.match(page, /fetch\('\/api\/auth\/confirm'/);
+  assert.match(page, /method: 'POST'/);
+  assert.match(page, /history\.replaceState\(/);
+  assert.doesNotMatch(page, /auth\.verifyOtp\(/);
+  assert.doesNotMatch(source, /export async function GET\(/);
+});
+
+test('email confirmation POST sets a session cookie and correct destination', async () => {
+  const app = handlerWithMock(success);
+  const response = await app.POST(app.request({ token_hash: validHash, type: 'email' }));
+  assert.equal(response.status, 200);
+  assert.equal(response.body.next, '/auth/verified');
   assert.equal(app.calls.length, 1);
-  assert.equal(app.calls[0].token_hash, 'ABC123');
+  assert.equal(app.calls[0].token_hash, validHash);
   assert.equal(app.calls[0].type, 'email');
-  assert.equal(app.actualCookies.length, 1);
   assert.equal(app.actualCookies[0].name, 'sb-session');
   assert.equal(response.headers.values['Cache-Control'], 'no-store');
 });
 
-test('password recovery opens reset form and issues the session cookie', async () => {
-  const app = handlerWithMock(approved);
-  const response = await app.GET(app.request('https://preview.example/auth/confirm?token_hash=RECOVERY&type=recovery'));
-  assert.equal(new URL(response.destination).pathname, '/auth/reset');
-  assert.equal(app.calls[0].type, 'recovery');
+test('password recovery POST creates cookie and directs to reset', async () => {
+  const app = handlerWithMock(success);
+  const response = await app.POST(app.request({ token_hash: validHash, type: 'recovery' }));
+  assert.equal(response.status, 200);
+  assert.equal(response.body.next, '/auth/reset');
   assert.equal(app.actualCookies.length, 1);
 });
 
-test('missing token and unknown types are rejected before using Supabase', async () => {
-  const app = handlerWithMock(approved);
-  for (const url of [
-    'https://preview.example/auth/confirm?type=email',
-    'https://preview.example/auth/confirm?token_hash=BAD&type=signup',
-    'https://preview.example/auth/confirm?token_hash=BAD&type=invite'
+test('invalid type, missing token, invalid content-type and invalid JSON reject before verification', async () => {
+  const app = handlerWithMock(success);
+  for (const input of [
+    { type: 'email' }, { token_hash: 'short', type: 'email' },
+    { token_hash: validHash, type: 'invite' },
+    { token_hash: validHash, type: 'email', validJSON: false },
+    { token_hash: validHash, type: 'email', contentType: 'text/plain' },
   ]) {
-    const response = await app.GET(app.request(url));
-    assert.equal(new URL(response.destination).pathname, '/auth/email-error');
-    assert.equal(new URL(response.destination).search, '');
+    const response = await app.POST(app.request(input));
+    assert.equal(response.status, 400);
+    assert.equal(response.body.next, undefined);
   }
   assert.equal(app.calls.length, 0);
 });
 
-test('expired or already used confirmation cannot show a success page', async () => {
+test('used or expired email token does not persist session', async () => {
   const app = handlerWithMock(async () => ({ data: { session: null }, error: new Error('expired') }));
-  const response = await app.GET(app.request('https://preview.example/auth/confirm?token_hash=EXPIRED&type=email'));
-  assert.equal(new URL(response.destination).pathname, '/auth/email-error');
+  const response = await app.POST(app.request({ token_hash: validHash, type: 'email' }));
+  assert.equal(response.status, 400);
   assert.equal(app.actualCookies.length, 0);
 });
