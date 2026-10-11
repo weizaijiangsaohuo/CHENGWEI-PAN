@@ -118,7 +118,8 @@ export default function Home(){
   if(screen==='checking')return <main className={styles.loading+' sf-boot-screen'} role="status" aria-live="polite">
   <img src="/starflow-official-mark.webp" width="76" height="76" alt="" />
   <strong>星流 <span>STARFLOW</span></strong>
-  <p>{en?'Connecting…':'正在进入星流…'}</p>
+  <p className="sf-boot-tagline">{en?'Your world, happening now.':'你的世界，此刻正在发生'}</p>
+  <small className="sf-boot-status">{en?'Connecting to Starflow…':'正在连接星流…'}</small>
  </main>;
   const enter=()=>setScreen('auth');
   return <>
