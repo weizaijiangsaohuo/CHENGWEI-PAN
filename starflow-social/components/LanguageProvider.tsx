@@ -8,17 +8,20 @@ const LanguageContext=createContext<{lang:Lang;setLang:(lang:Lang)=>void;t:(key:
 });
 export function LanguageProvider({children}:{children:React.ReactNode}){
  const [lang,setLanguage]=useState<Lang>('zh');
+ const [hydrated,setHydrated]=useState(false);
  useEffect(()=>{
   try{
    const previous=window.localStorage.getItem('sf-language');
    if(LANGUAGE_OPTIONS.some(option=>option.code===previous))setLanguage(previous as Lang);
   }catch{/* storage unavailable: fall back to simplified Chinese */}
+  setHydrated(true);
  },[]);
  useEffect(()=>{
+  if(!hydrated)return;
   const locale=LANGUAGE_OPTIONS.find(option=>option.code===lang);
   document.documentElement.lang=locale?.htmlLang??'zh-CN';
   try{window.localStorage.setItem('sf-language',lang)}catch{/* private mode */}
- },[lang]);
+ },[lang,hydrated]);
  const setLang=useCallback((value:Lang)=>setLanguage(value),[]);
  return <LanguageContext.Provider value={{lang,setLang,t:(key)=>translate(lang,key)}}>{children}</LanguageContext.Provider>;
 }
