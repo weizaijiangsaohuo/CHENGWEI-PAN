@@ -114,7 +114,7 @@ export function StarflowMasonryFeed({posts,metrics,verified,loading,lang,onLike,
           <Avatar name={profile?.display_name||'星'} image={profile?.avatar_url} size={23}/>
           <span>{profile?.display_name||'星流用户'}</span>
          </Link>
-         <VerificationBadge kind={verified[post.author_id]} size={13}/>
+         <VerificationBadge kind={verified[post.author_id]} size={16}/>
          <span className="sf-masonry-time">{ago(post.created_at,lang)}</span>
         </div>
         <div className="sf-masonry-actions">
