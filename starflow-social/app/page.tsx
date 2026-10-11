@@ -7,6 +7,7 @@ import {SocialApp} from '@/components/SocialApp';
 import {LanguageSwitch,useLanguage} from '@/components/LanguageProvider';
 import {db,hasConfig} from '@/lib/supabase';
 import styles from './landing.module.css';
+import {siteText,type SiteKey} from '@/lib/site-copy';
 import { StarflowAiWidget } from '@/components/StarflowAiWidget';
 type Screen='checking'|'landing'|'auth'|'member';
 type AiLine={role:'user'|'assistant';content:string};
@@ -102,7 +103,8 @@ function LegacyStarflowAiWidget({signedIn,onSignIn,en}:{signedIn:boolean;onSignI
 export default function Home(){
   const [screen,setScreen]=useState<Screen>('checking');
   const {lang}=useLanguage();
-  const en=lang==='en';
+  const en=lang!=='zh'&&lang!=='zh-hk';
+  const home=(key:SiteKey)=>siteText(lang,key);
   useEffect(()=>{
     if(!hasConfig()){setScreen('landing');return;}
     let active=true;
@@ -122,26 +124,26 @@ export default function Home(){
     <header className={styles.nav}>
       <Link href="/" className={styles.brand} aria-label="Starflow home"><span className={styles.logoSymbol}>✦</span><span className={styles.brandName}><b>星流</b><small>STARFLOW</small></span></Link>
       <nav className={styles.navLinks} aria-label={en?'Main navigation':'主导航'}>
-        <a href="#discover">{en?'Discover':'探索星流'}</a>
-        <a href="#resources">{en?'Resources':'指南与资源'}</a>
-        <button type="button" className={styles.navSignin} onClick={enter}>{en?'Sign in':'登录'}</button>
+        <a href="#discover">{home('discover')}</a>
+        <a href="#resources">{home('resources')}</a>
+        <button type="button" className={styles.navSignin} onClick={enter}>{home('signIn')}</button>
       </nav>
-      <div className={styles.navRight}><LanguageSwitch/><button type="button" className={styles.navJoin} onClick={enter}>{en?'Join':'加入星流'} <ArrowRight size={15}/></button></div>
+      <div className={styles.navRight}><LanguageSwitch/><button type="button" className={styles.navJoin} onClick={enter}>{home('join')} <ArrowRight size={15}/></button></div>
     </header>
 
     <main>
       <section className={styles.hero}>
         <div className={styles.heroText}>
-          <span className={styles.eyebrow}><span className={styles.liveDot}/>{en?'A space for real connection':'连接每一种可能'}</span>
-          <h1>{en?<>Your world,<br/><em>in the moment.</em></>:<>你关心的世界，<br/><em>此刻正在发生。</em></>}</h1>
-          <p className={styles.heroDescription}>{en?'Share your thoughts, discover new voices, and connect through the moments that matter.':'分享真实想法，遇见有趣的人，让每一次连接，都值得期待。'}</p>
+          <span className={styles.eyebrow}><span className={styles.liveDot}/>{home('homeTagline')}</span>
+          <h1>{home('homeTitle1')}<br/><em>{home('homeTitle2')}</em></h1>
+          <p className={styles.heroDescription}>{home('homeIntro')}</p>
           <div className={styles.heroActions}>
-            <button type="button" onClick={enter} className={styles.primaryAction}>{en?'Get started':'立即加入'} <ArrowRight size={18}/></button>
-            <a className={styles.outlineAction} href="#resources">{en?'Learn more':'了解星流'} <ChevronRight size={17}/></a>
+            <button type="button" onClick={enter} className={styles.primaryAction}>{home('start')} <ArrowRight size={18}/></button>
+            <a className={styles.outlineAction} href="#resources">{home('learn')} <ChevronRight size={17}/></a>
           </div>
-          <p className={styles.heroHint}>{en?'Web experience · Chinese & English · Independent platform':'网页端现已开放 · 中文 / English · 独立社交平台'}</p>
+          <p className={styles.heroHint}>{home('homeHint')}</p>
           
-<Link href="/support" style={{display:'inline-flex',marginTop:16,padding:'14px 20px',borderRadius:18,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</Link>
+<Link href="/support" style={{display:'inline-flex',marginTop:16,padding:'14px 20px',borderRadius:18,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ {home('supportLink')} →</Link>
 
         </div>
         <div className={styles.heroVisual} aria-label={en?'Illustration of Starflow features':'星流功能示意图'}>
@@ -162,7 +164,7 @@ export default function Home(){
       </section>
 
       <section id="discover" className={styles.introSection}>
-        <div className={styles.sectionHeading}><span>{en?'WHY STARFLOW':'发现星流'}</span><h2>{en?'A simpler way to stay connected.':'分享、发现、连接。'}</h2><p>{en?'Everything begins with a thought worth sharing.':'从一句话开始，让交流自然发生。'}</p></div>
+        <div className={styles.sectionHeading}><span>{en?'WHY STARFLOW':'发现星流'}</span><h2>{home('featureHeading')}</h2><p>{en?'Everything begins with a thought worth sharing.':'从一句话开始，让交流自然发生。'}</p></div>
         <div className={styles.features}>
           <article className={styles.feature}><div className={styles.featureIcon}><MessageCircle size={23}/></div><h3>{en?'Share your moments':'分享此刻'}</h3><p>{en?'Post thoughts and images, and join conversations.':'发布想法和图片，参与真诚的交流。'}</p></article>
           <article className={styles.feature}><div className={styles.featureIcon}><Users size={23}/></div><h3>{en?'Find your people':'发现同好'}</h3><p>{en?'Follow people and discover perspectives that matter to you.':'关注感兴趣的人，发现不同视角。'}</p></article>
