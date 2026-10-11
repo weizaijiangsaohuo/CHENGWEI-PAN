@@ -6,6 +6,7 @@ import { Brand } from './Brand';
 import { TurnstileChallenge } from './TurnstileChallenge';
 import { LanguageSwitch, useLanguage } from './LanguageProvider';
 import { db, hasConfig } from '@/lib/supabase';
+import { activeLoginProviders } from '@/lib/account-providers';
 
 export function AuthPortal(){
   const {t,lang}=useLanguage();
@@ -96,6 +97,20 @@ export function AuthPortal(){
       submitting.current=false;setBusy(false);resetCaptcha();
     }
   }
+  async function extraOAuth(key:'apple'|'facebook'|'twitter'|'wechat'|'qq'){
+    const item=activeLoginProviders.find(p=>p.key===key);
+    if(!item||submitting.current||!configured)return;
+    submitting.current=true;setBusy(true);setError('');
+    try{
+      const {error}=await db().auth.signInWithOAuth({
+        provider:item.provider,options:{redirectTo:location.origin+'/auth/callback'},
+      });
+      if(error)throw error;
+    }catch(reason){
+      setError(reason instanceof Error?reason.message:'第三方账号授权不可用。');
+      submitting.current=false;setBusy(false);
+    }
+  }
   async function oauth(){
     if(submitting.current||process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true')return;
     if(!configured){setError(t('authNotReady'));return;}
@@ -118,7 +133,11 @@ export function AuthPortal(){
       <section className="welcome-form"><div className="auth-card">
         <div className="auth-heading"><span className="sf-auth-monogram">✦</span><h2>{t(mode==='signup'?'signup':mode==='login'?'login':'forgot')}</h2>
           <p>{t(mode==='signup'?'signupDesc':mode==='login'?'loginDesc':'forgotDesc')}</p></div>
-        {mode!=='forgot'&&<div className="oauth-buttons"><button disabled={busy||process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'} className="oauth-btn" onClick={oauth}><span className="google-g">G</span>{t('continueGoogle')}{process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'&&<small>{t('googleNotReady')}</small>}</button><div className="or-divider"><span>{t('orEmail')}</span></div></div>}
+        {mode!=='forgot'&&<div className="oauth-buttons"><button disabled={busy||process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'} className="oauth-btn" onClick={oauth}><span className="google-g">G</span>{t('continueGoogle')}{process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'&&<small>{t('googleNotReady')}</small>}</button>
+          {activeLoginProviders.filter(p=>p.key!=='google').length>0&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+            {activeLoginProviders.filter(p=>p.key!=='google').map(p=><button key={p.key} type="button" className="oauth-btn" disabled={busy} style={{flex:'1 1 120px',minHeight:43}} onClick={()=>void extraOAuth(p.key as 'apple'|'facebook'|'twitter'|'wechat'|'qq')}>使用 {p.label} 登录</button>)}
+          </div>}
+          <div className="or-divider"><span>{t('orEmail')}</span></div></div>}
         <form onSubmit={submit} className="auth-fields">
           {mode==='signup'&&<label><span>{t('nickname')}</span><div className="field-wrap"><Users size={18}/><input type="text" placeholder={t('nicknamePlace')} value={display} onChange={e=>setDisplay(e.target.value)} maxLength={60} required autoComplete="nickname"/></div></label>}
           <label><span>{t('email')}</span><div className="field-wrap"><Mail size={18}/><input type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></div></label>

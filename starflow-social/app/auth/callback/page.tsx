@@ -40,8 +40,21 @@ export default function AuthCallback() {
           throw new Error('Missing confirmation token. Please request a new verification email.');
         }
 
-        // Reload so the app reads the newly stored session.
-        window.location.replace('/');
+        // Identity-linking and ordinary login both use this authorized callback.
+        // Only a short-lived, same-browser marker can route back to the security center.
+        let destination='/';
+        try{
+          const raw=sessionStorage.getItem('sf_identity_link_return');
+          sessionStorage.removeItem('sf_identity_link_return');
+          if(raw){
+            const mark=JSON.parse(raw) as {to?:string;at?:number};
+            if(mark.to==='/settings/security'&&typeof mark.at==='number'
+               &&Date.now()>=mark.at&&Date.now()-mark.at<600000){
+              destination='/settings/security';
+            }
+          }
+        }catch{/* Fall back to the safe home route. */}
+        window.location.replace(destination);
       } catch (error) {
         const detail = error instanceof Error ? error.message : 'Verification failed. Please try again.';
         // Older default email links may carry a PKCE code that cannot cross browsers.
