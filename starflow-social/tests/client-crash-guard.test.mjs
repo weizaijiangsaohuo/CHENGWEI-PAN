@@ -14,15 +14,9 @@ test('root hydration failures get a readable standalone fallback',()=>{
  assert.match(error,/window\.location\.reload\(\)/);
  assert.match(error,/页面暂时无法显示/);
 });
-test('cinematic experience guards browser-only animation and does not block app hydration',()=>{
+test('unstable new cinematic scripts are removed from production landing',()=>{
  const home=read('app/page.tsx');
- const landing=read('components/StarflowLandingExperience.tsx');
- const css=read('components/StarflowLandingExperience.css');
- assert.match(home,/StarflowLandingExperience onJoin=/);
- assert.doesNotMatch(home,/sf-boot-screen/);
- assert.match(landing,/sessionStorage\.getItem\('sf-landing-intro-shown'\)/);
- assert.match(landing,/starflow-official-mark\.webp/);
- assert.match(landing,/if\(!ready\|\|reduced/);
- assert.match(css,/prefers-reduced-motion:reduce/);
  assert.doesNotMatch(home,/heroRef|portalStage|heroBackdrop|setProperty\('--sf-portal-/);
+ assert.match(home,/sessionStorage\.getItem\('sf-entry-logo-seen'\)/);
+ assert.match(home,/starflow-official-mark\.webp/);
 });

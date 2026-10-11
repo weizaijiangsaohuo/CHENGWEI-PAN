@@ -3,15 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const src=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const page=src('app/page.tsx');
-const approvedLanding=src('components/StarflowLandingExperience.tsx');
 const comp=src('components/StarflowMotionShowcase.tsx');
 const css=src('components/StarflowMotionShowcase.css');
-test('approved interactive cinematic sections replace the legacy moving rail on the public homepage',()=>{
- assert.match(page,/StarflowLandingExperience onJoin=/);
- assert.match(approvedLanding,/sf-cinema-experience-grid/);
- assert.match(approvedLanding,/role="tablist"/);
- assert.match(approvedLanding,/sf-cinema-world-art/);
- assert.doesNotMatch(page,/StarflowMotionShowcase english=/);
+test('video-inspired experience rail is wired to public homepage',()=>{
+ assert.match(page,/<StarflowMotionShowcase english=\{en\} locale=\{lang\} onJoin=\{enter\}\/>/);
+ assert.match(comp,/sf-motion-featured/);
+ assert.match(comp,/sf-motion-marquee/);
+ assert.match(comp,/sf-motion-tile/);
 });
 test('smooth continuous carousel is entirely CSS and never intercepts touch or scroll',()=>{
  assert.match(css,/animation:sf-motion-slide 48s linear infinite/);

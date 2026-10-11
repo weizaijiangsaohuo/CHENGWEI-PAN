@@ -5,14 +5,13 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const page=read('app/page.tsx');
 const art=read('components/StarflowAssemblyHero.tsx');
 const css=read('components/StarflowAssemblyHero.css');
-const approved=read('components/StarflowLandingExperience.tsx');
 
-test('latest approved visitor hero preserves official brand and space art without obsolete white mockup',()=>{
- assert.match(page,/StarflowLandingExperience onJoin=/);
+test('hero removes the original white mockup and renders a romantic Starflow constellation',()=>{
+ assert.match(page,/<StarflowAssemblyHero english=\{en\} locale=\{lang\}\/>/);
  assert.doesNotMatch(page,/className=\{styles\.mockup\}/);
- assert.match(approved,/sf-cinema-universe/);
- assert.match(approved,/starflow-official-mark\.webp/);
+ assert.doesNotMatch(art,/sf-assembly-window|sf-assembly-row/);
  assert.match(art,/sf-constellation-scene/);
+ assert.match(art,/万千星光，在此汇聚。/);
 });
 test('real mark quadrants converge into one brand mark',()=>{
  assert.match(art,/starflow-official-mark\.webp/);

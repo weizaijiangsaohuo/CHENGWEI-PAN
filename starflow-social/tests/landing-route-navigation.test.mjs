@@ -1,60 +1,59 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const social=read('components/SocialApp.tsx');
 const home=read('app/page.tsx');
-const landing=read('components/StarflowLandingExperience.tsx');
-const style=read('components/StarflowLandingExperience.css');
-
-test('signed-in route navigation never remounts the full-screen logo',()=>{
+const style=read('app/landing.module.css');
+test('route navigation never remounts an entire splash logo',()=>{
  assert.match(social,/if\(checking\)return <main className="sf-section-loading"/);
- assert.doesNotMatch(social,/sf-boot-screen/);
- assert.match(home,/StarflowLandingExperience onJoin=/);
- assert.doesNotMatch(home,/sf-boot-screen/);
+ assert.doesNotMatch(social,/if\(checking\)return <main className="center-screen sf-boot-screen"/);
 });
-test('one-time public brand intro uses a browser session guard and can be skipped',()=>{
- assert.match(landing,/sessionStorage.getItem\('sf-landing-intro-shown'\)/);
- assert.match(landing,/sessionStorage.setItem\('sf-landing-intro-shown','1'\)/);
- assert.match(landing,/onClick=\{\(\)=>\{setIntro\(false\);setIntroComplete\(true\)\}\}/);
- assert.match(landing,/prefers-reduced-motion: reduce/);
+test('initial public home shows brand only once per browser tab',()=>{
+ assert.match(home,/sessionStorage\.getItem\('sf-entry-logo-seen'\)/);
+ assert.match(home,/sessionStorage\.setItem\('sf-entry-logo-seen','1'\)/);
+ assert.match(home,/screen==='checking'&&!showInitialLogo/);
+ assert.match(home,/sf-boot-screen/);
 });
-test('guest landing has nonblocking scroll animation and reduced-motion support',()=>{
- assert.match(landing,/IntersectionObserver/);
- assert.match(style,/sf-cinema-reveal/);
+test('public-facing landing animates without blocking navigation, supports reduced motion',()=>{
+ assert.match(home,/sf-public-landing/);
+ assert.match(home,/IntersectionObserver/);
+ assert.match(style,/sf-landing-card-in/);
  assert.match(style,/prefers-reduced-motion:reduce/);
- assert.match(landing,/starflow-official-mark.webp/);
- assert.match(style,/sf-cinema-orbit/);
+ assert.match(home,/starflow-official-mark\.webp/);
  assert.doesNotMatch(style,/scroll-snap-type/);
 });
-test('homepage navigation does not reload the whole app when logo is tapped',()=>{
- assert.match(landing,/className="sf-cinema-brand"/);
- assert.match(landing,/href="\/"/);
- assert.doesNotMatch(landing,/window.location.reload/);
+
+test('logo tap genuinely refreshes the public homepage',()=>{
+ assert.match(home,/aria-label=\{l\("Refresh Starflow home","刷新星流首页"\)\}/);
+ assert.match(home,/event\.preventDefault\(\);window\.location\.reload\(\)/);
 });
-test('AI help and legal resources are reachable from the landing and member chat stays separate',()=>{
- const hero=landing.slice(landing.indexOf('<section className="sf-cinema-hero"'),landing.indexOf('<section id="sf-cinema-experience"'));
+test('AI customer support is at the footer bottom and not repeated under hero title',()=>{
+ const hero=home.slice(home.indexOf('<section className={styles.hero}>'),home.indexOf('<StarflowMotionShowcase'));
  assert.doesNotMatch(hero,/href="\/support"/);
- for(const url of ['/support','/terms','/privacy','/guidelines'])assert.ok(landing.includes('href="'+url+'"'));
+ assert.match(home,/className=\{styles\.footerHelp\}/);
+ assert.match(home,/href="\/support"/);
  assert.match(home,/screen==='member'&&<StarflowAiWidget/);
 });
-test('feature tabs and mobile resources have functional interaction and links',()=>{
- assert.match(landing,/role="tablist"/);
- assert.match(landing,/setActive\(index\)/);
- assert.match(landing,/role="tabpanel"/);
- assert.match(style,/sf-cinema-resource-grid/);
- assert.match(style,/@media\(max-width:700px\)/);
+test('resource cards expose consistent compact content structure and all legal links',()=>{
+ assert.match(home,/className=\{styles\.resourceContent\}/);
+ assert.match(home,/className=\{styles\.resourceIndex\}/);
+ for(const url of ['/terms','/privacy','/guidelines'])assert.ok(home.includes('href="'+url+'"'));
+ assert.match(style,/resource\{display:grid/);
+ assert.match(style,/featureIndex/);
 });
-test('new romantic visitor landing has scrolling chapter anchors, not technical launch copy',()=>{
- assert.doesNotMatch(landing,/网页端现已开放 · 中文 \/ English · 独立社交平台/);
- for(const anchor of ['sf-cinema-experience','sf-cinema-world','sf-cinema-resources']){
-   assert.ok(landing.includes('id="'+anchor+'"'));
- }
- assert.match(landing,/className="sf-cinema-scroll"/);
+
+test('romantic homepage removes technical description and offers scroll-to-content hook',()=>{
+ assert.doesNotMatch(home,/网页端现已开放 · 中文 \/ English · 独立社交平台/);
+ assert.match(home,/让每一个故事，都有自己的星光。/);
+ assert.match(home,/href="#showcase"/);
+ const experience=readFileSync(new URL('../components/StarflowMotionShowcase.tsx',import.meta.url),'utf8');
+ assert.match(experience,/id="showcase"/);
 });
-test('approved official Starflow logo and soft pink-purple cosmic palette are retained',()=>{
- assert.match(landing,/starflow-official-mark.webp/);
- assert.match(style,/sf-cinema-universe/);
- assert.match(style,/#e[a-fA-F0-9]{5}|#f[a-fA-F0-9]{5}/);
+test('the branded landing uses a reduced-size mark and soft pink/lilac palette',()=>{
+ const scene=readFileSync(new URL('../components/StarflowAssemblyHero.css',import.meta.url),'utf8');
+ assert.match(scene,/sf-cosmos-symbol\{width:95px;height:95px/);
+ assert.match(scene,/#eed4f3/);
+ assert.match(style,/@keyframes sf-v2-iridescent/);
  assert.match(style,/prefers-reduced-motion:reduce/);
 });
