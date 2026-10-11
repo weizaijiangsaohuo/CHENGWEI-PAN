@@ -1,7 +1,19 @@
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import type {Lang} from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
+const responseLanguage:Record<Lang,string>={
+ zh:'请使用简体中文回复。',
+ 'zh-HK':'請使用香港繁體中文回覆，採用香港常用詞彙。',
+ en:'Reply in American English.',
+ 'en-SG':'Reply in natural Singapore English.',
+ 'en-GB':'Reply in British English.',
+ 'ko-KR':'한국어로 대답하세요。',
+ 'ja-JP':'日本語で回答してください。',
+ 'de-DE':'Antworte auf Deutsch.',
+ 'fr-FR':'Réponds en français.'
+};
 
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -123,6 +135,7 @@ export async function POST(request: Request) {
     const body = parsed as {
       message?: unknown;
       messages?: unknown;
+      locale?: unknown;
     };
 
     if (typeof body.message !== 'string') {
@@ -137,6 +150,9 @@ export async function POST(request: Request) {
       }, 400);
     }
 
+    const requestedLocale=typeof body.locale==='string'?body.locale:'zh';
+    const locale:Lang=Object.prototype.hasOwnProperty.call(responseLanguage,requestedLocale)
+      ? requestedLocale as Lang : 'zh';
     const history: ChatMessage[] = [];
 
     if (body.messages != null) {
@@ -214,7 +230,7 @@ export async function POST(request: Request) {
           '不要编造账号、订单或支付信息。',
           '不要索取密码、验证码和银行卡信息。',
           '回答应当准确、简洁、清楚。',
-          '使用简体中文。',
+          responseLanguage[locale],
           '/no_think'
         ].join('\n')
       },
