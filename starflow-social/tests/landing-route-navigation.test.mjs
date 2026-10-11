@@ -23,3 +23,22 @@ test('public-facing landing animates without blocking navigation, supports reduc
  assert.match(home,/starflow-official-mark\.webp/);
  assert.doesNotMatch(style,/scroll-snap-type/);
 });
+
+test('logo tap genuinely refreshes the public homepage',()=>{
+ assert.match(home,/aria-label=\{en\?'Refresh Starflow home':'刷新星流首页'\}/);
+ assert.match(home,/event\.preventDefault\(\);window\.location\.reload\(\)/);
+});
+test('AI customer support is at the footer bottom and not repeated under hero title',()=>{
+ const hero=home.slice(home.indexOf('<section className={styles.hero}>'),home.indexOf('<StarflowMotionShowcase'));
+ assert.doesNotMatch(hero,/href="\/support"/);
+ assert.match(home,/className=\{styles\.footerHelp\}/);
+ assert.match(home,/href="\/support"/);
+ assert.match(home,/screen==='member'&&<StarflowAiWidget/);
+});
+test('resource cards expose consistent compact content structure and all legal links',()=>{
+ assert.match(home,/className=\{styles\.resourceContent\}/);
+ assert.match(home,/className=\{styles\.resourceIndex\}/);
+ for(const url of ['/terms','/privacy','/guidelines'])assert.ok(home.includes('href="'+url+'"'));
+ assert.match(style,/resource\{display:grid/);
+ assert.match(style,/featureIndex/);
+});

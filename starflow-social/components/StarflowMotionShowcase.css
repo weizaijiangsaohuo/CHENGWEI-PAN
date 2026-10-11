@@ -83,3 +83,20 @@ html.sf-user-motion-off .sf-motion-section .sf-motion-track,
 html.sf-user-motion-off .sf-motion-section .sf-motion-featured-art>img{animation:none!important;will-change:auto}
 html.sf-user-motion-off .sf-motion-section .sf-motion-marquee{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;mask-image:none}
 html.sf-user-motion-off .sf-motion-section .sf-motion-set[aria-hidden="true"]{display:none}
+
+/* Editorial rhythm connects animated feature card and the rest of the landing. */
+.sf-motion-section{position:relative;background:linear-gradient(160deg,#fdfaff,#f4f0fc 48%,#fbf9ff);padding-top:81px}
+.sf-motion-section:before{content:"";position:absolute;pointer-events:none;top:-125px;left:-195px;height:440px;width:440px;border:1px solid #c6b0e65a;border-radius:50%;box-shadow:0 0 0 48px #bda8e414,0 0 0 95px #bda8e40b}
+.sf-motion-section-header{position:relative}
+.sf-motion-section-header h2{color:#31253f;letter-spacing:-.05em}
+.sf-motion-rail-intro{margin-bottom:20px}
+.sf-motion-rail-intro>span:first-child{display:inline-flex;align-items:center;gap:9px;font-size:12px;letter-spacing:1px;color:#675785}
+.sf-motion-rail-intro i{font-size:12px;font-style:normal;color:#a587da}
+.sf-motion-featured{box-shadow:0 22px 57px #4a347029}
+.sf-motion-tile{box-shadow:0 9px 24px #38314e18}
+@media(max-width:700px){
+ .sf-motion-section{padding-top:63px}
+ .sf-motion-section-header h2{font-size:30px}
+ .sf-motion-rail-intro{margin-bottom:14px}
+ .sf-motion-rail-intro>span:first-child{font-size:11px}
+}

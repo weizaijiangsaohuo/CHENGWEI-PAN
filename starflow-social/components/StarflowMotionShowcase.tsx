@@ -49,7 +49,7 @@ export function StarflowMotionShowcase({onJoin,english}:Props){
    </div>
   </div>
   <div className="sf-motion-rail-intro">
-    <span>{english?'FIND WHAT MOVES YOU':'发现属于你的精彩'}</span>
+    <span>{english?'FIND WHAT MOVES YOU':'发现属于你的精彩'} <i aria-hidden="true">✦</i></span>
     <span>{english?'Browse categories below':'探索更多可能'} <ArrowRight size={15}/></span>
   </div>
   <div className="sf-motion-marquee" aria-label={english?'Starflow experiences':'星流功能与社区内容'}>
