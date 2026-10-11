@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, CalendarDays, Globe2, Info, Link2, MapPin, RefreshCcw, ShieldCheck, UserRound, AtSign } from 'lucide-react';
+import { AtSign, BadgeCheck, CalendarDays, ChevronLeft, ChevronRight, Info, Link2, MapPin, RefreshCcw, Settings2 } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 
@@ -24,6 +24,8 @@ export function StarflowAccountAbout({handle}:{handle:string}){
   const [loading,setLoading]=useState(true);
   const [notice,setNotice]=useState('');
   const [locationExplain,setLocationExplain]=useState(false);
+  const [verificationExplain,setVerificationExplain]=useState(false);
+  const [privacyOpen,setPrivacyOpen]=useState(false);
   const load = useCallback(async()=>{
     if(!hasConfig()){setNotice('账号资料服务未配置。');setLoading(false);return}
     try{
@@ -87,35 +89,61 @@ export function StarflowAccountAbout({handle}:{handle:string}){
   const v = info?.verification;
   const country=info?.region;
   const showCountry=!!(country?.is_public || isOwner);
+  const verificationNames: Record<VerificationKind,string> = {gold:'金色认证',blue:'蓝色认证',gray:'灰色认证'};
+  const verificationExplanations: Record<VerificationKind,string> = {
+    gold: '由 Starflow 审核通过的企业、品牌或组织账号。仅代表 Starflow 平台内的认证，不代表 X 或其他机构认证。',
+    gray: '由 Starflow 审核通过的政府或符合条件的公共机构账号。',
+    blue: '由 Starflow 按平台规则审核通过的账号，不等于身份证件核验。',
+  };
   return <main className="sf-about-page">
-    <header className="sf-about-top"><Link href={'/profile/'+encodeURIComponent(handle)} aria-label="返回个人主页">‹</Link><strong>关于此账号</strong><span/></header>
-    {loading?<p className="sf-about-status" role="status">正在读取真实账号信息…</p>
+    <header className="sf-about-top">
+      <Link href={'/profile/'+encodeURIComponent(handle)} aria-label="返回个人主页"><ChevronLeft size={26}/></Link>
+      <h1>关于此账号</h1><span aria-hidden="true"/>
+    </header>
+    {loading?<p className="sf-about-status" role="status">正在加载账号资料…</p>
     :!info?<p className="sf-about-status" role="alert">{notice||'找不到此账号。'}</p>
     :<div className="sf-about-body">
-      <div className="sf-about-identity">
-        <div className="sf-about-avatar">{info.user.avatar_url?<img src={info.user.avatar_url} alt=""/>:<span>{info.user.display_name.slice(0,1)}</span>}</div>
-        <div className="sf-about-name">{info.user.display_name} {v && <VerificationBadge kind={v.verification_type} size={20} interactive={false}/>}</div>
-        <div className="sf-about-handle">@{info.user.handle}</div>
-        <div className="sf-about-site">Starflow <span>.AI</span></div>
-      </div>
-      <div className="sf-about-lines">
-        <div className="sf-about-line"><CalendarDays/><div><strong>加入日期</strong><span>{date(info.user.created_at)}</span></div></div>
-        <div className="sf-about-line"><MapPin/><div><strong>账号所在国家／地区</strong>
+      <section className="sf-about-identity" aria-label="账号身份">
+        <div className="sf-about-avatar">{info.user.avatar_url?<img src={info.user.avatar_url} alt=""/>:<span>{info.user.display_name.slice(0,1).toUpperCase()}</span>}</div>
+        <div className="sf-about-name"><strong>{info.user.display_name}</strong>{v&&<VerificationBadge kind={v.verification_type} size={20} interactive={false}/>}</div>
+        <p className="sf-about-handle">@{info.user.handle}</p>
+      </section>
+      <section className="sf-about-lines" aria-label="账号资料">
+        <div className="sf-about-line"><CalendarDays aria-hidden="true"/><div><strong>加入日期</strong><span>{date(info.user.created_at)}</span></div></div>
+        <div className="sf-about-line"><MapPin aria-hidden="true"/><div><strong>账号所在国家／地区</strong>
           <span>{showCountry ? regionName(country?.country_code) : '未公开'}</span>
-          {showCountry&&country?.last_seen_at&&<small>最近识别：{new Date(country.last_seen_at).toLocaleDateString('zh-CN')}（IP 推断）</small>}
-        </div><button className="sf-about-explain" onClick={()=>setLocationExplain(v=>!v)} aria-label="了解位置来源"><Info size={20}/></button></div>
-        {locationExplain&&<div className="sf-about-note">仅根据访问 Starflow 的 IP 网络入口估算国家／地区，并非 GPS、精确坐标或实时跟踪。VPN、漫游、网络服务商及旅行均会影响结果。未取得有效数据时显示未知；用户可关闭公开。</div>}
-        {v&&<div className="sf-about-line"><ShieldCheck/><div><strong>已认证 · {v.verification_type==='gold'?'金色':v.verification_type==='gray'?'灰色':'蓝色'}</strong><span>{v.reviewed_at?`自 ${date(v.reviewed_at)}`:'认证时间未记录'}</span><small>仅表示 Starflow 平台认证</small></div><Link className="sf-about-chevron" href="/verification">›</Link></div>}
-        {info.org&&<div className="sf-about-line"><Link2/><div><strong>官方附属账号</strong><Link className="sf-about-org" href={'/profile/'+encodeURIComponent(info.org.handle)}>{info.org.avatar_url&&<img src={info.org.avatar_url} alt=""/>}@{info.org.handle} 的附属账号</Link></div></div>}
-        <div className="sf-about-line"><AtSign/><div><strong>用户名变更</strong><span>{info.history?`${info.history.total_changes} 次（自启用记录起）`:'历史统计暂不可用'}</span>{info.history?.last_changed_at&&<small>最近变更：{date(info.history.last_changed_at)}</small>}<small>启用记录前的变更次数无法追溯</small></div></div>
-        <div className="sf-about-line"><Globe2/><div><strong>连接来源</strong><span>暂未记录设备或客户端历史</span></div></div>
-      </div>
-      {isOwner&&<section className="sf-about-privacy"><h2>国家／地区公开设置</h2><label className="sf-about-toggle"><span>允许在「关于此账号」中展示 IP 推断国家／地区</span><input type="checkbox" disabled={busy} checked={!!country?.is_public} onChange={e=>void setVisibility(e.target.checked)}/></label>
-        <button type="button" disabled={busy||!country?.is_public} onClick={()=>void updateCountry()}><RefreshCcw size={16}/> {busy?'处理中…':'根据本次访问 IP 更新国家／地区'}</button>
-        <p>不会保存或公开你的原始 IP 地址。关闭后不显示国家／地区。此信息不能用于确认一个人的真实所在地。</p>
+          {showCountry&&country?.last_seen_at&&<small>上次识别：{new Date(country.last_seen_at).toLocaleDateString('zh-CN')}</small>}
+        </div><button type="button" className="sf-about-info-button" onClick={()=>setLocationExplain(v=>!v)} aria-expanded={locationExplain} aria-label="查看账号位置说明"><Info size={21}/></button></div>
+        {locationExplain&&<p className="sf-about-inline-note">国家／地区基于最近主动更新时的访问 IP 近似推断，不是 GPS 或实时定位；VPN、旅行、移动网络可能影响结果。账号持有人可以选择不公开。</p>}
+        {v&&<>
+          <button type="button" className="sf-about-line sf-about-line-action" onClick={()=>setVerificationExplain(open=>!open)} aria-expanded={verificationExplain} aria-label="查看账号认证详情">
+            <BadgeCheck aria-hidden="true"/>
+            <span className="sf-about-line-body"><strong>已验证</strong><span>{v.reviewed_at?`自 ${date(v.reviewed_at)}`:'验证日期未记录'}</span></span>
+            <ChevronRight className={verificationExplain?'sf-about-rotated':''} aria-hidden="true"/>
+          </button>
+          {verificationExplain&&<div className="sf-about-verification-detail" role="region" aria-label="认证详情">
+            <div className="sf-about-detail-heading"><VerificationBadge kind={v.verification_type} size={20} interactive={false}/><strong>{verificationNames[v.verification_type]}</strong></div>
+            <p>{verificationExplanations[v.verification_type]}</p>
+            <Link href="/verification">查看 Starflow 认证规则 <ChevronRight size={16}/></Link>
+          </div>}
+        </>}
+        {info.org&&<div className="sf-about-line"><Link2 aria-hidden="true"/><div><strong>官方附属账号</strong><Link className="sf-about-org" href={'/profile/'+encodeURIComponent(info.org.handle)}>{info.org.avatar_url&&<img src={info.org.avatar_url} alt=""/>}@{info.org.handle} 的附属账号 <ChevronRight size={16}/></Link></div></div>}
+        <div className="sf-about-line"><AtSign aria-hidden="true"/><div><strong>用户名变更</strong><span>{info.history?`${info.history.total_changes} 次`:'暂无可用记录'}</span>
+          {info.history?.last_changed_at&&<small>最近一次：{date(info.history.last_changed_at)}</small>}
+          <small>仅统计启用记录后的更改，之前的历史无法追溯</small>
+        </div></div>
+      </section>
+      {isOwner&&<section className="sf-about-privacy">
+        <button className="sf-about-privacy-trigger" type="button" onClick={()=>setPrivacyOpen(o=>!o)} aria-expanded={privacyOpen}>
+          <Settings2 size={19}/><span>国家／地区隐私设置</span><ChevronRight className={privacyOpen?'sf-about-rotated':''} size={20}/>
+        </button>
+        {privacyOpen&&<div className="sf-about-privacy-content">
+          <label className="sf-about-toggle"><span>允许其他用户查看 IP 推断的国家／地区</span><input type="checkbox" disabled={busy} checked={!!country?.is_public} onChange={e=>void setVisibility(e.target.checked)}/></label>
+          <button type="button" className="sf-about-country-refresh" disabled={busy||!country?.is_public} onClick={()=>void updateCountry()}><RefreshCcw size={16}/>{busy?'处理中…':'更新本次访问的国家／地区'}</button>
+          <p>仅记录国家／地区代码，不公开原始 IP。该数据不能确定真实所在地；功能未配置时会说明原因。</p>
+        </div>}
       </section>}
       {notice&&<p role="status" className="sf-about-notice">{notice}</p>}
-      <div className="sf-about-footer">账号详情展示来自真实数据库的数据。Starflow 是独立社交平台。</div>
     </div>}
   </main>;
 }

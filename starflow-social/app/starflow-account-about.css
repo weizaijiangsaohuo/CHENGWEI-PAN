@@ -1,9 +1,54 @@
-/* Starflow account transparency; independent design, based only on available data. */
-.sf-about-entry-slot{margin:3px 0 11px}.sf-about-entry{display:inline-flex;align-items:center;gap:6px;color:#8352a3;font-size:13px;font-weight:750;text-decoration:none;min-height:36px}.sf-about-entry span{font-size:22px;line-height:1}
-.sf-about-name-link{cursor:pointer!important}.sf-about-name-link:hover{text-decoration:underline}.sf-about-name-link:focus-visible{outline:2px solid #a461d8;outline-offset:3px;border-radius:3px}
-.sf-about-page{background:#fff;color:#17161e;min-height:100dvh;font-family:inherit;padding-bottom:95px}.sf-about-top{height:64px;max-width:660px;margin:auto;display:flex;justify-content:space-between;align-items:center;padding:0 17px;border-bottom:1px solid #f2eff3}.sf-about-top strong{font-size:19px}.sf-about-top>a{font-size:37px;line-height:1;color:#24202c;text-decoration:none;width:42px}.sf-about-top>span{width:42px}
-.sf-about-body{max-width:650px;margin:0 auto;padding:26px 19px}.sf-about-identity{text-align:center;padding:12px 0 26px}.sf-about-avatar{width:94px;height:94px;border-radius:20px;overflow:hidden;background:#e9d5f0;display:grid;place-items:center;margin:auto auto 16px;font-size:42px;font-weight:800;color:#824d9e}.sf-about-avatar img{width:100%;height:100%;object-fit:cover}.sf-about-name{font-size:25px;font-weight:850;display:flex;align-items:center;justify-content:center;gap:5px}.sf-about-handle{font-size:16px;color:#637181;margin:4px 0}.sf-about-site{font-size:20px;font-weight:800;margin-top:17px}.sf-about-site span{color:#ba65b5}
-.sf-about-lines{display:grid;gap:20px;margin-top:7px}.sf-about-line{display:flex;align-items:flex-start;gap:15px;min-height:56px}.sf-about-line>svg{margin-top:5px;width:25px;height:25px;flex-shrink:0;color:#25202d;stroke-width:2.2}.sf-about-line>div{display:grid;gap:4px;min-width:0;flex:1}.sf-about-line strong{font-size:17px;font-weight:750}.sf-about-line span{color:#6b7b88;font-size:16px;overflow-wrap:anywhere}.sf-about-line small{color:#948b9b;font-size:12px;line-height:1.45}.sf-about-line .sf-about-chevron{font-size:28px;text-decoration:none;color:#677383;line-height:1.1}.sf-about-org{display:flex;align-items:center;gap:9px;color:#168bce;font-weight:750;text-decoration:none;font-size:15px}.sf-about-org img{width:21px;height:21px;object-fit:cover;border-radius:5px}
-.sf-about-explain{border:0;background:transparent;cursor:pointer;color:#67788c;padding:5px}.sf-about-note{padding:13px;border:1px solid #e6dce8;border-radius:12px;color:#73677b;font-size:13px;line-height:1.7;margin-left:40px;background:#fbf7fc}
-.sf-about-privacy{margin-top:35px;padding:20px 17px;border:1px solid #eadfed;border-radius:18px;background:#fffbff}.sf-about-privacy h2{font-size:17px;margin:0 0 15px}.sf-about-toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:13px;font-weight:650;line-height:1.6}.sf-about-toggle input{width:22px;height:22px;accent-color:#b355a8;flex-shrink:0}.sf-about-privacy button{display:inline-flex;align-items:center;gap:8px;margin:15px 0 2px;border:0;border-radius:999px;background:linear-gradient(120deg,#cf559d,#a165d2);color:white;font-size:13px;font-weight:800;padding:12px 17px;min-height:45px}.sf-about-privacy button:disabled{opacity:.55;cursor:not-allowed}.sf-about-privacy p{font-size:12px;color:#81768b;line-height:1.7;margin:11px 0 0}.sf-about-notice{color:#784993;font-size:13px;line-height:1.6;padding:12px;background:#faf2fe;border-radius:11px}.sf-about-footer{font-size:11px;text-align:center;color:#a098a4;margin-top:35px}.sf-about-status{padding:45px 25px;color:#7a7181;text-align:center}
-@media(max-width:390px){.sf-about-body{padding:18px 15px}.sf-about-name{font-size:22px}.sf-about-lines{gap:18px}.sf-about-line strong{font-size:15px}.sf-about-line span{font-size:14px}}
+/* Starflow — account transparency page. Neutral, readable and distinct from the main feed. */
+.sf-about-entry-slot{margin:3px 0 11px}
+.sf-about-entry{display:inline-flex;align-items:center;gap:6px;color:#8352a3;font-size:13px;font-weight:750;text-decoration:none;min-height:36px}
+.sf-about-entry span{font-size:22px;line-height:1}
+.sf-about-name-link{cursor:pointer!important}
+.sf-about-name-link:hover{text-decoration:underline}
+.sf-about-name-link:focus-visible{outline:2px solid #a461d8;outline-offset:3px;border-radius:3px}
+
+/* Keep account-details surface white, even when other pages have a gradient background. */
+.sf-about-page{background:#fff!important;color:#17181c;min-height:100dvh;font-family:inherit;box-sizing:border-box;padding:0 0 max(40px,env(safe-area-inset-bottom))}
+.sf-about-page *{box-sizing:border-box}
+.sf-about-top{height:64px;max-width:640px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 19px;border-bottom:1px solid #ebedef;background:#fff}
+.sf-about-top h1{font-size:18px;letter-spacing:0;font-weight:800;margin:0;line-height:1.3}
+.sf-about-top>a,.sf-about-top>span{width:36px;height:42px;display:flex;align-items:center;justify-content:flex-start;flex:none}
+.sf-about-top>a{color:#111319;text-decoration:none}
+.sf-about-body{max-width:600px;margin:0 auto;padding:0 23px 56px}
+.sf-about-identity{text-align:center;padding:34px 0 32px}
+.sf-about-avatar{height:96px;width:96px;border-radius:20px;overflow:hidden;background:#f2e9f5;color:#7d5990;display:grid;place-items:center;margin:0 auto 17px;font-size:40px;font-weight:800;border:1px solid #f3e9f3}
+.sf-about-avatar>img{height:100%;width:100%;object-fit:cover}
+.sf-about-name{display:flex;justify-content:center;align-items:center;gap:7px;min-width:0;max-width:100%;font-size:24px;line-height:1.3}
+.sf-about-name>strong{font-weight:850;max-width:min(380px,80%);overflow-wrap:anywhere}
+.sf-about-handle{font-size:16px;color:#647381;margin:5px 0 0;overflow-wrap:anywhere}
+.sf-about-lines{display:flex;flex-direction:column;gap:0}
+.sf-about-line{display:flex;align-items:flex-start;gap:19px;width:100%;min-height:95px;padding:17px 0;border:0;border-bottom:1px solid #eff0f2;color:inherit;background:#fff;text-align:left}
+.sf-about-line:last-child{border-bottom:0}
+.sf-about-line>svg:first-child{width:24px;height:24px;flex-shrink:0;margin-top:2px;stroke-width:2.2;color:#16191e}
+.sf-about-line>div,.sf-about-line-body{display:flex;flex-direction:column;flex:1;min-width:0;gap:4px}
+.sf-about-line strong{color:#121417;font-size:16px;font-weight:750;line-height:1.3}
+.sf-about-line span:not(.sf-about-line-body){color:#667987;font-size:15px;line-height:1.48;overflow-wrap:anywhere}
+.sf-about-line small{font-size:12px;line-height:1.55;color:#8b949d}
+.sf-about-line-action{cursor:pointer;font:inherit;appearance:none;min-height:89px}
+.sf-about-line-action>svg:last-child{width:22px;height:22px;flex:none;color:#778591;transition:transform .15s;margin-top:13px}
+.sf-about-rotated{transform:rotate(90deg)}
+.sf-about-info-button{flex:none;align-self:center;border:0;background:transparent;border-radius:50%;padding:8px;color:#71808f;cursor:pointer;min-height:38px;min-width:38px;display:grid;place-items:center}
+.sf-about-info-button:focus-visible,.sf-about-line-action:focus-visible,.sf-about-privacy-trigger:focus-visible{outline:2px solid #9869bf;outline-offset:3px}
+.sf-about-inline-note{font-size:12px;line-height:1.65;color:#606a74;background:#f5f6f8;border-radius:10px;padding:13px 15px;margin:0 0 8px 43px}
+.sf-about-verification-detail{border-radius:14px;background:#f7f8fa;border:1px solid #edf0f2;padding:16px;margin:3px 0 14px 43px}
+.sf-about-detail-heading{display:flex;align-items:center;gap:8px;font-size:15px;color:#202227}
+.sf-about-verification-detail p{color:#5e6871;font-size:13px;line-height:1.65;margin:10px 0}
+.sf-about-verification-detail a{color:#8a489f;display:inline-flex;align-items:center;gap:2px;font-size:13px;text-decoration:none;font-weight:750}
+.sf-about-org{display:inline-flex;align-items:center;gap:7px;color:#2689c2;text-decoration:none;font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.sf-about-org img{width:21px;height:21px;object-fit:cover;border-radius:5px}
+.sf-about-privacy{margin:22px 0 0;border-top:1px solid #e5e8eb}
+.sf-about-privacy-trigger{cursor:pointer;display:flex;align-items:center;gap:12px;width:100%;padding:19px 0;border:0;background:#fff;color:#4c5763;font-size:14px;font-weight:750;text-align:left}
+.sf-about-privacy-trigger>span{flex:1}.sf-about-privacy-trigger>svg:last-child{transition:transform .15s}
+.sf-about-privacy-content{padding:15px;background:#f8f8fa;border-radius:13px}
+.sf-about-toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:13px;line-height:1.5;color:#343c44}
+.sf-about-toggle input{width:20px;height:20px;accent-color:#995fbe;flex-shrink:0}
+.sf-about-country-refresh{display:inline-flex;align-items:center;gap:8px;min-height:42px;margin:17px 0 3px;border:0;border-radius:10px;background:#24202a;color:#fff;font-weight:750;font-size:13px;padding:10px 15px;cursor:pointer}
+.sf-about-country-refresh:disabled{background:#cacbd0;cursor:not-allowed}
+.sf-about-privacy-content p{font-size:12px;color:#777f88;line-height:1.6;margin:9px 0 0}
+.sf-about-notice{margin:14px 0;color:#654277;font-size:13px;line-height:1.5;background:#f5edf8;border-radius:9px;padding:12px 14px}
+.sf-about-status{padding:50px 20px;text-align:center;color:#69707a}
+@media(max-width:400px){.sf-about-body{padding:0 18px 44px}.sf-about-identity{padding:28px 0 26px}.sf-about-name{font-size:23px}.sf-about-line{gap:14px;min-height:89px}.sf-about-line strong{font-size:15px}.sf-about-line span:not(.sf-about-line-body){font-size:14px}.sf-about-inline-note,.sf-about-verification-detail{margin-left:38px}}
