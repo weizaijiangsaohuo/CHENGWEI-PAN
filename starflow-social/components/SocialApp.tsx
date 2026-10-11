@@ -12,6 +12,7 @@ import { AuthPortal } from './AuthPortal';
 import { LanguageSwitch, useLanguage } from './LanguageProvider';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
+import { StarflowMasonryFeed } from './StarflowMasonryFeed';
 import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
@@ -36,6 +37,17 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
   const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
   const [tab,setTab]=useState<'all'|'following'>('all');const [search,setSearch]=useState('');
+  const [homeLayout,setHomeLayout]=useState<'masonry'|'classic'>('masonry');
+  const [homeComposerOpen,setHomeComposerOpen]=useState(false);
+  const pendingToggles=useRef<Set<string>>(new Set());
+  useEffect(()=>{
+    try{if(localStorage.getItem('sf-home-display')==='classic')setHomeLayout('classic');}
+    catch{/* storage may be unavailable */}
+  },[]);
+  const changeHomeLayout=(next:'masonry'|'classic')=>{
+    setHomeLayout(next);
+    try{localStorage.setItem('sf-home-display',next);}catch{/* optional preference */}
+  };
   const [accounts,setAccounts]=useState<Profile[]>([]);const [notifs,setNotifs]=useState<Notif[]>([]);
   const [message,setMessage]=useState('');const [draft,setDraft]=useState('');
   const [image,setImage]=useState<File|null>(null);const [imagePreview,setImagePreview]=useState<string|null>(null);
@@ -222,13 +234,34 @@ export function SocialApp({view,target}:{view:View;target?:string}){
 
   async function toggle(table:'likes'|'reposts'|'bookmarks',post:Post){
     if(!user)return;
-    const existing=metrics[post.id] || {liked:false,reposted:false,saved:false};
-    const key=table==='likes'?'liked':table==='reposts'?'reposted':'saved';
-    const has=Boolean(existing[key]);
-    const client=db();const {error}=has?
-      await client.from(table).delete().eq('post_id',post.id).eq('user_id',user.id):
-      await client.from(table).insert({post_id:post.id,user_id:user.id});
-    if(error)showMessage(error.message);else void load();
+    const lockKey=table+':'+post.id;
+    if(pendingToggles.current.has(lockKey))return;
+    pendingToggles.current.add(lockKey);
+    const fallback={likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
+    const old=metrics[post.id]||fallback;
+    const property=table==='likes'?'liked':table==='reposts'?'reposted':'saved';
+    const countProperty=table==='likes'?'likes':table==='reposts'?'reposts':null;
+    const was=Boolean(old[property]);
+    // Optimistic feedback lets a tap visibly react before network round trips.
+    setMetrics(previous=>{
+      const current=previous[post.id]||fallback;
+      return {...previous,[post.id]:{
+        ...current,[property]:!was,
+        ...(countProperty?{[countProperty]:Math.max(0,current[countProperty]+(was?-1:1))}:{}),
+      }};
+    });
+    try{
+      const client=db();
+      const {error}=was?
+        await client.from(table).delete().eq('post_id',post.id).eq('user_id',user.id):
+        await client.from(table).insert({post_id:post.id,user_id:user.id});
+      if(error)throw error;
+      // Bookmark listings need to remove unsaved posts; homepage must not jump/reload after every tap.
+      if(view==='bookmarks')void load();
+    }catch(error){
+      setMetrics(previous=>({...previous,[post.id]:old}));
+      showMessage(error instanceof Error?error.message:'操作失败，请重试');
+    }finally{pendingToggles.current.delete(lockKey);}
   }
   function chooseImage(e:ChangeEvent<HTMLInputElement>){
     const files=Array.from(e.currentTarget.files||[]);
@@ -401,24 +434,67 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
-    return <><div className="section-heading"><h2>{t('home')} <span className="live-mark">✦</span></h2><p>{t('yourWorld')}</p></div><div className="home-tabs"><button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>{t('forYou')}</button><button className={tab==='following'?'active':''} onClick={()=>setTab('following')}>{t('following')}</button></div>{composer()}
-<div style={{display:'flex',gap:8,margin:'8px 16px',flexWrap:'wrap'}}><Link href="/hub" className="btn btn-outline">社交社区 / 列表</Link><Link href="/creator" className="btn btn-outline">创作者数据</Link></div>
-<Link href="/support" style={{display:'block',margin:16,padding:16,borderRadius:18,background:'#f5e5ff',color:'#7a3d6a',textAlign:'center',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 点击咨询 →</Link>
-</>;
+    return <>
+      <div className="sf-home-minihead">
+        <div><h1>{homeLayout==='masonry'?'发现精彩':'最新动态'}</h1>
+          <p>分享生活、探索兴趣、遇见同好</p></div>
+        <Link href="/explore"><Sparkles size={15}/> AI 搜索</Link>
+      </div>
+      <div className="sf-home-channels">
+        <div className="home-tabs">
+          <button type="button" className={tab==='all'?'active':''} onClick={()=>setTab('all')}>发现</button>
+          <button type="button" className={tab==='following'?'active':''} onClick={()=>setTab('following')}>关注</button>
+        </div>
+        <div className="sf-home-view-toggle" role="group" aria-label="首页浏览模式">
+          <button type="button" aria-pressed={homeLayout==='masonry'} onClick={()=>changeHomeLayout('masonry')}>卡片</button>
+          <button type="button" aria-pressed={homeLayout==='classic'} onClick={()=>changeHomeLayout('classic')}>动态</button>
+        </div>
+      </div>
+      {homeLayout==='masonry'?
+        homeComposerOpen?<div className="sf-home-compose-expanded">
+          <button className="sf-home-compose-dismiss" type="button" onClick={()=>setHomeComposerOpen(false)}>收起发布框</button>
+          {composer()}
+         </div>:
+         <div className="sf-home-composer-collapsed">
+          <button type="button" onClick={()=>{
+            setHomeComposerOpen(true);
+            window.setTimeout(()=>document.querySelector<HTMLTextAreaElement>('.sf-home-compose-expanded textarea')?.focus(),30);
+          }}>
+            <Avatar name={self?.display_name||'星'} image={self?.avatar_url} size={31}/>
+            <strong>分享这一刻的美好…</strong><ImagePlus size={19}/>
+          </button>
+          <Link href="/hub">社区 →</Link>
+         </div>:
+         composer()}
+    </>;
   };
 
   if(checking)return <main className="center-screen"><div className="spinner" aria-label="加载中"/></main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
-  return <div className="app-frame"><div className="app-layout">
+  return <div className={'app-frame'+(view==='home'&&homeLayout==='masonry'?' sf-xhs-home':'')}><div className="app-layout">
     <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href="/messages"><MessageCircle size={25}/><span>私信</span>{dmUnread>0&&<b className="count-bubble">{dmUnread>9?'9+':dmUnread}</b>}</Link><Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
       <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
-    <main className="feed-panel"><div className="sf-top-utility"><span className="sf-top-logo">✦ <b>starflow<span>.</span></b></span><LanguageSwitch/></div>{renderContent()}{!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&<div className="posts-list">
-      {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
-      {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):tab==='following'&&view==='home'?t('emptyFollowing'):t('emptyFeed')} detail={t('emptyHint')}/>}
-      {ordered.map(card)}
-    </div>}<div className="feed-end">© 2026 Starflow · {t('independent')}</div></main>
+    <main className="feed-panel">
+      <div className="sf-top-utility"><Brand/><LanguageSwitch/></div>
+      {renderContent()}
+      {!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&(
+        view==='home'&&homeLayout==='masonry'?
+         <div className="posts-list sf-masonry-feed-wrapper">
+          <StarflowMasonryFeed posts={ordered} metrics={metrics} verified={verified} loading={loading}
+            lang={lang} onLike={post=>void toggle('likes',post)}
+            onBookmark={post=>void toggle('bookmarks',post)}
+            onOpenPost={post=>router.push('/post/'+encodeURIComponent(post.id))}/>
+         </div>:
+         <div className="posts-list">
+          {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
+          {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):tab==='following'&&view==='home'?t('emptyFollowing'):t('emptyFeed')} detail={t('emptyHint')}/>}
+          {ordered.map(card)}
+         </div>
+      )}
+      <div className="feed-end">© 2026 Starflow · {t('independent')}</div>
+    </main>
     <aside className="right-sidebar"><div className="right-card"><div className="right-card-eyebrow"><Sparkles size={15}/> {t('rightHeadline')}</div><h3>{t('rightTitle')}</h3><p>{t('rightDesc')}</p><Link href="/explore" className="discover-link">{t('exploreLink')} <span>↗</span></Link></div>
       <div className="right-card tips-card"><h3>{t('rules')}</h3><div>✦ {t('ruleOne')}</div><div>✦ {t('ruleTwo')}</div><div>✦ {t('ruleThree')}</div></div>
       <div className="footer-links"><Link href="/terms">{t('terms')}</Link><Link href="/privacy">{t('privacy')}</Link><span>© 2026 Starflow</span></div>
