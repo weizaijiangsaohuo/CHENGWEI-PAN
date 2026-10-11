@@ -1,3 +1,6 @@
+import {LANGUAGE_OPTIONS} from './i18n';
+import type {Lang} from './i18n';
+
 export type Profile = {
   id: string; handle: string; display_name: string; bio: string; avatar_url: string | null;
   created_at: string;
@@ -11,10 +14,21 @@ export type Notif = {
   read_at: string | null; created_at: string; profiles?: Profile | Profile[] | null;
 };
 export const unwrap = (val?: Profile | Profile[] | null): Profile | null => Array.isArray(val) ? (val[0] ?? null) : (val ?? null);
-export const ago = (iso: string, lang: "zh" | "en" = "zh") => {
-  const elapsed = Math.max(0, Date.now() - new Date(iso).getTime());
-  if (elapsed < 60000) return lang === 'en' ? 'now' : '刚刚';
-  if (elapsed < 3600000) return lang === "en" ? `${Math.floor(elapsed / 60000)}m` : `${Math.floor(elapsed / 60000)} 分钟`;
-  if (elapsed < 86400000) return lang === "en" ? `${Math.floor(elapsed / 3600000)}h` : `${Math.floor(elapsed / 3600000)} 小时`;
-  return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-CN', { month: 'short', day: 'numeric' });
+export const ago = (iso: string, lang:Lang='zh'):string => {
+  const elapsed=Math.max(0,Date.now()-new Date(iso).getTime());
+  const selected=LANGUAGE_OPTIONS.find(item=>item.code===lang);
+  const locale=selected?.htmlLang??'zh-CN';
+  const isEn=lang==='en'||lang==='en-GB'||lang==='en-SG';
+  const isZh=lang==='zh'||lang==='zh-HK';
+  if(elapsed<60000){
+    return isEn?'now':lang==='zh'?'刚刚':lang==='zh-HK'?'剛剛':new Intl.RelativeTimeFormat(locale,{numeric:'auto'}).format(0,'second');
+  }
+  const unit=elapsed<3600000?'minute':'hour';
+  const value=Math.floor(elapsed/(unit==='minute'?60000:3600000));
+  if(elapsed<86400000){
+    if(isEn)return value+(unit==='minute'?'m':'h');
+    if(isZh)return value+(unit==='minute'?(lang==='zh-HK'?' 分鐘':' 分钟'):(lang==='zh-HK'?' 小時':' 小时'));
+    return new Intl.RelativeTimeFormat(locale,{numeric:'auto',style:'short'}).format(-value,unit);
+  }
+  return new Date(iso).toLocaleDateString(locale,{month:'short',day:'numeric'});
 };

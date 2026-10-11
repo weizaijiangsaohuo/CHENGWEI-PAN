@@ -1,11 +1,8 @@
 import Link from 'next/link';
 export function Brand({ compact = false }: { compact?: boolean }) {
   return <Link href="/" className="brand" aria-label="星流主页">
-    <svg width="44" height="44" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <rect x="2" y="2" width="44" height="44" rx="15" fill="#171923" />
-      <path d="M11 27.5C18 28 19 13 26 15.5C32 17.5 29 28 37 20" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-      <circle cx="35.8" cy="31.5" r="3.4" fill="#A5B2FF" />
-    </svg>
+    <img width="44" height="44" src="/starflow-official-mark.webp" alt="星流正式 Logo"
+      style={{flexShrink:0,borderRadius:13,objectFit:'cover'}} />
     {!compact && <span>星流 <small>STARFLOW</small></span>}
   </Link>;
 }
