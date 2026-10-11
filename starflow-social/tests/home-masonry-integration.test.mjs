@@ -39,3 +39,12 @@ test('mobile five-tab navigation has an actual working publish action',()=>{
  assert.match(social,/router\.push\('\/\?compose=1'\)/);
  assert.match(globalCss,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
 });
+
+test('the left drawer groups existing product routes without fake commerce tools',()=>{
+ const drawer=readFileSync(new URL('../components/StarflowHomeMenu.tsx',import.meta.url),'utf8');
+ assert.match(drawer,/heading:'探索社区'/);
+ assert.match(drawer,/heading:'互动与创作'/);
+ assert.match(drawer,/heading:'账户服务'/);
+ assert.match(drawer,/\/creator/);
+ assert.doesNotMatch(drawer,/\/wallet|\/shopping-cart/);
+});
