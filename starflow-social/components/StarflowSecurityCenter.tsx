@@ -30,6 +30,9 @@ export function StarflowSecurityCenter(){
  const [saving,setSaving]=useState(false);
  const [linking,setLinking]=useState<string|null>(null);
  const [recovering,setRecovering]=useState(false);
+ const [showRecovery,setShowRecovery]=useState(false);
+ const [recoveryCaptcha,setRecoveryCaptcha]=useState('');
+ const [recoveryCaptchaVersion,setRecoveryCaptchaVersion]=useState(0);
  const [revoking,setRevoking]=useState(false);
  const [captcha,setCaptcha]=useState('');
  const [captchaVersion,setCaptchaVersion]=useState(0);
@@ -52,6 +55,7 @@ export function StarflowSecurityCenter(){
 
  const verified=Boolean(user?.email&&user.email_confirmed_at);
  const passwordAccount=identities.some(i=>i.provider==='email');
+ const availableProviders=linkedProviders.filter(p=>p.enabled||identities.some(i=>i.provider===p.provider));
  async function changePassword(e:FormEvent){
   e.preventDefault();
   if(!user||saving)return;
@@ -108,14 +112,14 @@ export function StarflowSecurityCenter(){
   finally{setRevoking(false);}
  }
  async function sendRecovery(){
-  if(!verified||!user?.email||recovering)return;
+  if(!verified||!user?.email||recovering||(siteKey&&!recoveryCaptcha))return;
   setRecovering(true);setError('');setSuccess('');
   try{
-   const {error:requestError}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:location.origin+'/auth/reset'});
+   const {error:requestError}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:location.origin+'/auth/confirm',captchaToken:recoveryCaptcha||undefined});
    if(requestError)throw requestError;
    setSuccess('已提交找回邮件请求；实际送达仍取决于邮件服务配置。');
   }catch(e){setError(e instanceof Error?e.message:'请求找回失败');}
-  finally{setRecovering(false);}
+  finally{setRecovering(false);setRecoveryCaptcha('');setRecoveryCaptchaVersion(v=>v+1);}
  }
  if(loading)return <main className="sf-sec-state"><RefreshCw size={21}/> 正在读取账户安全信息…</main>;
  if(!user)return <main className="sf-sec-state"><p>请先登录 Starflow 后管理安全设置。</p><Link href="/">返回登录</Link></main>;
@@ -123,13 +127,18 @@ export function StarflowSecurityCenter(){
   <header className="sf-sec-head"><Link href="/settings"><ArrowLeft size={18}/> 返回设置</Link><Brand compact/></header>
   <div className="sf-sec-main">
    <h1><ShieldCheck size={28}/> 账户安全管理中心</h1>
-   <p className="sf-sec-intro">管理当前登录邮箱、密码、第三方绑定和账户找回方式。</p>
+   <p className="sf-sec-intro">管理预留邮箱、登录密码和设备安全。邮箱可用于验证身份及找回账号。</p>
    {error&&<div className="sf-sec-alert" role="alert"><TriangleAlert size={18}/>{error}</div>}
    {success&&<div className="sf-sec-success" role="status"><CheckCircle2 size={18}/>{success}</div>}
    <section className="sf-sec-card">
-    <h2><Mail size={19}/> 当前绑定邮箱</h2>
+    <h2><Mail size={19}/> 预留邮箱与账号找回</h2>
     <div className="sf-sec-line"><strong>{user.email||'尚未绑定邮箱'}</strong><span className={verified?'sf-sec-yes':'sf-sec-pending'}>{verified?'已验证':'未验证'}</span></div>
-    <p className="sf-sec-muted">{verified?'此邮箱可作为账户找回渠道（需邮件服务正常投递）。':'邮箱未经验证，不能保证用于找回账号。'}</p>
+    <p className="sf-sec-muted">{verified?'忘记密码时可以输入用户名或邮箱，重置链接只会发到这个已验证的预留邮箱。':'请先验证预留邮箱，否则无法安全找回密码。'} 人机验证用于防止机器人滥用，不能替代邮箱验证。</p>
+    <button className="sf-sec-bind" type="button" disabled={!verified||recovering} onClick={()=>setShowRecovery(v=>!v)}>{showRecovery?'收起找回方式':'发送密码重置邮件'}</button>
+    {showRecovery&&<div className="sf-sec-form" style={{marginTop:12}}><p className="sf-sec-muted">确认后向你的预留邮箱发送一次性重置链接。无需先退出登录。</p>
+      {siteKey&&<TurnstileChallenge key={recoveryCaptchaVersion} siteKey={siteKey} onToken={setRecoveryCaptcha} onError={()=>setRecoveryCaptcha('')}/>}
+      <button className="sf-sec-primary" type="button" disabled={recovering||Boolean(siteKey&&!recoveryCaptcha)} onClick={()=>void sendRecovery()}>{recovering?'正在发送…':'确认发送重置链接'}</button>
+    </div>}
    </section>
    <section className="sf-sec-card">
     <h2><KeyRound size={19}/> {passwordAccount?'修改登录密码':'设置邮箱登录密码'}</h2>
@@ -143,10 +152,10 @@ export function StarflowSecurityCenter(){
      <button className="sf-sec-primary" disabled={saving||(!verified&&!passwordAccount)||Boolean(passwordAccount&&siteKey&&!captcha)} type="submit">{saving?'正在保存…':'保存新密码'}</button>
     </form>
    </section>
-   <section className="sf-sec-card">
+   {availableProviders.length>0&&<section className="sf-sec-card">
     <h2><Link2 size={19}/> 第三方账户绑定</h2>
     <p className="sf-sec-muted">通过官方授权后绑定至当前 Starflow 账号。未开通的服务不会显示假绑定按钮。</p>
-    <div className="sf-sec-providers">{linkedProviders.map(p=>{
+    <div className="sf-sec-providers">{availableProviders.map(p=>{
      const identity=identities.find(i=>i.provider===p.provider);
      return <div className="sf-sec-provider" key={p.key}>
       <span className="sf-sec-provider-text"><strong>{p.label}</strong><small>{identity?accountLabel(identity):p.enabled?'尚未绑定':p.requirement}</small></span>
@@ -156,13 +165,8 @@ export function StarflowSecurityCenter(){
      </div>;
     })}</div>
     <p className="sf-sec-muted">为防止失去唯一登录方式，本阶段不开放直接解绑；后续增加安全重认证后再开放。</p>
-   </section>
-   <section className="sf-sec-card">
-    <h2><ShieldCheck size={19}/> 账户找回方式</h2>
-    <div className="sf-sec-line"><span>已验证邮箱</span><button className="sf-sec-bind" type="button" disabled={!verified||recovering} onClick={()=>void sendRecovery()}>{recovering?'正在请求…':'发送密码找回邮件'}</button></div>
-    <div className="sf-sec-line"><span>已绑定第三方</span><strong>{linkedProviders.filter(p=>p.enabled&&identities.some(i=>i.provider===p.provider)).map(p=>p.label).join('、')||'暂无已启用的关联身份'}</strong></div>
-    <p className="sf-sec-muted">绑定社交身份可以提供额外登录路径，但平台账号必须仍可登录；不等于可以绕过原平台认证。邮箱找回需要 SMTP 服务实际可用。</p>
-   </section>
+   </section>}
+
    <section className="sf-sec-card">
     <h2><ShieldCheck size={19}/> 登录设备与会话保护</h2>
     <p className="sf-sec-muted">如怀疑其他设备存在异常登录，可以撤销它们的刷新会话。当前设备保留登录；已签发的访问令牌可能在到期前仍有效。</p>

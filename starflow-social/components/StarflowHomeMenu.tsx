@@ -6,7 +6,7 @@ import {Brand} from './Brand';
 
 export function StarflowHomeMenu(){
  const dialog=useRef<HTMLDialogElement>(null);
- const show=()=>{if(!dialog.current?.open)dialog.current?.showModal()};
+ const show=()=>{if(!dialog.current?.open){dialog.current?.showModal();dialog.current?.focus({preventScroll:true});}};
  const close=()=>dialog.current?.close();
  const groups=[
   {heading:'探索社区',items:[
@@ -38,7 +38,7 @@ export function StarflowHomeMenu(){
  return <>
   <button type="button" className="sf-home-menu-trigger" aria-label="打开首页菜单"
     aria-haspopup="dialog" onClick={show}><Menu size={21}/></button>
-  <dialog ref={dialog} className="sf-home-drawer" aria-label="星流首页功能菜单"
+  <dialog ref={dialog} tabIndex={-1} className="sf-home-drawer" aria-label="星流首页功能菜单"
     onClick={event=>{if(event.target===event.currentTarget)close();}}>
     <header className="sf-home-drawer-head"><Brand/>
       <button type="button" aria-label="关闭菜单" onClick={close}><X size={20}/></button>

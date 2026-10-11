@@ -62,3 +62,16 @@
 .app-frame .sf3-activity-shortcut small{font-size:10px;color:#9b8fa4}
 @media(max-width:390px){.app-frame .sf3-activity-shortcuts{gap:7px;padding:15px 8px}.app-frame .sf3-activity-shortcut strong{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.app-frame .sf3-activity-shortcut{transition:none}}
+
+
+/* Four mobile notification categories and a permanent one-tap DM inbox link. */
+.app-frame .sf3-activity-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr))}
+.app-frame .sf3-activity-shortcut:nth-child(4) .sf3-activity-icon{background:#f1eaff;color:#9255cf}
+.app-frame .sf3-actions .sf3-messages-link{display:inline-flex;gap:5px;align-items:center;justify-content:center;min-height:36px;min-width:65px;padding:7px 11px;text-decoration:none;color:#8741ac;background:#f7ebfd;border:1px solid #eddaff;border-radius:12px;font-weight:750;font-size:13px;white-space:nowrap}
+.app-frame .sf3-actions .sf3-messages-link:focus-visible{outline:2px solid #8741ac;outline-offset:2px}
+@media(max-width:640px){
+ .app-frame .sf3-activity-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:13px 12px}
+ .app-frame .sf3-activity-shortcut{min-height:80px;padding:9px 6px;gap:4px}
+ .app-frame .sf3-notification-head{gap:8px}
+ .app-frame .sf3-actions .sf3-messages-link{min-width:56px;padding:6px 8px}
+}
