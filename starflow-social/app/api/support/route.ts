@@ -66,6 +66,15 @@ function getAnswer(result: AiOutput): string {
     .trim();
 }
 
+// Public readiness does not expose credentials or private configuration.
+export async function GET() {
+  try {
+    const {env}=getCloudflareContext();
+    const bindings=env as unknown as Bindings;
+    return reply({ready:Boolean(bindings.AI&&bindings.SUPPORT_PER_IP&&bindings.SUPPORT_GLOBAL)});
+  }catch{return reply({ready:false});}
+}
+
 export async function POST(request: Request) {
   try {
     const origin = new URL(request.url).origin;
@@ -201,7 +210,7 @@ export async function POST(request: Request) {
           '任何访客都可以使用客服，无需登录。',
           '帮助用户了解账号、登录、注册、',
           '发布动态、评论、关注、隐私和安全。',
-          '用户之间的私信功能已取消。',
+          '用户可以使用站内私信。尊重对方拉黑以及系统安全限制。',
           '不要编造账号、订单或支付信息。',
           '不要索取密码、验证码和银行卡信息。',
           '回答应当准确、简洁、清楚。',

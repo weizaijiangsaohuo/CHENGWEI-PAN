@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -53,6 +53,19 @@ export default function SupportPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [serviceStatus,setServiceStatus]=useState<'checking'|'ready'|'unavailable'>('checking');
+  useEffect(()=>{
+    const controller=new AbortController();
+    const check=async()=>{
+      try{
+        const response=await fetch('/api/support',{cache:'no-store',signal:controller.signal});
+        const status=await response.json() as {ready?:boolean};
+        if(!controller.signal.aborted)setServiceStatus(response.ok&&status.ready===true?'ready':'unavailable');
+      }catch{if(!controller.signal.aborted)setServiceStatus('unavailable');}
+    };
+    void check();
+    return()=>controller.abort();
+  },[]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,7 +75,7 @@ export default function SupportPage() {
 
     const question = input.trim();
 
-    if (!question || loading || question.length > 400) {
+    if (!question || loading || serviceStatus!=='ready' || question.length > 400) {
       return;
     }
 
@@ -149,11 +162,11 @@ export default function SupportPage() {
           </Link>
 
           <div className="support-brand">
-            <div className="support-logo">✦</div>
+            <div className="support-logo"><img src="/starflow-official-mark.webp" alt="星流正式 Logo" width="46" height="46"/></div>
 
             <div>
               <strong>Starflow AI 客服中心</strong>
-              <small>无需登录 · 24 小时自助问答</small>
+              <small>无需登录 · {serviceStatus==='ready'?'AI 问答已就绪':serviceStatus==='checking'?'正在检测服务…':'AI 问答暂不可用'}</small>
             </div>
           </div>
         </header>
@@ -171,7 +184,7 @@ export default function SupportPage() {
             直接向 AI 客服提问，无需登录。
           </p>
 
-          <span>智能客服 · 无人工客服</span>
+          <span>AI 模型自动回复 · 无人工客服</span>
         </section>
 
         <section
@@ -196,7 +209,7 @@ export default function SupportPage() {
                     );
 
                     setError('');
-                    inputRef.current?.focus();
+                    if(serviceStatus==='ready')inputRef.current?.focus();
                   }}
                 >
                   <Icon size={23} strokeWidth={1.8} />
@@ -221,8 +234,12 @@ export default function SupportPage() {
         >
           <div className="support-chat-heading">
             <MessageCircle size={20} />
-            <strong>与官方 AI 客服对话</strong>
+            <strong>与星流 AI 客服对话</strong>
           </div>
+          {serviceStatus!=='ready'&&<p role="status" className="support-service-note">
+            {serviceStatus==='checking'?'正在检查 AI 客服状态…':
+              '测试站的 AI 服务尚未就绪，暂时无法进行实时问答。账号安全、搜索及社区功能不受影响。'}
+          </p>}
 
           <div
             className="support-messages"
@@ -230,9 +247,9 @@ export default function SupportPage() {
             ref={scrollRef}
           >
             <div className="support-bubble assistant">
-              你好！我是 Starflow AI 客服。
-              你无需登录就可以提问。
-              请告诉我遇到了什么问题。
+              你好！这里是 Starflow 智能帮助中心。
+              AI 服务就绪后，你可以直接提问。
+              请勿发送密码或验证码。
             </div>
 
             {messages.map((message, index) => (
@@ -269,14 +286,15 @@ export default function SupportPage() {
               onChange={event => {
                 setInput(event.target.value);
               }}
-              placeholder="输入问题，AI 客服将为你解答…"
+              placeholder={serviceStatus==='ready'?'输入问题，AI 客服将为你解答…':'AI 客服暂时不可用'}
+              disabled={serviceStatus!=='ready'}
               maxLength={400}
               aria-label="输入问题"
             />
 
             <button
               type="submit"
-              disabled={loading || !input.trim()}
+              disabled={serviceStatus!=='ready' || loading || !input.trim()}
               aria-label="发送给 AI 客服"
             >
               <Send size={20} />
@@ -365,15 +383,12 @@ export default function SupportPage() {
           display: grid;
           place-items: center;
           color: white;
-          font-size: 30px;
-          background:
-            linear-gradient(
-              135deg,
-              #ff94bf,
-              #b99bff
-            );
+          overflow:hidden;
+          background:#17162b;
         }
 
+        .support-logo img{display:block;width:100%;height:100%;object-fit:cover}
+        .support-service-note{margin:0 0 14px;padding:12px 14px;border:1px solid #ead8ec;background:#fcf5ff;border-radius:13px;color:#84658f;font-size:12px;line-height:1.7}
         .support-hero,
         .support-topics,
         .support-chat {
@@ -529,7 +544,8 @@ export default function SupportPage() {
           outline: none;
           background: transparent;
           color: #58334e;
-          font-size: 14px;
+          /* Safari autozooms if input text is smaller than 16px. */
+          font-size: 16px;
         }
 
         .support-form button {
