@@ -122,17 +122,17 @@ test('mode switches invalidate verification and cannot interrupt an active reque
 });
 
 test('widget expiry, timeout, error and unmount invalidate or remove the widget',()=>{
-  let options;const removed=[];const tokens=[];let errors=0;
+  let options;const removed=[];const tokens=[];const errors=[];
   const h=harness('TurnstileChallenge',{}, {window:{turnstile:{
     render(_container,value){options=value;return 'widget-id';},remove(id){removed.push(id);}
   }}});
-  const props={siteKey:'public-test-site-key',onToken:token=>tokens.push(token),onError:()=>errors++};
+  const props={siteKey:'public-test-site-key',onToken:token=>tokens.push(token),onError:code=>errors.push(code)};
   let tree=h.renderProps(props);
   find(tree,n=>n.type==='div').props.ref.current={};
   h.flush();find(tree,n=>n.type==='Script').props.onReady();
   tree=h.renderProps(props);h.flush();
-  options.callback('valid');options['expired-callback']();options['timeout-callback']();options['error-callback']();
-  assert.deepEqual(tokens,['valid','','','']);assert.equal(errors,1);
+  options.callback('valid');options['expired-callback']();options['timeout-callback']();options['error-callback']('110200');
+  assert.deepEqual(tokens,['valid','','','']);assert.deepEqual(errors,['110200']);
   h.cleanup();assert.deepEqual(removed,['widget-id']);
   options.callback('late');assert.equal(tokens.length,4);
 });
@@ -166,4 +166,12 @@ test('sign-up accepts 6-digit, 7-character alphanumeric and symbol passwords, re
   p.challenge().props.onToken('valid-test-token');
   await p.submit();
   assert.equal(p.calls.length,0,'Five-character password must not submit');
+});
+
+test('login UI shows exact failure code and retry while still requiring a valid token',()=>{
+ const source=fs.readFileSync(new URL('../components/AuthPortal.tsx',import.meta.url),'utf8');
+ assert.match(source,/turnstileFailureHint\(captchaFailureCode,lang\)/);
+ assert.match(source,/setCaptchaFailureCode\(code\|\|'UNKNOWN'\)/);
+ assert.match(source,/onClick=\{\(\)=>\{setError\(''\);resetCaptcha\(\);\}\}/);
+ assert.match(source,/siteKey&&!captchaToken/);
 });
