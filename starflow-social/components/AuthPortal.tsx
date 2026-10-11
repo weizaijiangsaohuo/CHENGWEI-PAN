@@ -8,6 +8,28 @@ import { LanguageSwitch, useLanguage } from './LanguageProvider';
 import {isEnglishLocale} from '@/lib/i18n';
 import { db, hasConfig } from '@/lib/supabase';
 import { activeLoginProviders } from '@/lib/account-providers';
+import type { Lang } from '@/lib/i18n';
+
+type TurnstileGuidance={domain:string;network:string;config:string;other:string;retry:string};
+const turnstileHelp:Record<Lang,TurnstileGuidance>={
+  zh:{domain:'正式域名未获 Turnstile 授权，请网站管理员在 Cloudflare 添加当前域名。',network:'验证组件无法连接 Cloudflare；请切换网络或关闭内容拦截后重试。',config:'人机验证站点密钥配置异常，需要网站管理员检查。',other:'无法完成人机验证，请重试。',retry:'重新尝试验证'},
+  en:{domain:'This site is not authorized for Turnstile. The administrator must add this hostname in Cloudflare.',network:'Unable to load Cloudflare verification. Switch networks or disable content blockers and try again.',config:'The verification site key needs administrator attention.',other:'Verification could not be completed.',retry:'Retry verification'},
+  'zh-HK':{domain:'正式網域尚未獲 Turnstile 授權，請網站管理員於 Cloudflare 加入此網域。',network:'無法連接 Cloudflare 驗證，請切換網絡或停用內容攔截後重試。',config:'驗證網站金鑰配置有誤，需網站管理員檢查。',other:'無法完成人機驗證，請重試。',retry:'重新嘗試驗證'},
+  'ko-KR':{domain:'현재 도메인이 Turnstile에 등록되지 않았습니다. 관리자에게 도메인 등록을 요청하세요.',network:'Cloudflare 인증을 불러오지 못했습니다. 네트워크를 바꾸거나 콘텐츠 차단을 해제하세요.',config:'인증 사이트 키 설정을 관리자가 확인해야 합니다.',other:'인증에 실패했습니다. 다시 시도하세요.',retry:'인증 다시 시도'},
+  'ja-JP':{domain:'このドメインは Turnstile に登録されていません。管理者が Cloudflare で設定する必要があります。',network:'Cloudflare の認証を読み込めません。通信環境やコンテンツブロッカーをご確認ください。',config:'認証サイトキーの設定を管理者が確認する必要があります。',other:'認証できませんでした。もう一度お試しください。',retry:'認証を再試行'},
+  'en-SG':{domain:'This site is not authorised for Turnstile. The administrator must add this hostname in Cloudflare.',network:'Could not load Cloudflare verification. Try another network or disable content blockers.',config:'The verification site key needs administrator attention.',other:'Verification could not be completed.',retry:'Retry verification'},
+  'en-GB':{domain:'This site is not authorised for Turnstile. The administrator must add this hostname in Cloudflare.',network:'Could not load Cloudflare verification. Try another network or disable content blockers.',config:'The verification site key needs administrator attention.',other:'Verification could not be completed.',retry:'Retry verification'},
+  'de-DE':{domain:'Diese Domain ist für Turnstile nicht freigegeben. Der Administrator muss sie in Cloudflare hinzufügen.',network:'Cloudflare-Verifizierung nicht erreichbar. Bitte Netzwerk wechseln oder Inhaltsblocker deaktivieren.',config:'Der Administrator muss den Verifizierungsschlüssel prüfen.',other:'Verifizierung fehlgeschlagen. Bitte erneut versuchen.',retry:'Verifizierung wiederholen'},
+  'fr-FR':{domain:'Ce domaine n’est pas autorisé pour Turnstile. L’administrateur doit l’ajouter dans Cloudflare.',network:'Vérification Cloudflare inaccessible. Essayez un autre réseau ou désactivez le bloqueur de contenu.',config:'L’administrateur doit vérifier la clé du widget.',other:'Impossible de vérifier. Veuillez réessayer.',retry:'Réessayer la vérification'}
+};
+function turnstileFailureHint(code:string,lang:Lang){
+ const guide=turnstileHelp[lang]??turnstileHelp.en;
+ if(code==='110200'||code==='400021')return guide.domain;
+ if(['110100','110110','400020','400070'].includes(code))return guide.config;
+ if(code==='200500'||code==='SCRIPT_LOAD_FAILED')return guide.network;
+ return guide.other;
+}
+
 
 export function AuthPortal(){
   const {t,lang}=useLanguage();
@@ -37,11 +59,15 @@ export function AuthPortal(){
   },[configuredSiteKey]);
   const siteKey=configuredSiteKey||previewSiteKey;
   const [captchaToken,setCaptchaToken]=useState('');
+  const [captchaFailureCode,setCaptchaFailureCode]=useState('');
   const captchaTokenRef=useRef('');
   const submitting=useRef(false);
-  function updateCaptcha(token:string){captchaTokenRef.current=token;setCaptchaToken(token);}
+  function updateCaptcha(token:string){
+    captchaTokenRef.current=token;setCaptchaToken(token);
+    if(token){setCaptchaFailureCode('');setError(previous=>previous===t('captchaFailure')?'':previous);}
+  }
   const [captchaGeneration,setCaptchaGeneration]=useState(0);
-  function resetCaptcha(){updateCaptcha('');setCaptchaGeneration(value=>value+1);}
+  function resetCaptcha(){updateCaptcha('');setCaptchaFailureCode('');setCaptchaGeneration(value=>value+1);}
   function change(next:'signup'|'login'|'forgot'){if(submitting.current)return;setMode(next);setError('');setSuccess('');setPendingEmail('');setResendAvailableAt(0);resetCaptcha();}
   async function submit(e:FormEvent){
     e.preventDefault();if(submitting.current)return;setError('');setSuccess('');
@@ -143,7 +169,11 @@ export function AuthPortal(){
           {mode==='signup'&&<label><span>{t('nickname')}</span><div className="field-wrap"><Users size={18}/><input type="text" placeholder={t('nicknamePlace')} value={display} onChange={e=>setDisplay(e.target.value)} maxLength={60} required autoComplete="nickname"/></div></label>}
           <label><span>{t('email')}</span><div className="field-wrap"><Mail size={18}/><input type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></div></label>
           {mode!=='forgot'&&<label><span>{t('password')}</span><div className="field-wrap"><Lock size={18}/><input type={visible?'text':'password'} placeholder={mode==='signup'?t('passwordHint'):t('inputPassword')} value={password} onChange={e=>setPassword(e.target.value)} required minLength={mode==='signup'?6:1} autoComplete={mode==='signup'?'new-password':'current-password'}/><button type="button" className="show-pass" onClick={()=>setVisible(!visible)} aria-label={visible?t('hidePassword'):t('showPassword')}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>}
-          {siteKey?<TurnstileChallenge key={captchaGeneration} siteKey={siteKey} onToken={updateCaptcha} onError={()=>setError(t('captchaFailure'))}/>:<p className="captcha-alert">{t('captchaNotReady')}</p>}
+          {siteKey?<TurnstileChallenge key={captchaGeneration} siteKey={siteKey} onToken={updateCaptcha} onError={code=>{setCaptchaFailureCode(code||'UNKNOWN');setError(t('captchaFailure'));}}/>:<p className="captcha-alert">{t('captchaNotReady')}</p>}
+          {captchaFailureCode&&<div className="captcha-alert" role="status" style={{marginTop:9,padding:12,borderRadius:12,background:'#fff5f5',fontSize:13}}>
+            <span>{turnstileFailureHint(captchaFailureCode,lang)} <strong style={{whiteSpace:'nowrap'}}>({captchaFailureCode})</strong></span>
+            <button type="button" onClick={()=>{setError('');resetCaptcha();}} style={{display:'block',marginTop:8,padding:'8px 12px',borderRadius:11,border:'1px solid #dfbde8',background:'white',color:'#7d43a1',fontWeight:750}}>{(turnstileHelp[lang]??turnstileHelp.en).retry}</button>
+          </div>}
           {error&&<div className="form-error" role="alert">{error}</div>}{success&&<div className="form-success" role="status"><Check size={16}/>{success}</div>}
           <button className="btn btn-primary auth-submit" disabled={busy||!configured||Boolean(siteKey&&!captchaToken)}>{busy?t('processing'):t(mode==='signup'?'create':mode==='login'?'loginButton':'sendReset')}<ArrowRight size={18}/></button>
         </form>
