@@ -79,5 +79,7 @@
  .sf-motion-set[aria-hidden="true"]{display:none}
  .sf-motion-tile,.sf-motion-featured-body button{transition:none}
 }
-:global(html.sf-user-motion-off) .sf-motion-section .sf-motion-track,
-:global(html.sf-user-motion-off) .sf-motion-section .sf-motion-featured-art>img{animation:none!important}
+html.sf-user-motion-off .sf-motion-section .sf-motion-track,
+html.sf-user-motion-off .sf-motion-section .sf-motion-featured-art>img{animation:none!important;will-change:auto}
+html.sf-user-motion-off .sf-motion-section .sf-motion-marquee{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;mask-image:none}
+html.sf-user-motion-off .sf-motion-section .sf-motion-set[aria-hidden="true"]{display:none}
