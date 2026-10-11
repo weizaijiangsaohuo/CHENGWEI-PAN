@@ -5,9 +5,10 @@ import { ArrowRight, Check, Eye, EyeOff, Globe2, Lock, Mail, ShieldCheck, Sparkl
 import { Brand } from './Brand';
 import { LanguageSwitch, useLanguage } from './LanguageProvider';
 import { db, hasConfig } from '@/lib/supabase';
+import { siteText } from '@/lib/site-copy';
 
 export function AuthPortal(){
-  const {t}=useLanguage();
+  const {t,lang}=useLanguage();
   const [mode,setMode]=useState<'login'|'signup'|'forgot'>('signup');
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');
   const [display,setDisplay]=useState('');const [visible,setVisible]=useState(false);
@@ -73,7 +74,7 @@ export function AuthPortal(){
           {mode==='login'&&<button className="forgot-link" onClick={()=>change('forgot')}>{t('forgotLink')}</button>}</div>
         {!configured&&<p className="configuration-note">{t('configNeeded')}</p>}
         
-<a href="/support" style={{display:'block',textAlign:'center',padding:'14px',margin:'16px 0',borderRadius:16,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</a>
+<a href="/support" style={{display:'block',textAlign:'center',padding:'14px',margin:'16px 0',borderRadius:16,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ {siteText(lang,'supportLink')} →</a>
 
         <p className="legal-text">{t('legalLead')} <a href="/terms">{t('terms')}</a> {t('and')} <a href="/privacy">{t('privacy')}</a>{t('legalTail')}</p>
       </div><div className="bottom-credit"><Globe2 size={14}/>{t('authFooter')}</div></section>
