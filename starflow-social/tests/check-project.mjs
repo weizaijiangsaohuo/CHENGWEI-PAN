@@ -31,4 +31,23 @@ console.log(`PASS: ${files.length} essential files exist`);
 console.log('PASS: 8 social tables have RLS; critical authorization triggers and guards found');
 console.log('PASS: email, recovery, OAuth, CAPTCHA and main social flows wired');
 console.log('PASS: Google is gated; Apple removed; welcome-email uses verified server-side identity and DB claim');
+
+// Multilingual regression checks (static guards, not browser or model tests).
+const languageProvider=get('components/LanguageProvider.tsx');
+const siteCopy=get('lib/site-copy.ts');
+const supportPage=get('app/support/page.tsx');
+const supportApi=get('app/api/support/route.ts');
+for(const code of ['zh','en','zh-hk','ko','ja','en-sg','en-gb','de','fr']){
+  assert(languageProvider.includes(`code:'${code}'`),`Missing language selector: ${code}`);
+  assert(supportApi.includes(`${code}:`) || supportApi.includes(`'${code}':`),`Missing support AI locale: ${code}`);
+}
+for(const key of ['welcome','topics','chatTitle','greeting','topicPrompt','homeTitle1','homeTitle2']){
+  assert(siteCopy.includes(`'${key}'`),`Missing site translation key: ${key}`);
+}
+assert(languageProvider.includes('overflow-y:auto'),'Language menu must scroll on narrow screens');
+assert(languageProvider.includes("sf-language"),'Language selection must persist');
+assert(supportPage.includes('locale: lang')&&supportPage.includes('topicQuestion(lang'),'Support page must pass current locale to AI');
+assert(supportApi.includes('responseLanguage[locale]'),'AI system instruction must respect selected locale');
+console.log('PASS: Nine locale selectors, support language routing and menu scrolling guards found');
+
 console.log('NOTE: Static assertions only. This does not test DB, Cloudflare deployment, SMTP, Resend delivery, OAuth, browser UI or HTTPS.');
