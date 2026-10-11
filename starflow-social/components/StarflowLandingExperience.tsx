@@ -133,6 +133,17 @@ const fr:Copy={
 };
 const localeCopy:Record<Lang,Copy>={zh,'zh-hk':zhHK,en,'en-sg':en,'en-gb':en,ja,ko,de,fr};
 
+/** Shared Starflow wave mark, matching the signed-in brand rather than a generic sparkle. */
+function StarflowMark({size=44}:{size?:number}){
+  return <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden="true">
+    <rect x="1" y="1" width="46" height="46" rx="14" fill="#171534"/>
+    <path d="M10 27.5C17 28 18 13 26 15.5C32 17.5 29 28 37 20" stroke="#F7E9FF" strokeWidth="4" strokeLinecap="round"/>
+    <path d="M8 34L17 31.5" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" opacity=".75"/>
+    <circle cx="35.8" cy="31.5" r="3.6" fill="#B9ACFF"/>
+    <path d="M33.5 9L35 12.5L38.5 14L35 15.5L33.5 19L32 15.5L28.5 14L32 12.5L33.5 9Z" fill="#FFFFFF" opacity=".93"/>
+  </svg>;
+}
+
 const experiences=[
   {key:'share' as const,Icon:MessageCircle},
   {key:'explore' as const,Icon:Compass},
@@ -201,12 +212,12 @@ export function StarflowLandingExperience({onJoin}:{onJoin:()=>void}){
   const detailBody=active===0?c.cardShareBody:active===1?c.cardExploreBody:c.cardSafeBody;
   return <div ref={container} className={`sf-cinema ${ready&&!reduced?'sf-cinema-motion':''} ${reduced?'sf-cinema-reduced':''} ${compact?'sf-cinema-compact':''}`}>
     {intro&&!introComplete&&<div className="sf-cinema-intro" role="status" aria-label="Starflow">
-      <div className="sf-cinema-intro-mark">✦</div><b>starflow<span>.</span></b>
+      <div className="sf-cinema-intro-mark"><StarflowMark size={84}/></div><b>starflow<span>.</span></b>
       <button type="button" onClick={()=>{setIntro(false);setIntroComplete(true)}} aria-label="Skip introduction"><X size={17}/></button>
     </div>}
     <div className="sf-cinema-space" aria-hidden="true"/>
     <header className="sf-cinema-header">
-      <Link className="sf-cinema-brand" href="/" aria-label="Starflow home"><span aria-hidden="true">✦</span>starflow<span className="sf-cinema-dot">.</span></Link>
+      <Link className="sf-cinema-brand" href="/" aria-label="Starflow home"><span aria-hidden="true"><StarflowMark/></span>starflow<span className="sf-cinema-dot">.</span></Link>
       <nav className="sf-cinema-mainnav" aria-label="Starflow">
         <a href="#sf-cinema-experience">{c.navExplore}</a>
         <a href="#sf-cinema-world">{c.navWorld}</a>
