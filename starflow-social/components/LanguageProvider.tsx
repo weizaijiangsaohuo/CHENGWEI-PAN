@@ -96,7 +96,7 @@ export function LanguageSwitch({className=''}:{className?:string}){
       .sf-lang-text{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
       .sf-lang-text strong{font-size:14px}.sf-lang-text small{color:#8b8391;font-size:11px}
       .sf-lang-check{color:#9861cb;font-size:20px;font-weight:900}
-      @media(max-width:650px){.sf-lang-switch{padding:9px 11px;gap:6px;font-size:12px}.sf-lang-caption{max-width:82px;overflow:hidden;text-overflow:ellipsis}.sf-lang-menu{max-height:min(66dvh,calc(100dvh - 110px));width:min(342px,calc(100vw - 24px))}}
+      @media(max-width:650px){.sf-lang-switch{padding:9px 11px;gap:6px;font-size:12px}.sf-lang-caption{max-width:82px;overflow:hidden;text-overflow:ellipsis}.sf-lang-menu{position:fixed;top:calc(86px + env(safe-area-inset-top));left:12px;right:12px;width:auto;max-height:min(66dvh,calc(100dvh - 110px - env(safe-area-inset-top)))}}
     `}</style>
   </div>;
 }
