@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useState} from 'react';
 import type {CSSProperties,FormEvent} from 'react';
 import Link from 'next/link';
 import {ArrowRight,BookOpen,Globe2,LockKeyhole,MessageCircle,ShieldCheck,Sparkles,Users,ChevronRight,X,Send} from 'lucide-react';
@@ -101,7 +101,6 @@ function LegacyStarflowAiWidget({signedIn,onSignIn,en}:{signedIn:boolean;onSignI
 
 export default function Home(){
   const [screen,setScreen]=useState<Screen>('checking');
-  const heroRef=useRef<HTMLElement|null>(null);
   const [showInitialLogo,setShowInitialLogo]=useState(false);
   const {lang}=useLanguage();
   const en=lang==='en';
@@ -114,30 +113,6 @@ export default function Home(){
       sessionStorage.setItem('sf-entry-logo-seen','1');
     }catch{setShowInitialLogo(false);}
   },[]);
-  useEffect(()=>{
-    if(screen!=='landing')return;
-    const hero=heroRef.current;
-    if(!hero)return;
-    const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-      document.documentElement.classList.contains('sf-user-motion-off');
-    const fine=window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    if(!fine||reduced)return;
-    let raf=0;
-    const move=(event:PointerEvent)=>{
-      if(raf)return;
-      const x=(event.clientX/window.innerWidth-.5)*2;
-      const y=(event.clientY/window.innerHeight-.5)*2;
-      raf=window.requestAnimationFrame(()=>{
-        hero.style.setProperty('--sf-visual-x',(x*-5).toFixed(2)+'px');
-        hero.style.setProperty('--sf-visual-y',(y*-5).toFixed(2)+'px');
-        hero.style.setProperty('--sf-portal-x',(x*9).toFixed(2)+'px');
-        hero.style.setProperty('--sf-portal-y',(y*8).toFixed(2)+'px');
-        raf=0;
-      });
-    };
-    window.addEventListener('pointermove',move,{passive:true});
-    return()=>{window.removeEventListener('pointermove',move);window.cancelAnimationFrame(raf);};
-  },[screen]);
   useEffect(()=>{
     const node=document.querySelector('.sf-public-landing');
     if(!node||window.matchMedia('(prefers-reduced-motion: reduce)').matches||!('IntersectionObserver'in window))return;
@@ -189,20 +164,10 @@ export default function Home(){
     </header>
 
     <main>
-      <section className={styles.hero+' '+styles.cinematicHero} ref={heroRef} aria-label={en?'Starflow introduction':'星流品牌介绍'}>
-        <div className={styles.heroBackdrop} aria-hidden="true">
-          <span className={styles.cosmicLight}/>
-          <span className={styles.cosmicLightSecondary}/>
-          <span className={styles.cosmicGrid}/>
-          <span className={styles.cosmicArc}/>
-          <span className={styles.cosmicDust}/>
-          <span className={styles.cosmicStreak}/>
-        </div>
+      <section className={styles.hero}>
         <div className={styles.heroText}>
-          <div className={styles.chapterCounter}><span className={styles.chapterPulse}/> STARFLOW / YOUR UNIVERSE <span>001</span></div>
           <span className={styles.eyebrow}><span className={styles.liveDot}/>{en?'A space for real connection':'连接每一种可能'}</span>
           <h1>{en?<>Your world,<br/><em>in the moment.</em></>:<>你关心的世界，<br/><em>此刻正在发生。</em></>}</h1>
-          <p className={styles.heroEnglish}>EVERY MOMENT HAS A STORY.</p>
           <p className={styles.heroDescription}>{en?'Share your thoughts, discover new voices, and connect through the moments that matter.':'分享真实想法，遇见有趣的人，让每一次连接，都值得期待。'}</p>
           <div className={styles.heroActions}>
             <button type="button" onClick={enter} className={styles.primaryAction}>{en?'Get started':'立即加入'} <ArrowRight size={18}/></button>
@@ -213,13 +178,7 @@ export default function Home(){
 <Link href="/support" style={{display:'inline-flex',marginTop:16,padding:'14px 20px',borderRadius:18,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</Link>
 
         </div>
-        <div className={styles.heroVisual} aria-label={en?'Visual of the Starflow universe':'星流品牌动态场景'}>
-          <div className={styles.portalStage} aria-hidden="true">
-            <span className={styles.portalOuter}/><span className={styles.portalMid}/>
-            <span className={styles.portalInner}/><span className={styles.portalCore}/>
-            <span className={styles.portalGlyph}><img src="/starflow-official-mark.webp" width="106" height="106" alt=""/></span>
-            <span className={styles.portalStarA}>✦</span><span className={styles.portalStarB}>✧</span>
-          </div>
+        <div className={styles.heroVisual} aria-label={en?'Illustration of Starflow features':'星流功能示意图'}>
           <div className={styles.previewGlow}/><div className="sf-hero-orbit" aria-hidden="true"/><span className="sf-hero-sparkle sf-sparkle-a" aria-hidden="true">✦</span><span className="sf-hero-sparkle sf-sparkle-b" aria-hidden="true">✧</span>
           <div className={styles.mockup}>
             <div className={styles.mockupHeader}><span className={styles.mockupBrand}><img src="/starflow-official-mark.webp" width="27" height="27" alt=""/><b>STARFLOW</b></span><span className={styles.mockupDots}><i/><i/><i/></span></div>
@@ -233,39 +192,18 @@ export default function Home(){
             <div className={styles.mockupFooter}><span>✧</span><span>☷</span><span>♡</span><span>◉</span></div>
           </div>
           <span className={styles.floatingChip}><Globe2 size={16}/>{en?'Connect worldwide':'与世界连接'}</span>
-          <span className={styles.sceneCoordinates} aria-hidden="true">SF—01 / 2026 · THE NEW SPACE</span>
         </div>
-        <a className={styles.scrollCue} href="#discover" aria-label={en?'Scroll to explore Starflow':'向下探索星流'}>
-          <span>{en?'SCROLL TO EXPLORE':'向下探索'}</span><i aria-hidden="true"/>
-        </a>
       </section>
-      <div className={styles.motionTicker} aria-hidden="true">
-        <div className={styles.tickerTrack}>
-          {Array.from({length:2},(_,i)=><span key={i} className={styles.tickerSet}>
-            <b>SHARE THE MOMENT</b><i>✦</i><b>DISCOVER YOUR PEOPLE</b><i>✦</i><b>CONNECT BEYOND</b><i>✦</i>
-          </span>)}
-        </div>
-      </div>
 
       <section id="discover" className={styles.introSection} data-sf-reveal="discover">
-        <div className={styles.sectionHeading}><span className={styles.sectionOverline}>{en?'WHY STARFLOW / 002':'发现星流 / 002'}</span><h2>{en?'A simpler way to stay connected.':'分享、发现、连接。'}</h2><p>{en?'Everything begins with a thought worth sharing.':'从一句话开始，让交流自然发生。'}</p></div>
+        <div className={styles.sectionHeading}><span>{en?'WHY STARFLOW':'发现星流'}</span><h2>{en?'A simpler way to stay connected.':'分享、发现、连接。'}</h2><p>{en?'Everything begins with a thought worth sharing.':'从一句话开始，让交流自然发生。'}</p></div>
         <div className={styles.features}>
-          <article className={styles.feature}><span className={styles.featureNumber}>01 / MOMENTS</span><div className={styles.featureIcon}><MessageCircle size={23}/></div><h3>{en?'Share your moments':'分享此刻'}</h3><p>{en?'Post thoughts and images, and join conversations.':'发布想法和图片，参与真诚的交流。'}</p></article>
-          <article className={styles.feature}><span className={styles.featureNumber}>02 / DISCOVER</span><div className={styles.featureIcon}><Users size={23}/></div><h3>{en?'Find your people':'发现同好'}</h3><p>{en?'Follow people and discover perspectives that matter to you.':'关注感兴趣的人，发现不同视角。'}</p></article>
-          <article className={styles.feature}><span className={styles.featureNumber}>03 / SAFETY</span><div className={styles.featureIcon}><ShieldCheck size={23}/></div><h3>{en?'Build with care':'尊重与安全'}</h3><p>{en?'A community shaped by clear rules and respect.':'以明确的社区规则推动友善交流。'}</p></article>
+          <article className={styles.feature}><div className={styles.featureIcon}><MessageCircle size={23}/></div><h3>{en?'Share your moments':'分享此刻'}</h3><p>{en?'Post thoughts and images, and join conversations.':'发布想法和图片，参与真诚的交流。'}</p></article>
+          <article className={styles.feature}><div className={styles.featureIcon}><Users size={23}/></div><h3>{en?'Find your people':'发现同好'}</h3><p>{en?'Follow people and discover perspectives that matter to you.':'关注感兴趣的人，发现不同视角。'}</p></article>
+          <article className={styles.feature}><div className={styles.featureIcon}><ShieldCheck size={23}/></div><h3>{en?'Build with care':'尊重与安全'}</h3><p>{en?'A community shaped by clear rules and respect.':'以明确的社区规则推动友善交流。'}</p></article>
         </div>
       </section>
 
-      <section className={styles.showcaseBridge} data-sf-reveal="bridge" aria-label={en?'Starflow brand message':'星流品牌宣言'}>
-        <div className={styles.bridgeAtmosphere} aria-hidden="true"/>
-        <div className={styles.bridgeText}>
-          <span>STARFLOW / THE NEXT CONNECTION</span>
-          <h2>{en?<>Every voice.<br/>A new universe.</>:<>让每一种声音，<br/>都有自己的<strong>星轨。</strong></>}</h2>
-          <p>{en?'Not just a feed. A space shaped by people, moments and real connections.':'不止是浏览信息，更是遇见真实的人与每个值得记录的瞬间。'}</p>
-          <button type="button" onClick={enter}>{en?'Join the community':'加入星流社区'} <ArrowRight size={19}/></button>
-        </div>
-        <div className={styles.bridgeSphere} aria-hidden="true"><span/><span/><span/></div>
-      </section>
       <section id="resources" className={styles.resourcesSection} data-sf-reveal="resources">
         <div className={styles.sectionHeading}><span>{en?'HELP & RESOURCES':'帮助与资源'}</span><h2>{en?'Understand Starflow.':'了解星流，安心使用。'}</h2></div>
         <div className={styles.resourceGrid}>
@@ -276,7 +214,7 @@ export default function Home(){
         </div>
       </section>
 
-      <section className={styles.cta} data-sf-reveal="join"><div className={styles.ctaHalo} aria-hidden="true"/><Sparkles size={25}/><h2>{en?'A new connection starts here.':'下一次相遇，从星流开始。'}</h2><p>{en?'Join the conversation and share what matters.':'用真实想法，连接更广阔的世界。'}</p><button onClick={enter} type="button">{en?'Join Starflow':'加入 Starflow'} <ArrowRight size={18}/></button></section>
+      <section className={styles.cta} data-sf-reveal="join"><Sparkles size={25}/><h2>{en?'A new connection starts here.':'下一次相遇，从星流开始。'}</h2><p>{en?'Join the conversation and share what matters.':'用真实想法，连接更广阔的世界。'}</p><button onClick={enter} type="button">{en?'Join Starflow':'加入 Starflow'} <ArrowRight size={18}/></button></section>
     </main>
     <footer className={styles.footer}><div className={styles.footerTop}><div><b className="sf-footer-brand"><img src="/starflow-official-mark.webp" width="30" height="30" alt=""/> 星流 <span>STARFLOW</span></b><p>{en?'An independent space for authentic connections.':'一个为真实交流而构建的独立社区。'}</p></div><div className={styles.footerLinks}><Link href="/terms">{en?'Terms':'服务条款'}</Link><Link href="/privacy">{en?'Privacy':'隐私政策'}</Link><Link href="/guidelines">{en?'Guidelines':'社区规范'}</Link></div></div><div className={styles.footerBottom}><span>© 2026 Starflow · WEIZAI</span><span>{en?'Web platform · International community':'面向全球的网络社区'}</span></div></footer>
   </div>}
