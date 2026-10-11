@@ -9,7 +9,7 @@ import './StarflowMoreMenu.css';
 
 type MenuCopy={more:string;links:string;community:string;creator:string;support:string;guidelines:string;privacy:string;settings:string;reduce:string;compact:string;reduceHint:string;compactHint:string;profile:string};
 const en:MenuCopy={more:'More',links:'Discover more',community:'Community & Lists',creator:'Creator analytics',support:'AI customer support',guidelines:'Community guidelines',privacy:'Privacy & data',settings:'Settings',reduce:'Reduce motion',compact:'Compact layout',reduceHint:'Fewer visual effects',compactHint:'Smaller spacing in the feed',profile:'Your profile'};
-const translations:Record<Lang,MenuCopy>={
+const translations:Record<string,MenuCopy>={
   en,'en-sg':en,'en-gb':en,
   zh:{more:'更多',links:'更多服务',community:'社区 / 列表',creator:'创作者数据',support:'AI 客服中心',guidelines:'社区规范',privacy:'隐私与数据',settings:'设置',reduce:'减少动效',compact:'紧凑布局',reduceHint:'减少过渡及动态效果',compactHint:'缩小信息流间距',profile:'个人主页'},
   'zh-hk':{more:'更多',links:'更多服務',community:'社群 / 列表',creator:'創作者數據',support:'AI 客服中心',guidelines:'社群守則',privacy:'私隱與資料',settings:'設定',reduce:'減少動效',compact:'緊湊版面',reduceHint:'減少動畫與轉場',compactHint:'縮小資訊流間距',profile:'個人主頁'},
@@ -20,7 +20,9 @@ const translations:Record<Lang,MenuCopy>={
 };
 export function StarflowMoreMenu({profileHref}:{profileHref:string}){
   const {lang}=useLanguage();
-  const c=translations[lang]??en;
+  const locale=lang.toLowerCase();
+  const localeKey=locale.startsWith('ja')?'ja':locale.startsWith('ko')?'ko':locale.startsWith('de')?'de':locale.startsWith('fr')?'fr':locale;
+  const c=translations[localeKey]??en;
   const [open,setOpen]=useState(false);
   const [reduce,setReduce]=useState(false);
   const [compact,setCompact]=useState(false);
