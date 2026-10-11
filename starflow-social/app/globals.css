@@ -80,3 +80,31 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .sf-boot-screen strong{display:flex;flex-direction:column;gap:6px;font-weight:900;font-size:27px;letter-spacing:.4px}
 .sf-boot-screen strong span{font-size:11px;font-weight:680;color:#988db7;letter-spacing:4px}
 .sf-boot-screen p{font-size:12px;color:#a59ab2;margin:6px 0 0}
+
+/* No Safari auto-zoom when a real editable field receives focus. */
+@media(max-width:699px){
+ .app-frame input:not([type=checkbox]):not([type=radio]),.app-frame textarea,
+ .sfai-inputrow input,.support-form input{font-size:16px!important}
+}
+/* Native-feeling tab feedback: active indicators, short spring, distinct palettes. */
+@media(max-width:699px){
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab{isolation:isolate;position:relative;transition:color .16s ease,transform .16s cubic-bezier(.2,.8,.2,1)}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab::before{content:"";position:absolute;inset:1px 9px 0;border-radius:13px;background:transparent;opacity:0;transform:scale(.8);z-index:-1;transition:opacity .16s ease,transform .19s cubic-bezier(.2,.8,.2,1)}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab.is-selected::before{background:#f1e9fc;opacity:1;transform:scale(1)}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab:nth-child(2).is-selected{color:#5a82d8!important}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab:nth-child(2).is-selected::before{background:#eaf0ff}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab:nth-child(4).is-selected{color:#d85b92!important}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab:nth-child(4).is-selected::before{background:#fff0f5}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab:nth-child(5).is-selected{color:#3d9e86!important}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab:nth-child(5).is-selected::before{background:#eaf8f3}
+ .app-frame .sf-mobile-five-nav .sf-mobile-tab.is-selected>svg{animation:sf-mobile-icon-tap .23s ease-out both}
+ .app-frame .sf-mobile-five-nav .sf-mobile-publish-button{transition:transform .18s cubic-bezier(.25,1.4,.4,1),box-shadow .18s ease}
+ .app-frame .sf-mobile-five-nav .sf-mobile-publish-button:active{transform:scale(.88) rotate(-4deg);box-shadow:0 2px 8px #8652d239}
+}
+@keyframes sf-mobile-icon-tap{0%{transform:scale(.88)}65%{transform:scale(1.11)}100%{transform:scale(1)}}
+/* The official logo and typography animate only while actual session loading occurs. */
+.sf-boot-screen img{animation:sf-official-logo-enter .7s cubic-bezier(.16,.82,.3,1) both}
+.sf-boot-screen strong,.sf-boot-screen p{animation:sf-official-name-enter .85s ease-out both}
+@keyframes sf-official-logo-enter{from{opacity:0;transform:translateY(12px) scale(.84)}60%{opacity:1;transform:translateY(-3px) scale(1.04)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes sf-official-name-enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.app-frame .sf-mobile-five-nav *, .sf-boot-screen *{animation:none!important;transition:none!important}}

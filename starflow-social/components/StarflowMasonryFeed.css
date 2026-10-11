@@ -123,3 +123,11 @@
 .sf-masonry-card{content-visibility:auto;contain-intrinsic-size:auto 320px}
 @supports not (content-visibility:auto){.sf-masonry-card{content-visibility:visible}}
 @media(prefers-reduced-motion:reduce){.sf-masonry-card{transition:none!important}}
+
+/* Responsive grouped services drawer with subtle icon tints and pressed feedback. */
+.sf-home-drawer-group>a{transition:background-color .14s,transform .14s}
+.sf-home-drawer-group>a:active{transform:scale(.985);background:#f3ebfa}
+.sf-home-drawer-group>a>svg:first-child{padding:3px;width:28px;height:28px;border-radius:10px;background:#f2eafa;color:#8151b9}
+.sf-home-drawer-group:nth-child(2)>a>svg:first-child{background:#e9efff;color:#5a7ddd}
+.sf-home-drawer-group:nth-child(3)>a>svg:first-child{background:#e7f7f3;color:#38a58c}
+@media(prefers-reduced-motion:reduce){.sf-home-drawer-group>a{transition:none}}
