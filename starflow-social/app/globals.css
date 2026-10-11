@@ -124,3 +124,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 @keyframes sf-checking-spin{to{transform:rotate(360deg)}}
 @keyframes sf-loading-sheen{to{background-position:-220% 0}}
 @media(prefers-reduced-motion:reduce){.sf-section-loading-dot,.sf-section-loading-bar{animation:none!important}}
+
+/* User-controlled local display preferences — no account/network data affected. */
+html.sf-user-motion-off *,html.sf-user-motion-off *:before,html.sf-user-motion-off *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+html.sf-user-compact .sf-service-group>a{min-height:55px!important;padding:8px 12px}
+html.sf-user-compact .sf-home-drawer-group>a{min-height:42px!important;padding:8px 10px}
+html.sf-user-compact .sf-masonry-card-content{padding:7px!important}

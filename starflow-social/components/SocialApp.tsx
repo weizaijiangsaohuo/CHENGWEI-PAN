@@ -16,6 +16,7 @@ import { StarflowMasonryFeed } from './StarflowMasonryFeed';
 import { StarflowHomeMenu } from './StarflowHomeMenu';
 import { StarflowMobileNavigation } from './StarflowMobileNavigation';
 import { StarflowServicesPanel } from './StarflowServicesPanel';
+import { StarflowDisplayPreferences } from './StarflowDisplayPreferences';
 import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
@@ -431,6 +432,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
       
 <StarflowServicesPanel isAdmin={isAdmin}/>
+      <StarflowDisplayPreferences/>
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang==='en'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
@@ -488,7 +490,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     </aside>
     <main className="feed-panel">
       <div className="sf-top-utility">
-        {view==='home'&&<StarflowHomeMenu/>}
+        <StarflowHomeMenu/>
         <Brand/><div className="sf-home-toolbar"><LanguageSwitch/></div>
       </div>
       {renderContent()}

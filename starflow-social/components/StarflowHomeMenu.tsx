@@ -1,7 +1,7 @@
 'use client';
 import {useRef} from 'react';
 import Link from 'next/link';
-import {Bell,Bookmark,ChevronRight,Compass,Home,Menu,MessageCircle,Settings,ShieldCheck,Sparkles,UserRound,X} from 'lucide-react';
+import {Bell,Bookmark,ChevronRight,Compass,FileText,Home,Menu,MessageCircle,PenLine,Settings,ShieldCheck,Sparkles,UserRound,Users,BookOpen,X} from 'lucide-react';
 import {Brand} from './Brand';
 
 export function StarflowHomeMenu(){
@@ -12,9 +12,11 @@ export function StarflowHomeMenu(){
   {heading:'探索社区',items:[
    {to:'/',label:'首页发现',icon:Home},
    {to:'/explore',label:'AI 搜索与探索',icon:Compass},
-   {to:'/hub',label:'社区与关注列表',icon:UserRound},
+   {to:'/hub',label:'社区与关注列表',icon:Users},
+   {to:'/notifications',label:'消息通知',icon:Bell},
   ]},
   {heading:'互动与创作',items:[
+   {to:'/?compose=1',label:'发布新动态',icon:PenLine},
    {to:'/creator',label:'创作者中心',icon:Sparkles},
    {to:'/bookmarks',label:'我的收藏',icon:Bookmark},
    {to:'/notifications',label:'通知中心',icon:Bell},
@@ -25,6 +27,12 @@ export function StarflowHomeMenu(){
    {to:'/settings',label:'账号设置',icon:Settings},
    {to:'/settings/security',label:'账户安全管理中心',icon:UserRound},
    {to:'/support',label:'星流 AI 客服',icon:Sparkles},
+   {to:'/organization/affiliates',label:'组织附属账号',icon:Users},
+  ]},
+  {heading:'规则与帮助',items:[
+   {to:'/guidelines',label:'社区公约',icon:BookOpen},
+   {to:'/privacy',label:'隐私与数据',icon:ShieldCheck},
+   {to:'/terms',label:'服务条款',icon:FileText},
   ]},
  ];
  return <>
