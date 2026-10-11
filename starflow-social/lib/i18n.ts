@@ -1,3 +1,4 @@
+import {extraTranslations} from './i18n-locales';
 export type Lang = 'zh' | 'en' | 'zh-hk' | 'ko' | 'ja' | 'en-sg' | 'en-gb' | 'de' | 'fr';
 export const messages = {
   zh: {
@@ -50,6 +51,6 @@ const traditional:Partial<Record<TranslationKey,string>>={
 };
 export function translate(lang:Lang, key:TranslationKey):string {
   if(lang==='zh')return messages.zh[key];
-  if(lang==='zh-hk')return traditional[key]??messages.en[key];
-  return messages.en[key];
+  if(lang==='zh-hk')return traditional[key]??extraTranslations['zh-hk']?.[key]??messages.en[key];
+  return extraTranslations[lang]?.[key]??messages.en[key];
 }
