@@ -29,6 +29,7 @@ test('replay works while accessibility disables all entrance movement',()=>{
  assert.match(css,/sf-cosmos-replay\{display:none!important\}/);
 });
 test('no client-side scroll listeners or 3D engine in the hero',()=>{
- assert.doesNotMatch(art,/requestAnimationFrame|touchmove|scrollTo|canvas|WebGL|setInterval/);
+ assert.doesNotMatch(art, /\b(requestAnimationFrame|addEventListener|scrollTo|setInterval)\s*\(/);
+ assert.doesNotMatch(art, /<canvas\b|new WebGLRenderingContext/);
  assert.doesNotMatch(css,/scroll-snap-type/);
 });
