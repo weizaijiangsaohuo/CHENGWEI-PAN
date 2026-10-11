@@ -8,7 +8,7 @@ type Turnstile = {
     sitekey: string;
     callback: (token: string) => void;
     'expired-callback': () => void;
-    'error-callback': () => void;
+    'error-callback': (code?: string) => boolean | void;
     'timeout-callback': () => void;
     size: 'flexible';
   }) => string;
@@ -18,7 +18,7 @@ type Turnstile = {
 export function TurnstileChallenge({siteKey,onToken,onError}: {
   siteKey: string;
   onToken: (token: string) => void;
-  onError: () => void;
+  onError: (code?: string) => void;
 }) {
   const container=useRef<HTMLDivElement>(null);
   const callbacks=useRef({onToken,onError});
@@ -36,11 +36,12 @@ export function TurnstileChallenge({siteKey,onToken,onError}: {
       callback:token=>{if(active)callbacks.current.onToken(token);},
       'timeout-callback':()=>{if(active)callbacks.current.onToken('');},
       'expired-callback':()=>{if(active)callbacks.current.onToken('');},
-      'error-callback':()=>{
-        if(active){callbacks.current.onToken('');callbacks.current.onError();}
+      'error-callback':(code?:string)=>{
+        if(active){callbacks.current.onToken('');callbacks.current.onError(code);}
+        return true;
       }
     });}catch{
-      callbacks.current.onToken('');callbacks.current.onError();
+      callbacks.current.onToken('');callbacks.current.onError('RENDER_FAILED');
       return;
     }
     return()=>{active=false;turnstile.remove(widgetId);};
@@ -49,7 +50,7 @@ export function TurnstileChallenge({siteKey,onToken,onError}: {
   return <>
     <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
       onReady={()=>setReady(true)}
-      onError={()=>{onToken('');onError();}}/>
+      onError={()=>{onToken('');onError('SCRIPT_LOAD_FAILED');}}/>
     <div ref={container} className="captcha-container"/>
   </>;
 }
