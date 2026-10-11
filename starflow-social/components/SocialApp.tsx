@@ -122,9 +122,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   useEffect(()=>{
     if(!user){setDmUnread(0);return;}
     let mounted=true;
+    const client=db();
     const check=async()=>{
       if(document.visibilityState==='hidden')return;
-      const client=db();
       const [inbox,receipts]=await Promise.all([
         client.from('dm_conversations')
           .select('id,last_message_at,last_sender_id')
@@ -140,8 +140,54 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       setDmUnread(count);
     };
     void check();
-    const interval=window.setInterval(()=>{void check();},15000);
-    return()=>{mounted=false;window.clearInterval(interval)};
+    const channel=client.channel('sf-dm-badge-'+user.id)
+      .on('postgres_changes',{event:'*',schema:'public',table:'dm_conversations',filter:'user_low=eq.'+user.id},()=>{void check()})
+      .on('postgres_changes',{event:'*',schema:'public',table:'dm_conversations',filter:'user_high=eq.'+user.id},()=>{void check()})
+      .on('postgres_changes',{event:'*',schema:'public',table:'dm_read_state',filter:'user_id=eq.'+user.id},()=>{void check()})
+      .subscribe(status=>{if(status==='SUBSCRIBED')void check()});
+    const resume=()=>{if(document.visibilityState==='visible')void check()};
+    document.addEventListener('visibilitychange',resume);
+    window.addEventListener('focus',resume);
+    window.addEventListener('online',resume);
+    const interval=window.setInterval(()=>{void check();},12000);
+    return()=>{
+      mounted=false;window.clearInterval(interval);
+      document.removeEventListener('visibilitychange',resume);
+      window.removeEventListener('focus',resume);
+      window.removeEventListener('online',resume);
+      void client.removeChannel(channel);
+    };
+  },[user?.id]);
+
+  // Keep the notification badge live even when the notification page is closed.
+  useEffect(()=>{
+    if(!user){setUnread(0);return;}
+    let mounted=true;
+    const client=db();
+    const check=async()=>{
+      if(document.visibilityState==='hidden')return;
+      const {count,error}=await client.from('notifications').select('id',{head:true,count:'exact'})
+        .eq('recipient_id',user.id).is('read_at',null);
+      if(mounted&&!error)setUnread(count??0);
+    };
+    void check();
+    const channel=client.channel('sf-notice-badge-'+user.id)
+      .on('postgres_changes',{event:'*',schema:'public',table:'notifications',filter:'recipient_id=eq.'+user.id},()=>{void check()})
+      .subscribe(status=>{if(status==='SUBSCRIBED')void check()});
+    const resume=()=>{if(document.visibilityState==='visible')void check()};
+    document.addEventListener('visibilitychange',resume);
+    window.addEventListener('focus',resume);
+    window.addEventListener('online',resume);
+    window.addEventListener('sf-notifications-updated',resume);
+    const interval=window.setInterval(()=>{void check()},12000);
+    return()=>{
+      mounted=false;window.clearInterval(interval);
+      document.removeEventListener('visibilitychange',resume);
+      window.removeEventListener('focus',resume);
+      window.removeEventListener('online',resume);
+      window.removeEventListener('sf-notifications-updated',resume);
+      void client.removeChannel(channel);
+    };
   },[user?.id]);
 
   // Only server-approved account verification records can produce badges.
