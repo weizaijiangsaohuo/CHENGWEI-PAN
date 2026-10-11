@@ -19,19 +19,35 @@ export default function ResetPassword(){
     (async()=>{
       try{
         const params=new URLSearchParams(window.location.search);
+        const tokenHash=params.get('token_hash');
         const code=params.get('code');
-        if(code){const {error}=await supabase.auth.exchangeCodeForSession(code);if(error)throw error;}
+        if(tokenHash){
+          if(params.get('type')!=='recovery')throw new Error('Invalid password recovery link type.');
+          // Unlike a PKCE code, the emailed token hash works in a different browser.
+          const {error}=await supabase.auth.verifyOtp({token_hash:tokenHash,type:'recovery'});
+          if(error)throw error;
+        }else if(code){
+          // Backward compatibility for old recovery emails opened in the same browser.
+          const {error}=await supabase.auth.exchangeCodeForSession(code);
+          if(error)throw error;
+        }
         const {data,error}=await supabase.auth.getSession();
         if(error)throw error;
         if(!active)return;
         if(data.session){setReady(true);setMessage('');}
         else setMessage((en?'Please open a valid reset link from your email.':'请使用邮箱中收到的有效密码重置链接访问本页。'));
-      }catch(err){if(active)setMessage(err instanceof Error?err.message:(en?'Invalid recovery link':'验证链接失败'));}
+      }catch(err){
+        if(!active)return;
+        const detail=err instanceof Error?err.message:(en?'Invalid recovery link':'验证链接失败');
+        setMessage(detail.includes('PKCE code verifier')
+          ? (en?'Open the reset link in the browser where you requested it, or request a new password reset email.':'密码重置链接在另一个浏览器中打开，缺少原始验证信息。请在申请重置时的浏览器打开，或重新申请密码重置邮件。')
+          : detail);
+      }
     })();
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
   async function submit(e:React.FormEvent){
-    e.preventDefault();if(password.length<12){setMessage((en?'Password must be at least 12 characters':'密码至少需要 12 位字符'));return;}
+    e.preventDefault();if(password.length<6){setMessage((en?'Password must be at least 6 characters':'密码至少需要 6 位字符'));return;}
     if(password!==confirm){setMessage((en?'Passwords do not match':'两次输入的密码不一致'));return;}
     setBusy(true);
     const {error}=await db().auth.updateUser({password});
@@ -41,8 +57,8 @@ export default function ResetPassword(){
   }
   return <main className="center-screen"><div className="mini-card"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}><Brand/><LanguageSwitch/></div><h1>{en?'Reset password':'重设密码'}</h1><p className="muted">{en?'Set a new, secure password for your account.':'为账户设置新的安全密码。'}</p>
     {ready&&!finished?<form className="stack" onSubmit={submit}>
-      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'New password (12+ characters)':'新密码（至少 12 位)'} minLength={12} value={password} onChange={e=>setPassword(e.target.value)} required/>
-      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'Confirm password':'再次输入新密码'} minLength={12} value={confirm} onChange={e=>setConfirm(e.target.value)} required/>
+      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'New password (6+ characters)':'新密码（至少 6 位）'} minLength={6} value={password} onChange={e=>setPassword(e.target.value)} required/>
+      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'Confirm password':'再次输入新密码'} minLength={6} value={confirm} onChange={e=>setConfirm(e.target.value)} required/>
       <button className="btn btn-primary" disabled={busy}>{busy?(en?'Saving…':'正在保存…'):(en?'Update password':'确认修改密码')}</button>
     </form>:null}
     <p aria-live="polite">{message||(en?'Verifying reset link…':'正在验证密码重置链接…')}</p><a href="/">{en?'Back to home':'返回首页'}</a></div></main>;

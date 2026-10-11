@@ -14,7 +14,22 @@ assert(sql.includes('pg_advisory_xact_lock')&&sql.includes('new.created_at := no
 assert(sql.includes('storage.foldername(name)'),'Storage uploads must be user scoped');
 assert(sql.includes('grant update (read_at) on public.notifications'),'Notifications update should be column limited');
 const auth=get('components/AuthPortal.tsx');
-for(const part of ['signUp({','signInWithPassword({','resetPasswordForEmail(','signInWithOAuth({','captchaToken','turnstile'])assert(auth.includes(part),`Missing auth flow: ${part}`);
+for(const part of ['signUp({','signInWithPassword({','resetPasswordForEmail(','signInWithOAuth({','captchaToken','<TurnstileChallenge'])assert(auth.includes(part),`Missing auth flow: ${part}`);
+assert(auth.includes("window.location.hostname==='fix-auth-turnstile-check-weizai.weizai.workers.dev'"),'Temporary site key fallback must be restricted to the exact preview hostname');
+const challenge=get('components/TurnstileChallenge.tsx');
+for(const part of ['challenges.cloudflare.com/turnstile/v0/api.js?render=explicit', "'expired-callback'", "'error-callback'", 'turnstile.remove(widgetId)'])assert(challenge.includes(part),`Missing Turnstile lifecycle: ${part}`);
+for(const method of ['signUp','signInWithPassword','resetPasswordForEmail']){
+  const call=auth.slice(auth.indexOf(`supabase.auth.${method}(`)).split('if(error)')[0];
+  assert(call.includes('captchaToken:requestCaptchaToken'),`${method} must send the CAPTCHA token`);
+}
+assert(auth.includes("if(mode==='signup' && password.length < 6)"),'Sign-up password must be at least 6 characters');
+assert(auth.includes("minLength={mode==='signup'?6:1}"),'Sign-up input minimum must be 6; login must accept existing shorter passwords');
+const resetPage=get('app/auth/reset/page.tsx');
+assert(resetPage.includes("password.length<6"),'Password reset validation must match Supabase minimum');
+assert((resetPage.match(/minLength=\{6\}/g)||[]).length===2,'Both new-password fields must accept 6 characters');
+assert(auth.includes('if(submitting.current)return;'),'Auth requests must reject duplicate submissions');
+assert(auth.includes("if(siteKey&&!captchaTokenRef.current)"),'Configured CAPTCHA must guard form submission');
+assert(auth.includes('finally{submitting.current=false;setBusy(false);resetCaptcha();}'),'Consumed CAPTCHA tokens must be reset after requests');
 assert(!/provider:'apple'|NEXT_PUBLIC_APPLE_ENABLED|使用 Apple 继续/.test(auth),'Apple auth must be removed');
 assert(auth.includes("process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'"),'Google auth must remain disabled until configured');
 const mailSql=get('supabase/migrations/002_welcome_email.sql');
