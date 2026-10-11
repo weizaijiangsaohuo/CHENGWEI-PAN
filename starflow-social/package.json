@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "check": "node tests/check-project.mjs && node --test tests/auth-captcha.test.mjs",
+    "check": "node tests/check-project.mjs && node --test tests/auth-captcha.test.mjs tests/auth-email-links.test.mjs",
     "verify": "node scripts/verify-deployment.mjs",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
