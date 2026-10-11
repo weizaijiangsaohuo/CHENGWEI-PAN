@@ -45,6 +45,11 @@ const KIND_TITLES: Record<string, string> = {
 };
 const SELECT = 'id,kind,message,recipient_id,actor_id,post_id,read_at,created_at,profiles!notifications_actor_id_fkey(id,handle,display_name,avatar_url)';
 const author = (notice: Notice) => Array.isArray(notice.profiles) ? notice.profiles[0] : notice.profiles;
+// Official notices retain priority even after they are read. Normal interactions
+// remain chronological below them, with a stable order for equal timestamps.
+const pinnedFirst = (a: Notice, b: Notice) =>
+  Number(SYSTEM_KINDS.has(b.kind)) - Number(SYSTEM_KINDS.has(a.kind)) ||
+  Date.parse(b.created_at) - Date.parse(a.created_at) || a.id.localeCompare(b.id);
 const formatTime = (s: string) => {
   const n = Date.now() - new Date(s).getTime();
   if (!Number.isFinite(n)) return '';
@@ -77,10 +82,19 @@ function Center({ host }: { host: Element }) {
         const auth = await client.auth.getUser();
         if (auth.error || !auth.data.user) throw new Error('请先登录后查看通知。');
         const userId = auth.data.user.id;
-        const result = await client.from('notifications').select(SELECT).eq('recipient_id', userId)
-          .order('created_at', { ascending: false }).limit(100);
-        if (result.error) throw result.error;
-        const records = (result.data ?? []) as unknown as Notice[];
+        // Fetch official notices separately: a pinned official notice must not
+        // disappear merely because 100 newer likes, follows or DMs arrived.
+        const [recent, pinned] = await Promise.all([
+          client.from('notifications').select(SELECT).eq('recipient_id', userId)
+            .order('created_at', { ascending: false }).limit(100),
+          client.from('notifications').select(SELECT).eq('recipient_id', userId)
+            .in('kind', [...SYSTEM_KINDS]).order('created_at', { ascending: false }).limit(25),
+        ]);
+        if (recent.error) throw recent.error;
+        const records = [...new Map(
+          ([...(recent.data ?? []), ...(pinned.error ? [] : (pinned.data ?? []))] as unknown as Notice[])
+            .map(notice => [notice.id, notice] as const),
+        ).values()];
         const actorIds = [...new Set(records.map(n => n.actor_id).filter((id): id is string => !!id))];
         const approved = actorIds.length ? await client.from('account_verifications')
           .select('profile_id,verification_type').eq('status', 'approved').in('profile_id', actorIds) : null;
@@ -171,7 +185,7 @@ function Center({ host }: { host: Element }) {
     if(tab==='comments')return n.kind==='reply'||n.kind==='mention';
     if(tab==='messages')return n.kind==='direct_message';
     return false;
-  });
+  }).sort(pinnedFirst);
   const activityCategories=[
     {tab:'likes' as const,name:'获赞互动',icon:Heart,kinds:['like']},
     {tab:'follows' as const,name:'新增关注',icon:UserPlus,kinds:['follow']},
@@ -212,15 +226,16 @@ function Center({ host }: { host: Element }) {
           : n.post_id ? '/post/' + encodeURIComponent(n.post_id)
           : actor ? '/profile/' + encodeURIComponent(actor.handle) : '/notifications';
         const label = KIND_TITLES[n.kind] ?? '与你互动';
-        return <Link key={n.id} href={target} className={'sf3-notification' + (!n.read_at ? ' sf3-notification-new' : '')}
+        return <Link key={n.id} href={target} className={'sf3-notification' + (!n.read_at ? ' sf3-notification-new' : '') + (system ? ' sf3-notification-pinned' : '')}
           onClick={() => { if (!n.read_at) void markRead(n.id); }}>
           {system ? <span className={'sf3-system-avatar' + (n.kind.includes('violation') || n.kind.includes('warning') ? ' sf3-warning' : '')} aria-hidden="true">
             {n.kind.startsWith('verification_') ? <BookmarkCheck size={25}/> : n.kind.includes('violation') || n.kind.includes('warning') ? <ShieldAlert size={25}/> : <Sparkles size={25}/>}
           </span> : actor?.avatar_url ? <img className="sf3-person-avatar" src={actor.avatar_url} alt="" loading="lazy" />
             : <span className="sf3-person-avatar sf3-person-fallback" aria-hidden="true">{actor?.display_name?.slice(0, 1) || '✦'}</span>}
           <span className="sf3-notification-content">
-            <span className="sf3-notification-line"><strong>{n.kind.startsWith('affiliation_') ? (actor?.display_name || 'Starflow 组织') : system ? 'Starflow 官方系统' : actor?.display_name || 'Starflow 用户'}</strong>
-              {!system && actor && <VerificationBadge kind={badges[actor.id]} size={16} interactive={false}/>}</span>
+            <span className="sf3-notification-line"><strong>{n.kind.startsWith('affiliation_') ? (actor?.display_name || 'Starflow 组织') : system ? 'Starflow 官方' : actor?.display_name || 'Starflow 用户'}</strong>
+              {!system && actor && <VerificationBadge kind={badges[actor.id]} size={16} interactive={false}/>}
+              {system && <span className="sf3-official-pin" aria-label="官方通知置顶">置顶</span>}</span>
             <span className="sf3-notification-kind">{label}</span>
             {system && n.message && <span className="sf3-notification-message">{n.message}</span>}
             <small>{formatTime(n.created_at)}</small>
@@ -233,11 +248,11 @@ function Center({ host }: { host: Element }) {
         </Link>;
       })}</div>
         : <div className="sf3-empty"><span aria-hidden="true"><Bell size={30}/></span>
-          <strong>{tab === 'system' ? '暂无官方系统消息' : tab === 'mentions' ? '暂时没有人提及你' : tab === 'unread' ? '所有通知都已读' : tab === 'messages' ? '暂无私信通知' : '暂时没有新通知'}</strong>
+          <strong>{tab === 'system' ? '暂无官方通知' : tab === 'mentions' ? '暂时没有人提及你' : tab === 'unread' ? '所有通知都已读' : tab === 'messages' ? '暂无私信通知' : '暂时没有新通知'}</strong>
           <p>{tab === 'system' ? '认证结果、组织附属邀请、账号安全和违规处理通知将在这里显示。' : tab === 'all' ? '有人关注、点赞、私信、转发或回复时，这里会收到消息。' : '新的消息到来后会自动更新。'}</p>
         </div>}
     <p className="sf3-notification-footnote">站内通知来自真实数据库，通知页实时接收站内更新，断线时约每 12 秒自动同步；不代表 iPhone 系统推送已开启。</p>
-    {items.length === 100 && <p className="sf3-notification-footnote">当前只显示最近 100 条记录。</p>}
+    {items.length >= 100 && <p className="sf3-notification-footnote">显示最近 100 条通知，并额外保留最多 25 条官方置顶通知。</p>}
   </section>, host);
 }
 
