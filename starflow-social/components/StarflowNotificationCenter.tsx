@@ -19,7 +19,7 @@ type Notice = {
   created_at: string;
   profiles: { id: string; handle: string; display_name: string; avatar_url: string | null } | { id: string; handle: string; display_name: string; avatar_url: string | null }[] | null;
 };
-type Panel = 'all' | 'unread' | 'mentions' | 'system' | 'likes' | 'follows' | 'comments';
+type Panel = 'all' | 'unread' | 'mentions' | 'system' | 'likes' | 'follows' | 'comments' | 'messages';
 const SYSTEM_KINDS = new Set([
   'verification_approved', 'verification_rejected', 'verification_revoked',
   'account_warning', 'account_violation', 'account_restored', 'account_security',
@@ -29,6 +29,7 @@ const SYSTEM_KINDS = new Set([
 ]);
 const KIND_TITLES: Record<string, string> = {
   follow: '关注了你', like: '赞了你的帖子', reply: '回复了你的帖子', repost: '转发了你的帖子',
+  direct_message: '给你发来一条私信，点击继续聊天',
   mention: '在帖子中提及了你', verification_approved: '认证申请已通过',
   verification_rejected: '认证申请未通过', verification_revoked: '认证资格已撤销',
   account_warning: '账号安全提醒', account_violation: '账号违规处理通知',
@@ -168,12 +169,14 @@ function Center({ host }: { host: Element }) {
     if(tab==='likes')return n.kind==='like';
     if(tab==='follows')return n.kind==='follow';
     if(tab==='comments')return n.kind==='reply'||n.kind==='mention';
+    if(tab==='messages')return n.kind==='direct_message';
     return false;
   });
   const activityCategories=[
     {tab:'likes' as const,name:'获赞互动',icon:Heart,kinds:['like']},
     {tab:'follows' as const,name:'新增关注',icon:UserPlus,kinds:['follow']},
     {tab:'comments' as const,name:'评论与提及',icon:MessageCircle,kinds:['reply','mention']},
+    {tab:'messages' as const,name:'私信消息',icon:MessageCircle,kinds:['direct_message']},
   ];
   const panels: { value: Panel; title: string }[] = [
     { value: 'all', title: '全部' }, { value: 'unread', title: unread ? `未读 ${unread}` : '未读' },
@@ -182,7 +185,7 @@ function Center({ host }: { host: Element }) {
   return createPortal(<section className="sf3-notifications" aria-label="Starflow 通知中心">
     <div className="sf3-notification-head">
       <div><h2>通知</h2><span>互动与官方消息</span></div>
-      <div className="sf3-actions"><button type="button" disabled={loading || busy} aria-label="刷新通知" onClick={() => setReload(v => v + 1)}><RefreshCw size={18}/></button>
+      <div className="sf3-actions"><Link href="/messages" className="sf3-messages-link" aria-label="进入私信会话列表"><MessageCircle size={17}/> 私信</Link><button type="button" disabled={loading || busy} aria-label="刷新通知" onClick={() => setReload(v => v + 1)}><RefreshCw size={18}/></button>
         <button type="button" disabled={busy || unread === 0} onClick={() => void markRead()}><CheckCheck size={16}/> 全部已读</button></div>
     </div>
     <div className="sf3-activity-shortcuts" role="group" aria-label="互动通知快捷分类">
@@ -204,7 +207,8 @@ function Center({ host }: { host: Element }) {
       : shown.length ? <div className="sf3-notification-items">{shown.map(n => {
         const system = SYSTEM_KINDS.has(n.kind);
         const actor = author(n);
-        const target = system ? '/notifications/' + encodeURIComponent(n.id)
+        const target = n.kind === 'direct_message' && actor ? '/messages?to=' + encodeURIComponent(actor.handle)
+          : system ? '/notifications/' + encodeURIComponent(n.id)
           : n.post_id ? '/post/' + encodeURIComponent(n.post_id)
           : actor ? '/profile/' + encodeURIComponent(actor.handle) : '/notifications';
         const label = KIND_TITLES[n.kind] ?? '与你互动';
@@ -229,8 +233,8 @@ function Center({ host }: { host: Element }) {
         </Link>;
       })}</div>
         : <div className="sf3-empty"><span aria-hidden="true"><Bell size={30}/></span>
-          <strong>{tab === 'system' ? '暂无官方系统消息' : tab === 'mentions' ? '暂时没有人提及你' : tab === 'unread' ? '所有通知都已读' : '暂时没有新通知'}</strong>
-          <p>{tab === 'system' ? '认证结果、组织附属邀请、账号安全和违规处理通知将在这里显示。' : tab === 'all' ? '有人关注、点赞、转发或回复时，这里会收到消息。' : '新的消息到来后会自动更新。'}</p>
+          <strong>{tab === 'system' ? '暂无官方系统消息' : tab === 'mentions' ? '暂时没有人提及你' : tab === 'unread' ? '所有通知都已读' : tab === 'messages' ? '暂无私信通知' : '暂时没有新通知'}</strong>
+          <p>{tab === 'system' ? '认证结果、组织附属邀请、账号安全和违规处理通知将在这里显示。' : tab === 'all' ? '有人关注、点赞、私信、转发或回复时，这里会收到消息。' : '新的消息到来后会自动更新。'}</p>
         </div>}
     <p className="sf3-notification-footnote">站内通知来自真实数据库，通知页实时接收站内更新，断线时约每 12 秒自动同步；不代表 iPhone 系统推送已开启。</p>
     {items.length === 100 && <p className="sf3-notification-footnote">当前只显示最近 100 条记录。</p>}
