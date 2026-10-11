@@ -8,6 +8,7 @@ import {LanguageSwitch,useLanguage} from '@/components/LanguageProvider';
 import {db,hasConfig} from '@/lib/supabase';
 import styles from './landing.module.css';
 import { StarflowAiWidget } from '@/components/StarflowAiWidget';
+import { StarflowMotionShowcase } from '@/components/StarflowMotionShowcase';
 type Screen='checking'|'landing'|'auth'|'member';
 type AiLine={role:'user'|'assistant';content:string};
 const glass:CSSProperties={background:'rgba(255,255,255,.83)',backdropFilter:'blur(28px) saturate(160%)',WebkitBackdropFilter:'blur(28px) saturate(160%)',border:'1px solid rgba(255,255,255,.82)',boxShadow:'0 16px 54px rgba(49,66,135,.19),inset 0 1px 0 rgba(255,255,255,.98)'};
@@ -194,6 +195,8 @@ export default function Home(){
           <span className={styles.floatingChip}><Globe2 size={16}/>{en?'Connect worldwide':'与世界连接'}</span>
         </div>
       </section>
+
+      <StarflowMotionShowcase english={en} onJoin={enter}/>
 
       <section id="discover" className={styles.introSection} data-sf-reveal="discover">
         <div className={styles.sectionHeading}><span>{en?'WHY STARFLOW':'发现星流'}</span><h2>{en?'A simpler way to stay connected.':'分享、发现、连接。'}</h2><p>{en?'Everything begins with a thought worth sharing.':'从一句话开始，让交流自然发生。'}</p></div>
