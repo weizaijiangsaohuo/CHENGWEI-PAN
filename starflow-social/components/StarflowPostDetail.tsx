@@ -247,7 +247,7 @@ export function StarflowPostDetail({postId}:{postId:string}){
        <Avatar name={author?.display_name||'星流用户'} image={author?.avatar_url} size={44}/>
        <span><strong>{author?.display_name||'星流用户'}</strong><small>@{author?.handle||'unknown'} · {ago(post.created_at)}</small></span>
       </Link>
-      <VerificationBadge kind={badge} size={19} interactive={false}/>
+      <VerificationBadge kind={badge} size={16} interactive={false}/>
       {post.author_id!==user.id&&<button type="button" className="sf-detail-follow" disabled={followBusy} onClick={()=>void toggleFollow()}>{following?'已关注':'+ 关注'}</button>}
      </div>
      {post.video_url&&<div className="sf-detail-media sf-detail-video"><video src={post.video_url} controls playsInline preload="metadata" poster={post.image_url??undefined}/></div>}
