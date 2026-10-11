@@ -35,7 +35,7 @@ export function AuthPortal(){
   const {t,lang}=useLanguage();
   const [mode,setMode]=useState<'login'|'signup'|'forgot'>('signup');
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');
-  const [display,setDisplay]=useState('');const [visible,setVisible]=useState(false);
+  const [display,setDisplay]=useState('');const [handle,setHandle]=useState('');const [visible,setVisible]=useState(false);
   const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [success,setSuccess]=useState('');
   const [pendingEmail,setPendingEmail]=useState('');
   const [resendAvailableAt,setResendAvailableAt]=useState(0);
@@ -74,6 +74,7 @@ export function AuthPortal(){
     if(!configured){setError(t('noKeys'));return;}
     if(mode==='signup' && password.length < 6){setError(t('pwdMinimum'));return;}
     if(mode==='signup' && (!display.trim()||display.trim().length>60)){setError(t('nicknameMinimum'));return;}
+    if(mode==='signup' && (!/^[a-z0-9_]{3,24}$/.test(handle.trim().toLowerCase()) || /^(admin|administrator|support|system|security|moderator)(_|$)/.test(handle.trim().toLowerCase()))){setError(isEnglishLocale(lang)?'Use 3–24 letters, numbers or underscores for your username. This username may be reserved.':'用户名必须为 3–24 位英文字母、数字或下划线，且不能使用系统保留名称。');return;}
     if(siteKey&&!captchaTokenRef.current){setError(t('captchaRequired'));return;}
     submitting.current=true;
     const requestCaptchaToken=captchaTokenRef.current||undefined;
@@ -82,7 +83,7 @@ export function AuthPortal(){
       const supabase=db();
       if(mode==='signup'){
         const {data,error}=await supabase.auth.signUp({email:email.trim(),password,
-          options:{captchaToken:requestCaptchaToken,data:{display_name:display.trim()},emailRedirectTo:`${location.origin}/auth/confirm`}});
+          options:{captchaToken:requestCaptchaToken,data:{display_name:display.trim(),handle:handle.trim().toLowerCase()},emailRedirectTo:`${location.origin}/auth/confirm`}});
         if(error)throw error;
         setSuccess(data.session?t('signupDone'):t('signupConfirm'));
         if(data.session)location.assign('/');
@@ -91,13 +92,31 @@ export function AuthPortal(){
           setResendAvailableAt(Date.now()+60_000);
         }
       } else if(mode==='login'){
-        const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password,options:{captchaToken:requestCaptchaToken}});
-        if(error)throw error;
+        const identity=email.trim();
+        if(identity.includes('@') && !identity.startsWith('@')){
+          const {error}=await supabase.auth.signInWithPassword({email:identity,password,options:{captchaToken:requestCaptchaToken}});
+          if(error)throw error;
+        }else{
+          const {data,error}=await supabase.functions.invoke('auth-identifier',{
+            body:{action:'login',username:identity,password,captchaToken:requestCaptchaToken},
+          });
+          if(error||!data?.session?.access_token||!data?.session?.refresh_token)throw new Error(isEnglishLocale(lang)?'Incorrect username or password, or verification failed.':'用户名或密码不正确，或人机验证失败。');
+          const {error:sessionError}=await supabase.auth.setSession({access_token:data.session.access_token,refresh_token:data.session.refresh_token});
+          if(sessionError)throw sessionError;
+        }
         location.assign('/');
       } else {
-        const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:`${location.origin}/auth/confirm`,captchaToken:requestCaptchaToken});
-        if(error)throw error;
-        setSuccess(t('resetConfirm'));
+        const identity=email.trim();
+        if(identity.includes('@') && !identity.startsWith('@')){
+          const {error}=await supabase.auth.resetPasswordForEmail(identity,{redirectTo:`${location.origin}/auth/confirm`,captchaToken:requestCaptchaToken});
+          if(error)throw error;
+        }else{
+          const {error}=await supabase.functions.invoke('auth-identifier',{
+            body:{action:'recover',username:identity,captchaToken:requestCaptchaToken},
+          });
+          if(error)throw new Error(isEnglishLocale(lang)?'Could not request recovery. Please try again.':'暂时无法发送找回邮件，请稍后再试。');
+        }
+        setSuccess(isEnglishLocale(lang)?'If the account exists, a reset link will be sent to its registered email.':'如果账号存在，系统会向注册时预留的邮箱发送密码重置链接。');
       }
     } catch(e) {setError(e instanceof Error?e.message:t('authFailure'));}
     finally{submitting.current=false;setBusy(false);resetCaptcha();}
@@ -159,15 +178,16 @@ export function AuthPortal(){
       </section>
       <section className="welcome-form"><div className="auth-card">
         <div className="auth-heading"><span className="sf-auth-monogram">✦</span><h2>{t(mode==='signup'?'signup':mode==='login'?'login':'forgot')}</h2>
-          <p>{t(mode==='signup'?'signupDesc':mode==='login'?'loginDesc':'forgotDesc')}</p></div>
+          <p>{mode==='forgot'?(isEnglishLocale(lang)?'Enter your email or username. A secure reset link is sent only to the registered mailbox.':'填写预留邮箱或用户名，系统仅向注册邮箱发送安全重置链接。'):t(mode==='signup'?'signupDesc':'loginDesc')}</p></div>
         {mode!=='forgot'&&<div className="oauth-buttons"><button disabled={busy||process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'} className="oauth-btn" onClick={oauth}><span className="google-g">G</span>{t('continueGoogle')}{process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'&&<small>{t('googleNotReady')}</small>}</button>
           {activeLoginProviders.filter(p=>p.key!=='google').length>0&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
             {activeLoginProviders.filter(p=>p.key!=='google').map(p=><button key={p.key} type="button" className="oauth-btn" disabled={busy} style={{flex:'1 1 120px',minHeight:43}} onClick={()=>void extraOAuth(p.key as 'apple'|'facebook'|'twitter'|'wechat'|'qq')}>使用 {p.label} 登录</button>)}
           </div>}
-          <div className="or-divider"><span>{t('orEmail')}</span></div></div>}
+          <div className="or-divider"><span>{isEnglishLocale(lang)?'Or use an email / username and password':'或使用邮箱／用户名和密码'}</span></div></div>}
         <form onSubmit={submit} className="auth-fields">
-          {mode==='signup'&&<label><span>{t('nickname')}</span><div className="field-wrap"><Users size={18}/><input type="text" placeholder={t('nicknamePlace')} value={display} onChange={e=>setDisplay(e.target.value)} maxLength={60} required autoComplete="nickname"/></div></label>}
-          <label><span>{t('email')}</span><div className="field-wrap"><Mail size={18}/><input type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></div></label>
+          {mode==='signup'&&<><label><span>{t('nickname')}</span><div className="field-wrap"><Users size={18}/><input type="text" placeholder={t('nicknamePlace')} value={display} onChange={e=>setDisplay(e.target.value)} maxLength={60} required autoComplete="nickname"/></div></label>
+          <label><span>{isEnglishLocale(lang)?'Username':'用户名（注册时自选）'}</span><div className="field-wrap"><Users size={18}/><input name="handle" type="text" placeholder="e.g. starlover_26" value={handle} onChange={e=>setHandle(e.target.value)} minLength={3} maxLength={24} autoComplete="username" autoCapitalize="none" spellCheck={false} required/></div></label></>}
+          <label><span>{mode==='signup'?(isEnglishLocale(lang)?'Recovery email (required)':'预留邮箱（用于验证与找回密码）'):(isEnglishLocale(lang)?'Email or username':'邮箱或用户名')}</span><div className="field-wrap"><Mail size={18}/><input name="identity" type={mode==='signup'?'email':'text'} placeholder={mode==='signup'?'you@example.com':(isEnglishLocale(lang)?'Email, username or @username':'请输入邮箱、用户名或 @用户名')} value={email} onChange={e=>setEmail(e.target.value)} required autoComplete={mode==='signup'?'email':'username'} autoCapitalize="none" spellCheck={false}/></div></label>
           {mode!=='forgot'&&<label><span>{t('password')}</span><div className="field-wrap"><Lock size={18}/><input type={visible?'text':'password'} placeholder={mode==='signup'?t('passwordHint'):t('inputPassword')} value={password} onChange={e=>setPassword(e.target.value)} required minLength={mode==='signup'?6:1} autoComplete={mode==='signup'?'new-password':'current-password'}/><button type="button" className="show-pass" onClick={()=>setVisible(!visible)} aria-label={visible?t('hidePassword'):t('showPassword')}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>}
           {siteKey?<TurnstileChallenge key={captchaGeneration} siteKey={siteKey} onToken={updateCaptcha} onError={code=>{setCaptchaFailureCode(code||'UNKNOWN');setError(t('captchaFailure'));}}/>:<p className="captcha-alert">{t('captchaNotReady')}</p>}
           {captchaFailureCode&&<div className="captcha-alert" role="status" style={{marginTop:9,padding:12,borderRadius:12,background:'#fff5f5',fontSize:13}}>

@@ -66,7 +66,8 @@ function portal() {
   ]));
   const h=harness('AuthPortal',{
     '@/lib/supabase':{db:()=>({auth}),hasConfig:()=>true},
-    './LanguageProvider':{useLanguage:()=>({t:key=>key})},
+    './LanguageProvider':{useLanguage:()=>({t:key=>key,lang:'zh'})},
+    '@/lib/i18n':{isEnglishLocale:()=>false},
     '@/lib/account-providers':{activeLoginProviders:[]},
     './TurnstileChallenge':{TurnstileChallenge:'Challenge'}
   },{location:{origin:'https://local-test.invalid',assign(){}}});
@@ -74,7 +75,7 @@ function portal() {
   function switchMode(label){find(render(),n=>n.type==='button'&&n.props.children===label).props.onClick();}
   function fill(){
     for(const node of elements(render()).filter(n=>n.type==='input')){
-      node.props.onChange({target:{value:node.props.type==='email'?'tester@example.invalid':node.props.type==='text'?'Tester':'long-test-password'}});
+      node.props.onChange({target:{value:node.props.name==='identity'?'tester@example.invalid':node.props.type==='email'?'tester@example.invalid':node.props.type==='text'?'Tester':'long-test-password'}});
     }
   }
   function challenge(){return find(render(),n=>n.type==='Challenge');}
