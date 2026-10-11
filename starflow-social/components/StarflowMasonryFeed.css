@@ -131,3 +131,6 @@
 .sf-home-drawer-group:nth-child(2)>a>svg:first-child{background:#e9efff;color:#5a7ddd}
 .sf-home-drawer-group:nth-child(3)>a>svg:first-child{background:#e7f7f3;color:#38a58c}
 @media(prefers-reduced-motion:reduce){.sf-home-drawer-group>a{transition:none}}
+
+/* Actual distinct signed-in post viewers; never a simulated metric. */
+.app-frame .sf-masonry-view-count{display:inline-flex;align-items:center;gap:4px;color:#8c8193;font-size:12px;white-space:nowrap;margin-left:auto}
