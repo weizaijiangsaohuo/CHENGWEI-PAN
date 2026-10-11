@@ -28,3 +28,14 @@ test('real home menu uses a native modal and preserves existing routes',()=>{
  assert.match(source,/\/bookmarks/);
  assert.match(social,/<StarflowHomeMenu layout=\{homeLayout\}/);
 });
+
+test('mobile five-tab navigation has an actual working publish action',()=>{
+ const nav=readFileSync(new URL('../components/StarflowMobileNavigation.tsx',import.meta.url),'utf8');
+ const globalCss=readFileSync(new URL('../app/globals.css',import.meta.url),'utf8');
+ assert.match(nav,/sf-mobile-five-nav/);
+ for(const label of ['首页','探索','消息','我'])assert.ok(nav.includes("label:'"+label+"'"));
+ assert.match(nav,/onClick=\{onPublish\}/);
+ assert.match(social,/sf-open-home-composer/);
+ assert.match(social,/router\.push\('\/\?compose=1'\)/);
+ assert.match(globalCss,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+});

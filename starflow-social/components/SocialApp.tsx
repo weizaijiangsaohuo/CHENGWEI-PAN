@@ -14,6 +14,7 @@ import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
 import { StarflowMasonryFeed } from './StarflowMasonryFeed';
 import { StarflowHomeMenu } from './StarflowHomeMenu';
+import { StarflowMobileNavigation } from './StarflowMobileNavigation';
 import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
@@ -49,6 +50,25 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     setHomeLayout(next);
     try{localStorage.setItem('sf-home-display',next);}catch{/* optional preference */}
   };
+  useEffect(()=>{
+    if(view!=='home')return;
+    const focusComposer=()=>{
+      if(homeLayout==='masonry')setHomeComposerOpen(true);
+      window.setTimeout(()=>{
+        const field=document.querySelector<HTMLTextAreaElement>('.app-frame .composer textarea');
+        field?.scrollIntoView({behavior:'smooth',block:'center'});
+        field?.focus({preventScroll:true});
+      },100);
+    };
+    window.addEventListener('sf-open-home-composer',focusComposer);
+    const query=new URLSearchParams(window.location.search);
+    if(query.get('compose')==='1'){
+      focusComposer();query.delete('compose');
+      window.history.replaceState(window.history.state,'',window.location.pathname+(query.size?'?'+query.toString():''));
+    }
+    return()=>window.removeEventListener('sf-open-home-composer',focusComposer);
+  },[view,homeLayout]);
+  const openPublish=()=>{if(view==='home')window.dispatchEvent(new Event('sf-open-home-composer'));else router.push('/?compose=1');};
   const [accounts,setAccounts]=useState<Profile[]>([]);const [notifs,setNotifs]=useState<Notif[]>([]);
   const [message,setMessage]=useState('');const [draft,setDraft]=useState('');
   const [image,setImage]=useState<File|null>(null);const [imagePreview,setImagePreview]=useState<string|null>(null);
@@ -502,7 +522,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <div className="right-card tips-card"><h3>{t('rules')}</h3><div>✦ {t('ruleOne')}</div><div>✦ {t('ruleTwo')}</div><div>✦ {t('ruleThree')}</div></div>
       <div className="footer-links"><Link href="/terms">{t('terms')}</Link><Link href="/privacy">{t('privacy')}</Link><span>© 2026 Starflow</span></div>
     </aside>
-    <nav className="mobile-nav" aria-label={lang==='en'?'Mobile navigation':'移动端导航'}>{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} aria-label={t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}><Icon size={23} strokeWidth={view===item.to.slice(1)||view==='home'&&item.to==='/'?2.8:2}/>{item.to==='/notifications'&&unread>0&&<i/>}</Link>})}<Link href="/messages" aria-label={dmUnread>0?`私信，${dmUnread} 条未读会话`:'私信'}><MessageCircle size={23}/>{dmUnread>0&&<i/>}</Link><Link href={self?`/profile/${self.handle}`:'/settings'} aria-label={t('profile')}><UserRound size={23}/></Link></nav>
+    <StarflowMobileNavigation view={view} profileUrl={self?'/profile/'+encodeURIComponent(self.handle):'/settings'} unread={unread+dmUnread} onPublish={openPublish}/>
     {message&&<div className="toast" role="status"><span>{message}</span><button onClick={()=>setMessage('')} aria-label={t('close')}><X size={16}/></button></div>}
   </div></div>;
 }
