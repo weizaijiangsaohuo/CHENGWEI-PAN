@@ -476,9 +476,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     </>;
   };
 
-  if(checking)return <main className="center-screen sf-boot-screen" role="status">
-    <img src="/starflow-official-mark.webp" width="76" height="76" alt=""/>
-    <strong>星流 <span>STARFLOW</span></strong><p className="sf-boot-tagline">你的世界，此刻正在发生</p><small className="sf-boot-status">正在连接星流…</small>
+  if(checking)return <main className="sf-section-loading" role="status" aria-live="polite">
+    <div className="sf-section-loading-top"><span className="sf-section-loading-dot"/><span>正在切换页面…</span></div>
+    <div className="sf-section-loading-bar"/><div className="sf-section-loading-bar short"/>
    </main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
   return <div className={'app-frame'+(view==='home'?' sf-xhs-home':'')}><div className="app-layout">

@@ -113,3 +113,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 .sf-boot-screen .sf-boot-status{display:block;margin-top:8px;font-size:11px;color:#aba0ba;letter-spacing:.8px}
 .sf-boot-screen .sf-boot-tagline,.sf-boot-screen .sf-boot-status{animation:sf-official-name-enter .9s ease-out both}
 @media(prefers-reduced-motion:reduce){.sf-boot-screen .sf-boot-tagline,.sf-boot-screen .sf-boot-status{animation:none}}
+
+/* Route auth checks must never flash the initial full-screen Starflow splash. */
+.sf-section-loading{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;color:#9488ac;background:#fbf9fe;padding:25px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;font-size:12px}
+.sf-section-loading-top{display:flex;align-items:center;gap:9px}
+.sf-section-loading-dot{display:inline-block;flex:none;width:13px;height:13px;border:2px solid #d1c0e7;border-top-color:#8a59c8;border-radius:50%;animation:sf-checking-spin .7s linear infinite}
+.sf-section-loading-bar{width:min(310px,74vw);height:12px;border-radius:999px;background:linear-gradient(95deg,#f0eafa,#fbf9fd,#efe7f8);background-size:220% 100%;animation:sf-loading-sheen 1.3s ease-in-out infinite}
+.sf-section-loading-bar.short{width:min(210px,56vw)}
+.sf-root-auth-loading{min-height:100dvh;flex-direction:row}
+@keyframes sf-checking-spin{to{transform:rotate(360deg)}}
+@keyframes sf-loading-sheen{to{background-position:-220% 0}}
+@media(prefers-reduced-motion:reduce){.sf-section-loading-dot,.sf-section-loading-bar{animation:none!important}}
