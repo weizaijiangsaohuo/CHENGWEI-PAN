@@ -9,6 +9,7 @@ import {db,hasConfig} from '@/lib/supabase';
 import styles from './landing.module.css';
 import { StarflowAiWidget } from '@/components/StarflowAiWidget';
 import { StarflowMotionShowcase } from '@/components/StarflowMotionShowcase';
+import { StarflowAssemblyHero } from '@/components/StarflowAssemblyHero';
 type Screen='checking'|'landing'|'auth'|'member';
 type AiLine={role:'user'|'assistant';content:string};
 const glass:CSSProperties={background:'rgba(255,255,255,.83)',backdropFilter:'blur(28px) saturate(160%)',WebkitBackdropFilter:'blur(28px) saturate(160%)',border:'1px solid rgba(255,255,255,.82)',boxShadow:'0 16px 54px rgba(49,66,135,.19),inset 0 1px 0 rgba(255,255,255,.98)'};
@@ -179,21 +180,7 @@ export default function Home(){
 <Link href="/support" style={{display:'inline-flex',marginTop:16,padding:'14px 20px',borderRadius:18,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</Link>
 
         </div>
-        <div className={styles.heroVisual} aria-label={en?'Illustration of Starflow features':'星流功能示意图'}>
-          <div className={styles.previewGlow}/><div className="sf-hero-orbit" aria-hidden="true"/><span className="sf-hero-sparkle sf-sparkle-a" aria-hidden="true">✦</span><span className="sf-hero-sparkle sf-sparkle-b" aria-hidden="true">✧</span>
-          <div className={styles.mockup}>
-            <div className={styles.mockupHeader}><span className={styles.mockupBrand}><img src="/starflow-official-mark.webp" width="27" height="27" alt=""/><b>STARFLOW</b></span><span className={styles.mockupDots}><i/><i/><i/></span></div>
-            <div className={styles.mockupBody}>
-              <div className={styles.mockupLabel}>{en?'CONNECTION / 01':'连接 · 此刻'}</div>
-              <div className={styles.mockupHeadline}>{en?'Find your voice.':'让想法相遇。'}</div>
-              <div className={styles.mockupDesc}>{en?'Thoughts, moments and new perspectives.':'分享日常，发现不同的声音。'}</div>
-              <div className={styles.mockupExample}><span className={styles.exampleAvatar}>✦</span><span><b>{en?'A place for you':'每个人都有自己的故事'}</b><small>{en?'Your next connection starts here.':'你的下一段连接，从这里开始。'}</small></span></div>
-              <div className={styles.mockupExample}><span className={styles.exampleAvatarAlt}>☼</span><span><b>{en?'Discover new perspectives':'看见更广阔的世界'}</b><small>{en?'Explore what matters to you.':'探索你感兴趣的话题。'}</small></span></div>
-            </div>
-            <div className={styles.mockupFooter}><span>✧</span><span>☷</span><span>♡</span><span>◉</span></div>
-          </div>
-          <span className={styles.floatingChip}><Globe2 size={16}/>{en?'Connect worldwide':'与世界连接'}</span>
-        </div>
+        <StarflowAssemblyHero english={en}/>
       </section>
 
       <StarflowMotionShowcase english={en} onJoin={enter}/>
