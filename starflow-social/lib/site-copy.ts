@@ -38,7 +38,7 @@ const en: Dictionary = {
   signIn:'Sign in',join:'Join',homeHint:'Starflow · Independent social community',
   featureHeading:'Share, discover, connect.',supportButton:'AI Support'
 };
-const translations: Record<Lang, PartialDictionary> = {
+const translations: Record<string, PartialDictionary> = {
   en,
   'en-sg': { ...en,homeHint:'Starflow · Singapore English · Independent community' },
   'en-gb': { ...en,homeHint:'Starflow · British English · Independent community',
@@ -193,7 +193,9 @@ const translations: Record<Lang, PartialDictionary> = {
   }
 };
 export function siteText(lang: Lang, key: SiteKey): string {
-  return translations[lang]?.[key] ?? en[key];
+  const locale=lang.toLowerCase();
+  const mapped=locale.startsWith('ja')?'ja':locale.startsWith('ko')?'ko':locale.startsWith('de')?'de':locale.startsWith('fr')?'fr':locale;
+  return translations[mapped]?.[key] ?? en[key];
 }
 export function topicQuestion(lang:Lang, topic:string):string {
   return siteText(lang,'topicPrompt').replace('{topic}',topic);
