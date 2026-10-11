@@ -44,7 +44,7 @@ export function AuthPortal(){
       const supabase=db();
       if(mode==='signup'){
         const {data,error}=await supabase.auth.signUp({email:email.trim(),password,
-          options:{captchaToken:requestCaptchaToken,data:{display_name:display.trim()},emailRedirectTo:`${location.origin}/auth/callback`}});
+          options:{captchaToken:requestCaptchaToken,data:{display_name:display.trim()},emailRedirectTo:`${location.origin}/auth/confirm`}});
         if(error)throw error;
         setSuccess(data.session?t('signupDone'):t('signupConfirm'));
         if(data.session)location.assign('/');
@@ -53,7 +53,7 @@ export function AuthPortal(){
         if(error)throw error;
         location.assign('/');
       } else {
-        const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:`${location.origin}/auth/reset`,captchaToken:requestCaptchaToken});
+        const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:`${location.origin}/auth/confirm`,captchaToken:requestCaptchaToken});
         if(error)throw error;
         setSuccess(t('resetConfirm'));
       }
