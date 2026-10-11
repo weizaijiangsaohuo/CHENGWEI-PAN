@@ -19,6 +19,10 @@ export default function AuthCallback() {
         const params = new URLSearchParams(window.location.search);
         const tokenHash = params.get('token_hash');
         const code = params.get('code');
+        if(params.get('error')){
+          sessionStorage.removeItem('sf_identity_link_return');
+          throw new Error('第三方授权未完成：'+(params.get('error_description')||params.get('error')||'已取消'));
+        }
         const supabase = db();
 
         if (tokenHash) {
@@ -43,17 +47,21 @@ export default function AuthCallback() {
         // Identity-linking and ordinary login both use this authorized callback.
         // Only a short-lived, same-browser marker can route back to the security center.
         let destination='/';
-        try{
-          const raw=sessionStorage.getItem('sf_identity_link_return');
-          sessionStorage.removeItem('sf_identity_link_return');
-          if(raw){
-            const mark=JSON.parse(raw) as {to?:string;at?:number};
-            if(mark.to==='/settings/security'&&typeof mark.at==='number'
-               &&Date.now()>=mark.at&&Date.now()-mark.at<600000){
-              destination='/settings/security';
+        const raw=sessionStorage.getItem('sf_identity_link_return');
+        sessionStorage.removeItem('sf_identity_link_return');
+        if(code&&raw){
+          let marker:{to?:string;at?:number;userId?:string}|null=null;
+          try{marker=JSON.parse(raw);}catch{/* Invalid marker: ignore. */}
+          if(marker?.to==='/settings/security'&&typeof marker.at==='number'
+            &&Date.now()>=marker.at&&Date.now()-marker.at<600000&&typeof marker.userId==='string'){
+            const {data:{user},error:checkError}=await supabase.auth.getUser();
+            if(checkError||user?.id!==marker.userId){
+              await supabase.auth.signOut({scope:'local'});
+              throw new Error('授权返回的 Starflow 账号与原账号不一致。为防止错误绑定，已退出本次登录。');
             }
+            destination='/settings/security';
           }
-        }catch{/* Fall back to the safe home route. */}
+        }
         window.location.replace(destination);
       } catch (error) {
         const detail = error instanceof Error ? error.message : 'Verification failed. Please try again.';
