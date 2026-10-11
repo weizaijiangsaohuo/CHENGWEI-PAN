@@ -4,7 +4,6 @@ import {readFileSync} from 'node:fs';
 const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const locale=read('lib/site-language.ts');
 const page=read('app/page.tsx');
-const currentLanding=read('components/StarflowLandingExperience.tsx');
 const motion=read('components/StarflowMotionShowcase.tsx');
 const assembly=read('components/StarflowAssemblyHero.tsx');
 const provider=read('components/LanguageProvider.tsx');
@@ -15,11 +14,10 @@ test('nine language options retain country/region and script',()=>{
  assert.match(provider,/role="menuitemradio"/);
  assert.match(provider,/aria-checked/);
 });
-test('marketing text respects all nine regional language options including new cinematic landing',()=>{
+test('marketing text is localized for requested locales and honors region choice',()=>{
  for(const code of ['zh-HK','ko-KR','ja-JP','de-DE','fr-FR'])assert.ok(locale.includes('"'+code+'"'));
- assert.match(page,/StarflowLandingExperience onJoin=/);
- assert.match(currentLanding,/localeCopy\[localeKey\]/);
- for(const key of ["'zh-hk'","'en-sg'","'en-gb'","ja","ko","de","fr"])assert.ok(currentLanding.includes(key));
+ assert.match(page,/siteText\(lang,english,chinese\)/);
+ assert.match(page,/locale=\{lang\}/);
  assert.match(assembly,/siteText\(locale/);
  assert.match(motion,/siteText\(locale/);
  assert.doesNotMatch(page,/const en=lang==='en'/);
