@@ -44,7 +44,10 @@ export function StarflowMessages() {
   const [readStates, setReadStates] = useState<Record<string, string>>({});
   const [peerReadStates, setPeerReadStates] = useState<Record<string, string>>({});
   const [blockedPeerIds, setBlockedPeerIds] = useState<string[]>([]);
-  const [canSend, setCanSend] = useState(false);
+  const [sendPermission, setSendPermission] = useState<'checking' | 'allowed' | 'denied' | 'retry'>('checking');
+  // The database still enforces message INSERT permission. Only an explicit
+  // server-side rejection blocks typing; network failures must not impersonate a block.
+  const canSend = sendPermission !== 'denied';
   const [blocking, setBlocking] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -113,7 +116,11 @@ export function StarflowMessages() {
       });
       setPeerReadStates(Object.fromEntries((receipts.data ?? [])
         .filter(item => item.user_id !== user.id).map(item => [item.conversation_id, item.last_read_at])));
-      setBlockedPeerIds((blocks.data ?? []).map(item => item.blocked_id));
+      setBlockedPeerIds(previous => {
+        const next = (blocks.data ?? []).map(item => item.blocked_id).sort();
+        return previous.length === next.length && previous.every((id, index) => id === next[index])
+          ? previous : next;
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '读取私信失败');
     } finally {
@@ -170,15 +177,36 @@ export function StarflowMessages() {
   }, [user?.id, opening, loadInbox]);
 
   useEffect(() => { if (user) void loadInbox(); }, [user?.id, loadInbox]);
+  // Do not label "loading" or a temporary network failure as "blocked".
+  // Recheck on resume and periodically in case the peer changes blocking.
+  const blocksKey = blockedPeerIds.join(',');
   useEffect(() => {
-    if (!activeId || !user) { setCanSend(false); return; }
+    if (!activeId || !user) { setSendPermission('checking'); return; }
     let live = true;
-    setCanSend(false);
-    void Promise.resolve(db().rpc('sf_dm_can_send', { p_conversation: activeId })).then(({ data, error: permissionError }) => {
-      if (live) setCanSend(!permissionError && data === true);
-    }).catch(() => { if (live) setCanSend(false); });
-    return () => { live = false; };
-  }, [activeId, user?.id, blockedPeerIds]);
+    setSendPermission('checking');
+    const verify = async () => {
+      try {
+        const { data, error: permissionError } = await db().rpc('sf_dm_can_send', { p_conversation: activeId });
+        if (!live) return;
+        setSendPermission(permissionError ? 'retry' : data === false ? 'denied' : data === true ? 'allowed' : 'retry');
+      } catch {
+        if (live) setSendPermission('retry');
+      }
+    };
+    void verify();
+    const resume = () => { if (document.visibilityState === 'visible') void verify(); };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void verify(); }, 15000);
+    return () => {
+      live = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+    };
+  }, [activeId, user?.id, blocksKey]);
   useEffect(() => {
     activeRef.current = activeId;
     setMessages([]);
@@ -352,7 +380,7 @@ export function StarflowMessages() {
       setBlockedPeerIds(previous => blockedByMe
         ? previous.filter(id => id !== peerId)
         : [...new Set([...previous, peerId])]);
-      setCanSend(false);
+      setSendPermission(blockedByMe ? 'checking' : 'denied');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : (en ? 'Action failed' : '操作失败'));
     } finally {
