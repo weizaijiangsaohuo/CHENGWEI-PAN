@@ -36,3 +36,21 @@ test('DMs use authenticated RPCs and a database-backed messaging screen', () => 
   assert.match(app, /href="\/messages"/);
   assert.match(app, /href=\{'\/messages\?to='/);
 });
+
+
+test('DM blocking is server-enforced, and receipts are participant-scoped', () => {
+  const controls = readFileSync(new URL('../supabase/migrations/20261011_dm_blocks_and_read_receipts.sql', import.meta.url), 'utf8');
+  assert.match(controls, /CREATE TABLE IF NOT EXISTS public\.dm_blocks/);
+  assert.match(controls, /ALTER TABLE public\.dm_blocks ENABLE ROW LEVEL SECURITY/);
+  assert.match(controls, /CREATE POLICY dm_own_blocks_insert/);
+  assert.match(controls, /CREATE OR REPLACE FUNCTION public\.sf_dm_can_send/);
+  assert.match(controls, /NOT EXISTS[\s\S]*FROM public\.dm_blocks/);
+  assert.match(controls, /CREATE POLICY dm_members_send_messages/);
+  assert.match(controls, /public\.sf_dm_can_send\(conversation_id\)/);
+  assert.match(controls, /CREATE POLICY dm_participants_read_state/);
+  assert.match(ui, /\.from\('dm_blocks'\)\.insert/);
+  assert.match(ui, /\.from\('dm_blocks'\)\.delete/);
+  assert.match(ui, /\.rpc\('sf_dm_can_send'/);
+  assert.match(ui, /className="sf-dm-read-receipt"/);
+  assert.match(app, /dmUnread>0/);
+});

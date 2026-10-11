@@ -42,6 +42,10 @@ export function StarflowMessages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [contacts, setContacts] = useState<Record<string, Contact>>({});
   const [readStates, setReadStates] = useState<Record<string, string>>({});
+  const [peerReadStates, setPeerReadStates] = useState<Record<string, string>>({});
+  const [blockedPeerIds, setBlockedPeerIds] = useState<string[]>([]);
+  const [canSend, setCanSend] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [loadingInbox, setLoadingInbox] = useState(false);
@@ -77,14 +81,16 @@ export function StarflowMessages() {
     setLoadingInbox(true);
     try {
       const client = db();
-      const [inbox, receipts] = await Promise.all([
+      const [inbox, receipts, blocks] = await Promise.all([
         client.from('dm_conversations').select('id,user_low,user_high,created_at,last_message_at,last_sender_id')
           .or('user_low.eq.' + user.id + ',user_high.eq.' + user.id)
           .order('last_message_at', { ascending: false, nullsFirst: false }).limit(80),
-        client.from('dm_read_state').select('conversation_id,last_read_at').eq('user_id', user.id),
+        client.from('dm_read_state').select('conversation_id,user_id,last_read_at'),
+        client.from('dm_blocks').select('blocked_id').eq('blocker_id', user.id),
       ]);
       if (inbox.error) throw inbox.error;
       if (receipts.error) throw receipts.error;
+      if (blocks.error) throw blocks.error;
       const records = (inbox.data ?? []) as Conversation[];
       const peerIds = [...new Set(records.map(c => c.user_low === user.id ? c.user_high : c.user_low))];
       if (peerIds.length) {
@@ -97,10 +103,17 @@ export function StarflowMessages() {
         }));
       }
       setConversations(records);
-      setReadStates(previous => ({
-        ...previous,
-        ...Object.fromEntries((receipts.data ?? []).map(x => [x.conversation_id, x.last_read_at])),
-      }));
+      setReadStates(previous => {
+        const next = { ...previous };
+        for (const item of receipts.data ?? []) {
+          if (item.user_id === user.id && (!next[item.conversation_id] || next[item.conversation_id] < item.last_read_at))
+            next[item.conversation_id] = item.last_read_at;
+        }
+        return next;
+      });
+      setPeerReadStates(Object.fromEntries((receipts.data ?? [])
+        .filter(item => item.user_id !== user.id).map(item => [item.conversation_id, item.last_read_at])));
+      setBlockedPeerIds((blocks.data ?? []).map(item => item.blocked_id));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '读取私信失败');
     } finally {
@@ -158,6 +171,15 @@ export function StarflowMessages() {
 
   useEffect(() => { if (user) void loadInbox(); }, [user?.id, loadInbox]);
   useEffect(() => {
+    if (!activeId || !user) { setCanSend(false); return; }
+    let live = true;
+    setCanSend(false);
+    void db().rpc('sf_dm_can_send', { p_conversation: activeId }).then(({ data, error: permissionError }) => {
+      if (live) setCanSend(!permissionError && data === true);
+    }).catch(() => { if (live) setCanSend(false); });
+    return () => { live = false; };
+  }, [activeId, user?.id, blockedPeerIds]);
+  useEffect(() => {
     activeRef.current = activeId;
     setMessages([]);
     if (activeId) void loadThread(activeId);
@@ -212,7 +234,7 @@ export function StarflowMessages() {
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!user || !activeId || sendingRef.current) return;
+    if (!user || !activeId || !canSend || sendingRef.current) return;
     const body = draft.trim();
     if (body.length < 1 || body.length > 2000) {
       setError(en ? 'Message must be 1–2000 characters.' : '私信内容须为 1–2000 个字符。');
@@ -239,6 +261,28 @@ export function StarflowMessages() {
   const current = conversations.find(c => c.id === activeId);
   const peerId = current && user ? (current.user_low === user.id ? current.user_high : current.user_low) : null;
   const peer = peerId ? contacts[peerId] : undefined;
+  const blockedByMe = Boolean(peerId && blockedPeerIds.includes(peerId));
+  const lastOwnMessageId = [...messages].reverse().find(message => message.sender_id === user?.id)?.id;
+  async function toggleBlock() {
+    if (!user || !peerId || blocking) return;
+    if (!blockedByMe && !window.confirm(en ? 'Block this user? Neither of you will be able to send new messages until you unblock.' : '确定拉黑此用户？解除拉黑前，双方都无法继续发送私信。')) return;
+    setBlocking(true);
+    setError('');
+    try {
+      const result = blockedByMe
+        ? await db().from('dm_blocks').delete().eq('blocker_id', user.id).eq('blocked_id', peerId)
+        : await db().from('dm_blocks').insert({ blocker_id: user.id, blocked_id: peerId });
+      if (result.error) throw result.error;
+      setBlockedPeerIds(previous => blockedByMe
+        ? previous.filter(id => id !== peerId)
+        : [...new Set([...previous, peerId])]);
+      setCanSend(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : (en ? 'Action failed' : '操作失败'));
+    } finally {
+      setBlocking(false);
+    }
+  }
   const isUnread = (c: Conversation) => Boolean(user && c.last_message_at &&
     c.last_sender_id !== user.id && (!readStates[c.id] || c.last_message_at > readStates[c.id]));
 
@@ -310,7 +354,10 @@ export function StarflowMessages() {
               <strong>{peer?.display_name || (en ? 'Conversation' : '私信会话')}</strong>
               <small>{peer ? '@' + peer.handle : (en ? 'Private chat' : '私人聊天')}</small>
             </div>
-            {peer && <Link href={'/profile/' + encodeURIComponent(peer.handle)} aria-label="查看资料"><UserRound size={20}/></Link>}
+            {peer && <Link href={'/profile/' + encodeURIComponent(peer.handle)} aria-label={en ? 'View profile' : '查看资料'}><UserRound size={20}/></Link>}
+            {peer && <button type="button" className="sf-dm-block-control" disabled={blocking}
+              onClick={() => void toggleBlock()}>{blocking ? (en ? 'Working…' : '处理中…') :
+                blockedByMe ? (en ? 'Unblock' : '解除拉黑') : (en ? 'Block' : '拉黑')}</button>}
           </div>
           <div className="sf-dm-thread-messages" role="log" aria-live="polite" aria-label="消息内容">
             {loadingThread && messages.length === 0 && <p className="sf-dm-muted">{en ? 'Loading messages…' : '正在读取消息…'}</p>}
@@ -319,16 +366,22 @@ export function StarflowMessages() {
             {messages.map(m => <div key={m.id} className={'sf-dm-message' + (m.sender_id === user.id ? ' sf-dm-own' : '')}>
               <span className="sf-dm-bubble">{m.body}</span>
               <time dateTime={m.created_at}>{new Date(m.created_at).toLocaleTimeString(en ? 'en-US' : 'zh-CN', {hour:'2-digit',minute:'2-digit'})}</time>
+              {m.id === lastOwnMessageId && m.sender_id === user.id && peerReadStates[m.conversation_id] &&
+                peerReadStates[m.conversation_id] >= m.created_at &&
+                <small className="sf-dm-read-receipt">{en ? 'Read' : '已读'}</small>}
             </div>)}
             {sending && <p className="sf-dm-sending">{en ? 'Sending…' : '正在发送…'}</p>}
             <div ref={endRef}/>
           </div>
+          {!canSend && !loadingThread && <p className="sf-dm-send-restricted">
+            {en ? 'You cannot send messages in this conversation at the moment.' : '当前会话暂时无法发送私信。'}
+          </p>}
           <form onSubmit={send} className="sf-dm-compose">
             <label htmlFor="sf-dm-input" className="sf-dm-sr-only">{en ? 'Message' : '私信内容'}</label>
             <textarea id="sf-dm-input" value={draft} onChange={e => setDraft(e.target.value)}
-              maxLength={2000} rows={2} placeholder={en ? 'Write a private message…' : '发送私信…'}
+              maxLength={2000} rows={2} disabled={!canSend} placeholder={en ? 'Write a private message…' : '发送私信…'}
               onKeyDown={e => {if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {e.preventDefault(); e.currentTarget.form?.requestSubmit();}}}/>
-            <button type="submit" disabled={sending || !draft.trim() || draft.trim().length > 2000}
+            <button type="submit" disabled={!canSend || sending || !draft.trim() || draft.trim().length > 2000}
               aria-label={en ? 'Send message' : '发送私信'}><Send size={20}/></button>
           </form>
         </> : <div className="sf-dm-pick"><MessageCircle size={46}/>

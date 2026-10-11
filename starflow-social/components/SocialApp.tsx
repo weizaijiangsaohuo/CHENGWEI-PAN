@@ -46,7 +46,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [draftHydrated,setDraftHydrated]=useState(false);
   const [sending,setSending]=useState(false);
   const [display,setDisplay]=useState('');const [bio,setBio]=useState('');const [handle,setHandle]=useState('');
-  const [unread,setUnread]=useState(0);const [isAdmin,setIsAdmin]=useState(false);
+  const [unread,setUnread]=useState(0);const [dmUnread,setDmUnread]=useState(0);const [isAdmin,setIsAdmin]=useState(false);
   const inputRef=useRef<HTMLInputElement>(null);
   const videoInputRef=useRef<HTMLInputElement>(null);
   const showMessage=(msg:string)=>{setMessage(msg);window.setTimeout(()=>setMessage(''),6500)};
@@ -90,6 +90,32 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       else if(error)showMessage((lang==='en'?'Cannot load account profile. Check database migrations: ':'无法读取账户资料，请确认数据库迁移已执行：')+error.message);
     });
   },[user]);
+
+  // DM badge counts unread conversations from private, RLS-filtered participant rows.
+  useEffect(()=>{
+    if(!user){setDmUnread(0);return;}
+    let mounted=true;
+    const check=async()=>{
+      if(document.visibilityState==='hidden')return;
+      const client=db();
+      const [inbox,receipts]=await Promise.all([
+        client.from('dm_conversations')
+          .select('id,last_message_at,last_sender_id')
+          .or('user_low.eq.'+user.id+',user_high.eq.'+user.id)
+          .not('last_message_at','is',null).limit(1000),
+        client.from('dm_read_state').select('conversation_id,last_read_at').eq('user_id',user.id),
+      ]);
+      if(!mounted||inbox.error||receipts.error)return;
+      const seen=new Map((receipts.data||[]).map(item=>[item.conversation_id,item.last_read_at]));
+      const count=(inbox.data||[]).filter(item=>item.last_message_at
+        &&item.last_sender_id!==user.id
+        &&(!seen.get(item.id)||item.last_message_at>seen.get(item.id)!)).length;
+      setDmUnread(count);
+    };
+    void check();
+    const interval=window.setInterval(()=>{void check();},15000);
+    return()=>{mounted=false;window.clearInterval(interval)};
+  },[user?.id]);
 
   // Only server-approved account verification records can produce badges.
   // RLS permits public reads of approved records; no client-side approval path exists.
@@ -383,7 +409,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   if(checking)return <main className="center-screen"><div className="spinner" aria-label="加载中"/></main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
   return <div className="app-frame"><div className="app-layout">
-    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href="/messages"><MessageCircle size={25}/><span>私信</span></Link><Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
+    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href="/messages"><MessageCircle size={25}/><span>私信</span>{dmUnread>0&&<b className="count-bubble">{dmUnread>9?'9+':dmUnread}</b>}</Link><Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
       <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
@@ -396,7 +422,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <div className="right-card tips-card"><h3>{t('rules')}</h3><div>✦ {t('ruleOne')}</div><div>✦ {t('ruleTwo')}</div><div>✦ {t('ruleThree')}</div></div>
       <div className="footer-links"><Link href="/terms">{t('terms')}</Link><Link href="/privacy">{t('privacy')}</Link><span>© 2026 Starflow</span></div>
     </aside>
-    <nav className="mobile-nav" aria-label={lang==='en'?'Mobile navigation':'移动端导航'}>{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} aria-label={t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}><Icon size={23} strokeWidth={view===item.to.slice(1)||view==='home'&&item.to==='/'?2.8:2}/>{item.to==='/notifications'&&unread>0&&<i/>}</Link>})}<Link href="/messages" aria-label="私信"><MessageCircle size={23}/></Link><Link href={self?`/profile/${self.handle}`:'/settings'} aria-label={t('profile')}><UserRound size={23}/></Link></nav>
+    <nav className="mobile-nav" aria-label={lang==='en'?'Mobile navigation':'移动端导航'}>{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} aria-label={t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}><Icon size={23} strokeWidth={view===item.to.slice(1)||view==='home'&&item.to==='/'?2.8:2}/>{item.to==='/notifications'&&unread>0&&<i/>}</Link>})}<Link href="/messages" aria-label={dmUnread>0?`私信，${dmUnread} 条未读会话`:'私信'}><MessageCircle size={23}/>{dmUnread>0&&<i/>}</Link><Link href={self?`/profile/${self.handle}`:'/settings'} aria-label={t('profile')}><UserRound size={23}/></Link></nav>
     {message&&<div className="toast" role="status"><span>{message}</span><button onClick={()=>setMessage('')} aria-label={t('close')}><X size={16}/></button></div>}
   </div></div>;
 }

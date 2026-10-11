@@ -53,3 +53,13 @@
 .sf-dm-compose textarea{font-size:16px;min-height:48px}.sf-dm-list-head{padding-top:20px}
 }
 @media(prefers-reduced-motion:reduce){.sf-dm-spin{animation:none}}
+
+/* Starflow DM safety and read receipts */
+.sf-dm-read-receipt{font-size:11px;color:#8461a9;font-weight:650;line-height:1.2}
+.sf-dm-block-control{width:auto!important;min-width:62px;height:38px!important;border-radius:999px!important;padding:0 12px!important;font-size:12px;color:#a34458!important;background:#fff3f6!important;white-space:nowrap}
+.sf-dm-block-control:hover:not(:disabled){background:#ffe4eb!important}
+.sf-dm-block-control:disabled{opacity:.5;cursor:wait}
+.sf-dm-send-restricted{margin:0;padding:10px 17px;font-size:12px;background:#fff5f6;color:#983f54;text-align:center;border-top:1px solid #f0d7df}
+.sf-dm-compose textarea:disabled{background:#f2f0f4;cursor:not-allowed}
+@media(max-width:700px){.sf-dm-thread-head{gap:5px}.sf-dm-block-control{min-width:54px;padding:0 8px!important}}
+@media(max-width:650px){.app-frame .mobile-nav a{min-width:0;flex:1 1 0;display:flex;align-items:center;justify-content:center;padding-inline:3px}}
