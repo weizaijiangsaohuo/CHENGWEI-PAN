@@ -12,7 +12,8 @@ test('iPhone AI panel measures visible viewport instead of extending behind keyb
 test('typing never triggers huge page zoom, hidden nav or doubled floating action',()=>{
  assert.match(src,/font-size:16px!important/);
  assert.match(src,/setTyping\(true\)/);
- assert.match(src,/sf-mobile-five-nav\{visibility:hidden/);
+ assert.match(src,/body:has\(\.sfai-panel \.sfai-inputrow input:focus\) \.sf-mobile-five-nav/);
+ assert.match(src,/visibility:hidden;pointer-events:none/);
  assert.match(src,/\{!open && <button type="button" className="sfai-launcher"/);
  assert.match(src,/starflow-official-mark\.webp/);
 });
