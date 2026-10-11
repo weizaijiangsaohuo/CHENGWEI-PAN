@@ -42,3 +42,18 @@ test('resource cards expose consistent compact content structure and all legal l
  assert.match(style,/resource\{display:grid/);
  assert.match(style,/featureIndex/);
 });
+
+test('romantic homepage removes technical description and offers scroll-to-content hook',()=>{
+ assert.doesNotMatch(home,/网页端现已开放 · 中文 \/ English · 独立社交平台/);
+ assert.match(home,/让每一个故事，都有自己的星光。/);
+ assert.match(home,/href="#showcase"/);
+ const experience=readFileSync(new URL('../components/StarflowMotionShowcase.tsx',import.meta.url),'utf8');
+ assert.match(experience,/id="showcase"/);
+});
+test('the branded landing uses a reduced-size mark and soft pink/lilac palette',()=>{
+ const scene=readFileSync(new URL('../components/StarflowAssemblyHero.css',import.meta.url),'utf8');
+ assert.match(scene,/sf-cosmos-symbol\{width:95px;height:95px/);
+ assert.match(scene,/#eed4f3/);
+ assert.match(style,/@keyframes sf-v2-iridescent/);
+ assert.match(style,/prefers-reduced-motion:reduce/);
+});

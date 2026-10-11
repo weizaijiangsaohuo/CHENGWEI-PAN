@@ -144,3 +144,90 @@
  .navJoin{font-size:10px;padding:9px 7px}
 }
 @media(prefers-reduced-motion:reduce){.feature,.cta button,.navJoin{transition:none!important}}
+
+
+/* V2 / romantic Starflow — restrained iridescence on an accessible soft backdrop. */
+.page{
+ background:linear-gradient(142deg,#fffafa 0%,#faedf6 19%,#ece8ff 44%,#f9f4ff 63%,#fffaf9 83%,#fff 100%);
+ color:#28233a;
+}
+.nav{height:78px;background:linear-gradient(107deg,#fff8fcd9,#f8e4f3db 55%,#f2edffdb);
+ box-shadow:0 4px 20px #9874ba0b}
+.logoSymbol{width:40px;height:40px;border-radius:13px;box-shadow:0 5px 18px #59439920}
+.logoSymbol img{width:100%;height:100%;border-radius:13px}
+.brandName b{color:#332541}.brandName small{color:#8d81a8}
+.hero{
+ position:relative;max-width:1380px;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
+ min-height:0;padding:62px 5.5% 68px;gap:28px;align-items:center;
+}
+.hero:before{content:"";position:absolute;inset:2% -15% 4% 35%;pointer-events:none;
+ border-radius:50%;background:radial-gradient(ellipse,#efcce770,#dfd5fb56 37%,transparent 73%);
+ opacity:.76}
+.heroText{position:relative;z-index:2}
+.eyebrow{border:1px solid #d7bbe8a6;color:#80668e;background:#ffffffad}
+.liveDot{background:#ce8dca;box-shadow:0 0 0 4px #f4e6f8}
+.heroText h1{font-size:clamp(44px,5vw,75px);line-height:1.18;color:#40304d;
+ letter-spacing:-.066em;white-space:nowrap}
+.heroText h1>span{color:#40304d}
+.heroText h1 em{display:inline-block;font-style:normal;
+ background:linear-gradient(102deg,#c46ca8 0%,#9865c5 28%,#7a8ad8 53%,#d88cb5 76%,#9063ca 100%);
+ background-size:240% 100%;-webkit-background-clip:text;background-clip:text;
+ -webkit-text-fill-color:transparent;color:#9d67b4;
+ animation:sf-v2-iridescent 8s ease-in-out infinite alternate}
+.heroDescription{color:#72667e;max-width:510px;font-size:15px;line-height:1.9}
+.primaryAction{background:linear-gradient(110deg,#ba79c8,#8775d6);border-color:#a889d6;
+ box-shadow:0 12px 29px #ac78c844;color:#fff;transition:transform .2s ease,box-shadow .2s ease}
+.primaryAction:hover{background:linear-gradient(110deg,#ad6fc1,#7966c7);box-shadow:0 15px 33px #a679ca53}
+.outlineAction{border-color:#decce9;background:#ffffffba;color:#654b75}
+.heroDiscover{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:25px;
+ font-size:12px;color:#9585a0;line-height:1.55}
+.heroDiscoverSparkle{color:#cc85bd;font-size:17px}
+.heroDiscover a{display:inline-flex;align-items:center;gap:7px;margin-left:4px;text-decoration:none;
+ font-size:12px;font-weight:790;color:#895bb1;border-bottom:1px solid #cda7d8;padding:4px 0}
+.heroDiscover a svg{transform:rotate(90deg)}
+.sectionHeading h2{background:linear-gradient(104deg,#41304e,#9266b6 55%,#bf87ba);
+ background-clip:text;-webkit-background-clip:text;color:transparent}
+.feature{border-color:#ead9eb;background:linear-gradient(142deg,#fffafb,#f8eefc)!important}
+.feature:nth-child(2){background:linear-gradient(142deg,#fffafe,#eef1ff)!important}
+.feature:nth-child(3){background:linear-gradient(142deg,#fffbf9,#edf8f5)!important}
+.featureIcon,.resourceIcon{border:1px solid #ffffffed;box-shadow:inset 0 1px #fff8,0 6px 21px #64527e10}
+.featureIcon{color:#9d69bd;background:linear-gradient(145deg,#fbe8f4,#eae6fc)}
+.feature:nth-child(2) .featureIcon{color:#7480cd;background:linear-gradient(145deg,#f0e9ff,#e7eeff)}
+.feature:nth-child(3) .featureIcon{color:#609e97;background:linear-gradient(145deg,#e9f9f5,#edf2fc)}
+.resource{border-color:#f1e3f2;background:linear-gradient(115deg,#fffbfe,#f8f5fc)!important}
+.resource:nth-child(2){background:linear-gradient(115deg,#fffafe,#f2f1ff)!important}
+.resource:nth-child(3){background:linear-gradient(115deg,#fffcfa,#f1f7ff)!important}
+.resource:nth-child(4){background:linear-gradient(115deg,#fffdfa,#edf9f4)!important}
+.resourceIcon{background:linear-gradient(142deg,#fbe8f5,#eceafb);color:#9770c3}
+.resource:nth-child(2) .resourceIcon{background:linear-gradient(142deg,#f0e6ff,#e7ecff);color:#747fcb}
+.resource:nth-child(3) .resourceIcon{background:linear-gradient(142deg,#eef1ff,#e6f4ff);color:#6e94bb}
+.resource:nth-child(4) .resourceIcon{background:linear-gradient(142deg,#eaf6f3,#f4f0ff);color:#59a398}
+.cta{background:linear-gradient(125deg,#c48db7,#9a81c8 48%,#7e8cc6 100%);border-color:#ffffffa8;
+ box-shadow:0 15px 46px #aa8fbf28}
+.ctaOrbit{background:radial-gradient(ellipse,#fce0f06e,#d3befb36 40%,transparent 68%)}
+.ctaSparkle{color:#fff6ff;text-shadow:0 0 25px #ffdcf3}
+.cta button{box-shadow:0 12px 25px #795da43b}
+@keyframes sf-v2-iridescent{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+@media(max-width:930px){
+ .hero{grid-template-columns:1fr;gap:0}
+ .hero:before{inset:25% -15% 5%}
+ .heroText h1{white-space:normal}
+}
+@media(max-width:650px){
+ .nav{height:72px}
+ .logoSymbol{width:35px;height:35px;border-radius:11px}
+ .logoSymbol img{border-radius:11px}
+ .brandName b{font-size:18px}.brandName small{font-size:7px;letter-spacing:1.5px}
+ .hero{padding:38px 19px 42px;gap:2px}
+ .heroText h1{font-size:clamp(34px,9vw,47px);margin:22px 0 16px;line-height:1.22;white-space:normal}
+ .heroDescription{font-size:13px;margin-bottom:22px;line-height:1.8}
+ .heroActions{gap:10px}
+ .primaryAction,.outlineAction{min-height:47px;padding:12px 19px}
+ .heroDiscover{gap:7px;margin-top:17px;font-size:11px}
+ .heroDiscover a{font-size:11px}
+ .feature{min-height:165px}
+ .resourcesSection,.introSection{padding:62px 18px}
+ .sectionHeading h2{font-size:31px}
+ .cta{margin-bottom:45px}
+}
+@media(prefers-reduced-motion:reduce){.heroText h1 em{animation:none!important;background-position:55% 50%}}

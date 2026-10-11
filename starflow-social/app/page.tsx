@@ -158,7 +158,7 @@ export default function Home(){
     <header className={styles.nav}>
       <Link href="/" className={styles.brand} aria-label={en?'Refresh Starflow home':'刷新星流首页'} onClick={event=>{
         if(window.location.pathname==='/'){event.preventDefault();window.location.reload();}
-      }}><span className={styles.logoSymbol}><img src="/starflow-official-mark.webp" width="46" height="46" alt="星流正式 Logo"/></span><span className={styles.brandName}><b>星流</b><small>STARFLOW</small></span></Link>
+      }}><span className={styles.logoSymbol}><img src="/starflow-official-mark.webp" width="40" height="40" alt="星流正式 Logo"/></span><span className={styles.brandName}><b>星流</b><small>STARFLOW</small></span></Link>
       <nav className={styles.navLinks} aria-label={en?'Main navigation':'主导航'}>
         <a href="#discover">{en?'Discover':'探索星流'}</a>
         <a href="#resources">{en?'Resources':'指南与资源'}</a>
@@ -173,15 +173,17 @@ export default function Home(){
       <section className={styles.hero}>
         <div className={styles.heroText}>
           <span className={styles.eyebrow}><span className={styles.liveDot}/>{en?'A space for real connection':'连接每一种可能'}</span>
-          <h1>{en?<>Your world,<br/><em>in the moment.</em></>:<>你关心的世界，<br/><em>此刻正在发生。</em></>}</h1>
+          <h1><span>{en?'Your world,':'你关心的世界，'}</span><br/><em>{en?'in the moment.':'此刻正在发生。'}</em></h1>
           <p className={styles.heroDescription}>{en?'Share your thoughts, discover new voices, and connect through the moments that matter.':'分享真实想法，遇见有趣的人，让每一次连接，都值得期待。'}</p>
           <div className={styles.heroActions}>
             <button type="button" onClick={enter} className={styles.primaryAction}>{en?'Get started':'立即加入'} <ArrowRight size={18}/></button>
-            <a className={styles.outlineAction} href="#resources">{en?'Learn more':'了解星流'} <ChevronRight size={17}/></a>
+            <a className={styles.outlineAction} href="#showcase">{en?'Explore Starflow':'了解星流'} <ChevronRight size={17}/></a>
           </div>
-          <p className={styles.heroHint}>{en?'Web experience · Chinese & English · Independent platform':'网页端现已开放 · 中文 / English · 独立社交平台'}</p>
-          
-
+          <div className={styles.heroDiscover}>
+            <span className={styles.heroDiscoverSparkle} aria-hidden="true">✦</span>
+            <span>{en?'Every story has a universe.':'让每一个故事，都有自己的星光。'}</span>
+            <a href="#showcase">{en?'Scroll to discover':'向下发现精彩'} <ArrowRight size={14}/></a>
+          </div>
 
         </div>
         <StarflowAssemblyHero english={en}/>
@@ -191,14 +193,14 @@ export default function Home(){
 
       <section id="discover" className={styles.introSection} data-sf-reveal="discover">
         <div className={styles.sectionHeading}>
-          <span className={styles.sectionKicker}><Sparkles size={15}/>{en?'DISCOVER STARFLOW / 01':'发现星流 / 01'}</span>
+          <span className={styles.sectionKicker}><Sparkles size={15} strokeWidth={1.7}/>{en?'DISCOVER STARFLOW / 01':'发现星流 / 01'}</span>
           <h2>{en?'Share. Discover. Connect.':'分享、发现、连接。'}</h2>
           <p>{en?'Everything begins with a thought worth sharing.':'从一句话开始，让交流自然发生。'}</p>
         </div>
         <div className={styles.features}>
-          <article className={styles.feature}><span className={styles.featureIndex}>01 / MOMENTS</span><div className={styles.featureIcon}><MessageCircle size={23}/></div><h3>{en?'Share your moments':'分享此刻'}</h3><p>{en?'Post thoughts and images, and join conversations.':'发布想法和图片，参与真诚的交流。'}</p></article>
-          <article className={styles.feature}><span className={styles.featureIndex}>02 / DISCOVER</span><div className={styles.featureIcon}><Users size={23}/></div><h3>{en?'Find your people':'发现同好'}</h3><p>{en?'Follow people and discover perspectives that matter to you.':'关注感兴趣的人，发现不同视角。'}</p></article>
-          <article className={styles.feature}><span className={styles.featureIndex}>03 / TRUST</span><div className={styles.featureIcon}><ShieldCheck size={23}/></div><h3>{en?'Build with care':'尊重与安全'}</h3><p>{en?'A community shaped by clear rules and respect.':'以明确的社区规则推动友善交流。'}</p></article>
+          <article className={styles.feature}><span className={styles.featureIndex}>01 / MOMENTS</span><div className={styles.featureIcon}><MessageCircle size={22} strokeWidth={1.75}/></div><h3>{en?'Share your moments':'分享此刻'}</h3><p>{en?'Post thoughts and images, and join conversations.':'发布想法和图片，参与真诚的交流。'}</p></article>
+          <article className={styles.feature}><span className={styles.featureIndex}>02 / DISCOVER</span><div className={styles.featureIcon}><Users size={22} strokeWidth={1.75}/></div><h3>{en?'Find your people':'发现同好'}</h3><p>{en?'Follow people and discover perspectives that matter to you.':'关注感兴趣的人，发现不同视角。'}</p></article>
+          <article className={styles.feature}><span className={styles.featureIndex}>03 / TRUST</span><div className={styles.featureIcon}><ShieldCheck size={22} strokeWidth={1.75}/></div><h3>{en?'Build with care':'尊重与安全'}</h3><p>{en?'A community shaped by clear rules and respect.':'以明确的社区规则推动友善交流。'}</p></article>
         </div>
       </section>
 
@@ -209,10 +211,10 @@ export default function Home(){
          <p>{en?'Clear community standards. More confident connections.':'规则透明，隐私有度，让每一次交流都有安心的边界。'}</p>
         </div>
         <div className={styles.resourceGrid}>
-          <Link href="/terms" className={styles.resource}><div className={styles.resourceIcon}><BookOpen size={23}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>01 / POLICY</span><h3>{en?'Terms of Service':'服务条款'}</h3><p>{en?'Your account, rights, responsibilities and service rules.':'了解账号规则、用户权利与服务条件。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
-          <Link href="/privacy" className={styles.resource}><div className={styles.resourceIcon}><LockKeyhole size={23}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>02 / DATA</span><h3>{en?'Privacy & Data':'隐私与数据使用'}</h3><p>{en?'How data may be collected, used and protected.':'了解个人信息处理方式和隐私权利。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
-          <Link href="/guidelines" className={styles.resource}><div className={styles.resourceIcon}><ShieldCheck size={23}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>03 / COMMUNITY</span><h3>{en?'Community Guidelines':'社区规范'}</h3><p>{en?'What is welcome, and what is not allowed.':'了解内容边界、举报与申诉原则。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
-          <Link href="/privacy#section-13" className={styles.resource}><div className={styles.resourceIcon}><Globe2 size={23}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>04 / RIGHTS</span><h3>{en?'Your Privacy Rights':'用户隐私权利'}</h3><p>{en?'Learn about access, correction and deletion requests.':'查看访问、更正、删除等权利说明。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/terms" className={styles.resource}><div className={styles.resourceIcon}><BookOpen size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>01 / POLICY</span><h3>{en?'Terms of Service':'服务条款'}</h3><p>{en?'Your account, rights, responsibilities and service rules.':'了解账号规则、用户权利与服务条件。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/privacy" className={styles.resource}><div className={styles.resourceIcon}><LockKeyhole size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>02 / DATA</span><h3>{en?'Privacy & Data':'隐私与数据使用'}</h3><p>{en?'How data may be collected, used and protected.':'了解个人信息处理方式和隐私权利。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/guidelines" className={styles.resource}><div className={styles.resourceIcon}><ShieldCheck size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>03 / COMMUNITY</span><h3>{en?'Community Guidelines':'社区规范'}</h3><p>{en?'What is welcome, and what is not allowed.':'了解内容边界、举报与申诉原则。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/privacy#section-13" className={styles.resource}><div className={styles.resourceIcon}><Globe2 size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>04 / RIGHTS</span><h3>{en?'Your Privacy Rights':'用户隐私权利'}</h3><p>{en?'Learn about access, correction and deletion requests.':'查看访问、更正、删除等权利说明。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
         </div>
       </section>
 

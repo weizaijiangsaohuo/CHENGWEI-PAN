@@ -24,7 +24,7 @@ export function StarflowMotionShowcase({onJoin,english}:Props){
    </span>
   </Link>
  ));
- return <section className="sf-motion-section" aria-label={english?'Explore Starflow experiences':'星流体验展示'}>
+ return <section id="showcase" className="sf-motion-section" aria-label={english?'Explore Starflow experiences':'星流体验展示'}>
   <div className="sf-motion-section-header">
    <div><span className="sf-motion-eyebrow"><i/> STARFLOW / EXPLORE</span>
     <h2>{english?'Discover a more fluid world.':'精彩，不止一种流动。'}</h2>

@@ -100,3 +100,14 @@ html.sf-user-motion-off .sf-motion-section .sf-motion-set[aria-hidden="true"]{di
  .sf-motion-rail-intro{margin-bottom:14px}
  .sf-motion-rail-intro>span:first-child{font-size:11px}
 }
+
+/* V2 cohesive blush-to-lilac transition from the hero into real product features. */
+.sf-motion-section{background:linear-gradient(165deg,#fbf1f9,#f3effd 55%,#faf6ff);scroll-margin-top:90px}
+.sf-motion-featured{background:linear-gradient(135deg,#835f99,#a477b7 47%,#7989c3);box-shadow:0 18px 44px #ab83be24}
+.sf-motion-featured:before{background:radial-gradient(ellipse at 22% 42%,#f9d2ec6c,transparent 64%)}
+.sf-motion-featured-body p{color:#faf1fae8}
+.sf-featured-ring{border-color:#f6ddff95}
+.sf-featured-ring-two{border-color:#dcd8ffab}
+.sf-motion-section-header h2{background:linear-gradient(103deg,#754c85,#a16eab,#7f8dc9);background-clip:text;-webkit-background-clip:text;color:transparent}
+.sf-motion-rail-intro>span:first-child{color:#84639f}
+.sf-motion-tile-shape{border:1px solid #ffffff60;backdrop-filter:none}
