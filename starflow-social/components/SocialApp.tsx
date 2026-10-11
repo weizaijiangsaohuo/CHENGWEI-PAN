@@ -39,21 +39,12 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
   const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
   const [tab,setTab]=useState<'all'|'following'>('all');const [search,setSearch]=useState('');
-  const [homeLayout,setHomeLayout]=useState<'masonry'|'classic'>('masonry');
   const [homeComposerOpen,setHomeComposerOpen]=useState(false);
   const pendingToggles=useRef<Set<string>>(new Set());
   useEffect(()=>{
-    try{if(localStorage.getItem('sf-home-display')==='classic')setHomeLayout('classic');}
-    catch{/* storage may be unavailable */}
-  },[]);
-  const changeHomeLayout=(next:'masonry'|'classic')=>{
-    setHomeLayout(next);
-    try{localStorage.setItem('sf-home-display',next);}catch{/* optional preference */}
-  };
-  useEffect(()=>{
     if(view!=='home')return;
     const focusComposer=()=>{
-      if(homeLayout==='masonry')setHomeComposerOpen(true);
+      setHomeComposerOpen(true);
       window.setTimeout(()=>{
         const field=document.querySelector<HTMLTextAreaElement>('.app-frame .composer textarea');
         field?.scrollIntoView({behavior:'smooth',block:'center'});
@@ -67,7 +58,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       window.history.replaceState(window.history.state,'',window.location.pathname+(query.size?'?'+query.toString():''));
     }
     return()=>window.removeEventListener('sf-open-home-composer',focusComposer);
-  },[view,homeLayout]);
+  },[view]);
   const openPublish=()=>{if(view==='home')window.dispatchEvent(new Event('sf-open-home-composer'));else router.push('/?compose=1');};
   const [accounts,setAccounts]=useState<Profile[]>([]);const [notifs,setNotifs]=useState<Notif[]>([]);
   const [message,setMessage]=useState('');const [draft,setDraft]=useState('');
@@ -462,7 +453,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
     return <>
       <div className="sf-home-minihead">
-        <div><h1>{homeLayout==='masonry'?'发现精彩':'最新动态'}</h1>
+        <div><h1>发现精彩</h1>
           <p>分享生活、探索兴趣、遇见同好</p></div>
         <Link href="/explore"><Sparkles size={15}/> AI 搜索</Link>
       </div>
@@ -471,13 +462,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           <button type="button" className={tab==='all'?'active':''} onClick={()=>setTab('all')}>发现</button>
           <button type="button" className={tab==='following'?'active':''} onClick={()=>setTab('following')}>关注</button>
         </div>
-        <div className="sf-home-view-toggle" role="group" aria-label="首页浏览模式">
-          <button type="button" aria-pressed={homeLayout==='masonry'} onClick={()=>changeHomeLayout('masonry')}>卡片</button>
-          <button type="button" aria-pressed={homeLayout==='classic'} onClick={()=>changeHomeLayout('classic')}>动态</button>
-        </div>
+
       </div>
-      {homeLayout==='masonry'?
-        homeComposerOpen?<div className="sf-home-compose-expanded">
+      {homeComposerOpen?<div className="sf-home-compose-expanded">
           <button className="sf-home-compose-dismiss" type="button" onClick={()=>setHomeComposerOpen(false)}>收起发布框</button>
           {composer()}
          </div>:
@@ -490,8 +477,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
             <strong>分享这一刻的美好…</strong><ImagePlus size={19}/>
           </button>
           <Link href="/hub">社区 →</Link>
-         </div>:
-         composer()}
+         </div>}
     </>;
   };
 
@@ -500,19 +486,19 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <strong>星流 <span>STARFLOW</span></strong><p>正在连接星流…</p>
    </main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
-  return <div className={'app-frame'+(view==='home'&&homeLayout==='masonry'?' sf-xhs-home':'')}><div className="app-layout">
+  return <div className={'app-frame'+(view==='home'?' sf-xhs-home':'')}><div className="app-layout">
     <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href="/messages"><MessageCircle size={25}/><span>私信</span>{dmUnread>0&&<b className="count-bubble">{dmUnread>9?'9+':dmUnread}</b>}</Link><Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
       <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
     <main className="feed-panel">
       <div className="sf-top-utility">
-        {view==='home'&&<StarflowHomeMenu layout={homeLayout} onLayoutChange={changeHomeLayout}/>}
+        {view==='home'&&<StarflowHomeMenu/>}
         <Brand/><div className="sf-home-toolbar"><LanguageSwitch/></div>
       </div>
       {renderContent()}
       {!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&(
-        view==='home'&&homeLayout==='masonry'?
+        view==='home'?
          <div className="posts-list sf-masonry-feed-wrapper">
           <StarflowMasonryFeed posts={ordered} metrics={metrics} verified={verified} loading={loading}
             lang={lang} onLike={post=>void toggle('likes',post)}

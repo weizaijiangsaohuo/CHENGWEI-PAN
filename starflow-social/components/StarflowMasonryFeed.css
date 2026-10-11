@@ -33,7 +33,7 @@
 .sf-masonry-interest{border:0;background:transparent;padding:10px 14px;border-radius:999px;min-height:40px;color:#82798a;font-size:13px;font-weight:720;white-space:nowrap;flex:none;touch-action:manipulation}
 .sf-masonry-interest:hover,.sf-masonry-interest.is-active{background:#ece4f6;color:#62429a}
 .sf-masonry-grid{columns:2;column-gap:11px;padding:15px 14px 8px}
-.sf-masonry-card{break-inside:avoid;display:inline-block;vertical-align:top;width:100%;margin:0 0 13px;background:#fff;border:1px solid #f0eaf3;border-radius:17px;overflow:hidden;box-shadow:0 2px 12px rgba(42,28,59,.045);contain:layout style;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.sf-masonry-card{break-inside:avoid;display:inline-block;vertical-align:top;width:100%;margin:0 0 13px;background:#fff;border:1px solid #f0eaf3;border-radius:17px;overflow:hidden;box-shadow:0 2px 12px rgba(42,28,59,.045);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 @media(hover:hover) and (pointer:fine){.sf-masonry-card:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(41,22,73,.11);border-color:#ded0ec}}
 .sf-masonry-preview{display:block;position:relative;overflow:hidden;background:#f2edf7;color:inherit;min-height:100px;touch-action:manipulation}
 .sf-masonry-preview:active{transform:scale(.992)}
@@ -114,3 +114,12 @@
 .app-frame.sf-xhs-home .sf-top-utility>.brand{min-width:0;flex:0 1 auto}
 .app-frame.sf-xhs-home .sf-top-utility>.sf-home-toolbar{margin-left:auto}
 @media(max-width:430px){.app-frame.sf-xhs-home .sf-top-utility{gap:7px}.app-frame.sf-xhs-home .sf-top-utility>.sf-home-menu-trigger{width:38px;height:38px}}
+
+/* Reserve image space before download; stable card heights prevent iPhone masonry jumps. */
+.sf-masonry-preview.sf-cover-portrait{aspect-ratio:3/4}
+.sf-masonry-preview.sf-cover-square{aspect-ratio:1/1}
+.sf-masonry-preview.sf-cover-tall{aspect-ratio:4/5}
+.sf-masonry-preview[class*="sf-cover-"]>img{position:absolute;inset:0;width:100%;height:100%;max-height:none;object-fit:cover}
+.sf-masonry-card{content-visibility:auto;contain-intrinsic-size:auto 320px}
+@supports not (content-visibility:auto){.sf-masonry-card{content-visibility:visible}}
+@media(prefers-reduced-motion:reduce){.sf-masonry-card{transition:none!important}}

@@ -2,13 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const social=readFileSync(new URL('../components/SocialApp.tsx',import.meta.url),'utf8');
-test('homepage defaults to discovery cards, with classic posts still available',()=>{
- assert.match(social,/useState<'masonry'\|'classic'>\('masonry'\)/);
- assert.match(social,/sf-home-view-toggle/);
- assert.match(social,/sf-home-display/);
- assert.match(social,/onClick=\{\(\)=>changeHomeLayout\('classic'\)\}/);
+test('home uses one stable card feed without competing layouts or mode toggles',()=>{
+ assert.doesNotMatch(social,/sf-home-view-toggle|sf-home-display|homeLayout/);
  assert.match(social,/StarflowMasonryFeed posts=\{ordered\}/);
- assert.match(social,/ordered\.map\(card\)/);
+ assert.match(social,/ordered\.map\(card\)/); // Thread and saved-post views still use full posts.
 });
 test('home interactions do not block on database reload before showing feedback',()=>{
  assert.match(social,/Optimistic feedback/);
@@ -21,12 +18,12 @@ test('real home menu uses a native modal and preserves existing routes',()=>{
  const source=readFileSync(new URL('../components/StarflowHomeMenu.tsx',import.meta.url),'utf8');
  assert.match(source,/showModal\(\)/);
  assert.match(source,/<dialog/);
- assert.match(source,/onLayoutChange\('masonry'\)/);
- assert.match(source,/onLayoutChange\('classic'\)/);
+ assert.doesNotMatch(source,/onLayoutChange/);
+ assert.doesNotMatch(source,/sf-home-drawer-mode/);
  assert.match(source,/\/settings\/security/);
  assert.match(source,/\/messages/);
  assert.match(source,/\/bookmarks/);
- assert.match(social,/<StarflowHomeMenu layout=\{homeLayout\}/);
+ assert.match(social,/<StarflowHomeMenu\/>/);
 });
 
 test('mobile five-tab navigation has an actual working publish action',()=>{
@@ -70,4 +67,12 @@ test('owner profile shortcuts use supported feature pages only',()=>{
  assert.match(social,/href="\/bookmarks"/);
  assert.match(social,/href="\/creator"/);
  assert.match(social,/href="\/settings\/security"/);
+});
+
+test('card image aspect ratio is reserved before media loads',()=>{
+ const masonry=readFileSync(new URL('../components/StarflowMasonryFeed.tsx',import.meta.url),'utf8');
+ const styles=readFileSync(new URL('../components/StarflowMasonryFeed.css',import.meta.url),'utf8');
+ assert.match(masonry,/post\.id\.charCodeAt/);
+ assert.match(styles,/sf-cover-portrait\{aspect-ratio:3\/4\}/);
+ assert.match(styles,/object-fit:cover/);
 });

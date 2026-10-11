@@ -4,9 +4,7 @@ import Link from 'next/link';
 import {Bell,Bookmark,ChevronRight,Compass,Home,Menu,MessageCircle,Settings,ShieldCheck,Sparkles,UserRound,X} from 'lucide-react';
 import {Brand} from './Brand';
 
-type Layout='masonry'|'classic';
-
-export function StarflowHomeMenu({layout,onLayoutChange}:{layout:Layout;onLayoutChange:(layout:Layout)=>void}){
+export function StarflowHomeMenu(){
  const dialog=useRef<HTMLDialogElement>(null);
  const show=()=>{if(!dialog.current?.open)dialog.current?.showModal()};
  const close=()=>dialog.current?.close();
@@ -37,14 +35,6 @@ export function StarflowHomeMenu({layout,onLayoutChange}:{layout:Layout;onLayout
     <header className="sf-home-drawer-head"><Brand/>
       <button type="button" aria-label="关闭菜单" onClick={close}><X size={20}/></button>
     </header>
-    <div className="sf-home-drawer-mode"><strong>浏览模式</strong><p>选择你更喜欢的星流首页排版</p>
-      <div role="group" aria-label="首页显示方式">
-       <button type="button" aria-pressed={layout==='masonry'}
-        onClick={()=>{onLayoutChange('masonry');close();}}>发现卡片</button>
-       <button type="button" aria-pressed={layout==='classic'}
-        onClick={()=>{onLayoutChange('classic');close();}}>经典动态</button>
-      </div>
-    </div>
     <nav className="sf-home-drawer-links" aria-label="星流功能入口">
      {groups.map(group=><section className="sf-home-drawer-group" key={group.heading}>
        <h2>{group.heading}</h2>
@@ -52,7 +42,7 @@ export function StarflowHomeMenu({layout,onLayoutChange}:{layout:Layout;onLayout
         <Icon size={19}/><span>{label}</span><ChevronRight size={16}/></Link>)}
      </section>)}
     </nav>
-    <p className="sf-home-drawer-note">星流 STARFLOW · 你的探索空间</p>
+    <p className="sf-home-drawer-note">星流 STARFLOW · 发掘精彩，连接彼此</p>
   </dialog>
  </>;
 }

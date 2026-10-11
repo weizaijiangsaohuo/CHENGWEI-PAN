@@ -89,8 +89,9 @@ export function StarflowMasonryFeed({posts,metrics,verified,loading,lang,onLike,
       const summary=post.content.trim();
       const m=metrics[post.id]||{likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
       const isMedia=Boolean(post.image_url||post.video_url);
+      const ratio=(post.id.charCodeAt(post.id.length-1)||0)%3;
       return <article key={post.id} className="sf-masonry-card" aria-label={summary.slice(0,50)||'动态'}>
-       <Link className="sf-masonry-preview" href={'/post/'+encodeURIComponent(post.id)} aria-label={'查看动态：'+(summary.slice(0,36)||'媒体内容')}>
+       <Link className={'sf-masonry-preview '+(post.image_url?['sf-cover-portrait','sf-cover-square','sf-cover-tall'][ratio]:'')} href={'/post/'+encodeURIComponent(post.id)} aria-label={'查看动态：'+(summary.slice(0,36)||'媒体内容')}>
         {post.image_url?
          <img src={post.image_url} alt={summary.slice(0,70)||'用户动态图片'}
            loading={index<4?'eager':'lazy'} decoding="async"/>:
