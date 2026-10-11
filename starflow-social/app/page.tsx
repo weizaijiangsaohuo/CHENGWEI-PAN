@@ -102,7 +102,6 @@ function LegacyStarflowAiWidget({signedIn,onSignIn,en}:{signedIn:boolean;onSignI
 export default function Home(){
   const [screen,setScreen]=useState<Screen>('checking');
   const heroRef=useRef<HTMLElement|null>(null);
-  const [enhancedMotion,setEnhancedMotion]=useState(false);
   const [showInitialLogo,setShowInitialLogo]=useState(false);
   const {lang}=useLanguage();
   const en=lang==='en';
@@ -129,18 +128,15 @@ export default function Home(){
       const x=(event.clientX/window.innerWidth-.5)*2;
       const y=(event.clientY/window.innerHeight-.5)*2;
       raf=window.requestAnimationFrame(()=>{
-        hero.style.setProperty('--sf-look-x',String(x));
-        hero.style.setProperty('--sf-look-y',String(y));
+        hero.style.setProperty('--sf-visual-x',(x*-5).toFixed(2)+'px');
+        hero.style.setProperty('--sf-visual-y',(y*-5).toFixed(2)+'px');
+        hero.style.setProperty('--sf-portal-x',(x*9).toFixed(2)+'px');
+        hero.style.setProperty('--sf-portal-y',(y*8).toFixed(2)+'px');
         raf=0;
       });
     };
     window.addEventListener('pointermove',move,{passive:true});
     return()=>{window.removeEventListener('pointermove',move);window.cancelAnimationFrame(raf);};
-  },[screen]);
-  useEffect(()=>{
-    if(screen!=='landing')return;
-    setEnhancedMotion(!window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
-      !document.documentElement.classList.contains('sf-user-motion-off'));
   },[screen]);
   useEffect(()=>{
     const node=document.querySelector('.sf-public-landing');

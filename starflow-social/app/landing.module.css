@@ -87,8 +87,8 @@
 .heroText .outlineAction{background:#ffffff14;border:1px solid #f3eafa45;color:#fff}
 .heroText .outlineAction:hover{background:#ffffff21}
 .heroText :global(a[href="/support"]){background:#b59aff19!important;color:#ded1ff!important;border:1px solid #cebdff35;font-size:12px!important;box-shadow:0 8px 28px #00000015}
-.heroVisual{position:relative;z-index:2;min-height:580px;display:flex;justify-content:center;align-items:center;transform:translate3d(calc(var(--sf-look-x,0)*-5px),calc(var(--sf-look-y,0)*-5px),0)}
-.portalStage{position:absolute;inset:0;z-index:0;display:grid;place-items:center;pointer-events:none;transform:translate3d(calc(var(--sf-look-x,0)*9px),calc(var(--sf-look-y,0)*8px),0)}
+.heroVisual{position:relative;z-index:2;min-height:580px;display:flex;justify-content:center;align-items:center;transform:translate3d(var(--sf-visual-x,0px),var(--sf-visual-y,0px),0)}
+.portalStage{position:absolute;inset:0;z-index:0;display:grid;place-items:center;pointer-events:none;transform:translate3d(var(--sf-portal-x,0px),var(--sf-portal-y,0px),0)}
 .portalOuter,.portalMid,.portalInner{position:absolute;border-radius:50%;aspect-ratio:1;pointer-events:none}
 .portalOuter{width:min(100%,570px);border:1px solid #ac91ff83;box-shadow:0 0 55px #946ef744,inset 0 0 40px #8358fc22;transform:rotateX(66deg) rotate(-27deg);animation:sf-orbit-sweep 18s linear infinite}
 .portalMid{width:85%;max-width:465px;border:1px dashed #c4b8ff6c;transform:rotateX(59deg) rotate(31deg);animation:sf-orbit-reverse 22s linear infinite}
