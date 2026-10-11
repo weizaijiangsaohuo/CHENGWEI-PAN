@@ -67,6 +67,7 @@ function portal() {
   const h=harness('AuthPortal',{
     '@/lib/supabase':{db:()=>({auth}),hasConfig:()=>true},
     './LanguageProvider':{useLanguage:()=>({t:key=>key})},
+    '@/lib/account-providers':{activeLoginProviders:[]},
     './TurnstileChallenge':{TurnstileChallenge:'Challenge'}
   },{location:{origin:'https://local-test.invalid',assign(){}}});
   function render(){return h.render();}

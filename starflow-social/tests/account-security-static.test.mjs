@@ -14,7 +14,7 @@ test('password modification verifies current password on server',()=>{
 test('bind does not accidentally sign into a different account',()=>{
  assert.match(ui,/auth\.linkIdentity\(\{/);assert.doesNotMatch(ui,/auth\.signInWithOAuth\(/);
  for(const term of ["provider:'google'","provider:'apple'","provider:'facebook'","provider:'twitter'","NEXT_PUBLIC_WECHAT_ENABLED","NEXT_PUBLIC_QQ_ENABLED"])assert.ok(provider.includes(term),term);
- assert.match(ui,/!item\.enabled/);
+ assert.match(ui,/!item\?\.enabled/);
 });
 test('email recovery does not assume delivery',()=>{
  assert.match(ui,/auth\.resetPasswordForEmail\(/);
