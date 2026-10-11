@@ -73,7 +73,7 @@ export function StarflowNoticeDetail({ id }: { id: string }) {
   <article className="sf-notice-card">
    {loading?<div className="sf-notice-state" role="status"><LoaderCircle size={20}/> 正在读取…</div>:
    item?<>
-    <div className="sf-notice-stamp"><ShieldCheck size={20}/> {item.actor_id?'Starflow 互动通知':'Starflow 官方系统消息'}</div>
+    <div className="sf-notice-stamp"><ShieldCheck size={20}/> {item.actor_id?'Starflow 互动通知':'Starflow 官方'}</div>
     <h1>{label}</h1>
     <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString('zh-CN')}</time>
     <div className="sf-notice-body">{item.message?.trim()||'此通知暂无额外说明。'}</div>
