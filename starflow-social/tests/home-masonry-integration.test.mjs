@@ -64,3 +64,10 @@ test('initial loading uses genuine Starflow brand asset with no artificial waiti
  assert.match(home,/starflow-official-mark\.webp/);
  assert.match(social,/starflow-official-mark\.webp/);
 });
+
+test('owner profile shortcuts use supported feature pages only',()=>{
+ assert.match(social,/profile\.id===user\?\.id&&<div className="sf-own-profile-quicklinks"/);
+ assert.match(social,/href="\/bookmarks"/);
+ assert.match(social,/href="\/creator"/);
+ assert.match(social,/href="\/settings\/security"/);
+});
