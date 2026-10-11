@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ArrowRight, Check, Eye, EyeOff, Globe2, Lock, Mail, ShieldCheck, Sparkles, Users, Zap } from 'lucide-react';
 import { Brand } from './Brand';
@@ -14,7 +14,16 @@ export function AuthPortal(){
   const [display,setDisplay]=useState('');const [visible,setVisible]=useState(false);
   const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [success,setSuccess]=useState('');
   const configured=hasConfig();
-  const siteKey=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
+  const configuredSiteKey=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()||'';
+  // Temporary preview-host-only fallback. Never use this key on production.
+  // Remove this fallback before merging PR #2 into main.
+  const [previewSiteKey,setPreviewSiteKey]=useState('');
+  useEffect(()=>{
+    if(!configuredSiteKey && window.location.hostname==='fix-auth-turnstile-check-weizai.weizai.workers.dev'){
+      setPreviewSiteKey('0x4AAAAAAFTiZjZoSmGgJCg6');
+    }
+  },[configuredSiteKey]);
+  const siteKey=configuredSiteKey||previewSiteKey;
   const [captchaToken,setCaptchaToken]=useState('');
   const captchaTokenRef=useRef('');
   const submitting=useRef(false);

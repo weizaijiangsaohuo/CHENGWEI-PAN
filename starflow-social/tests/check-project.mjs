@@ -15,6 +15,7 @@ assert(sql.includes('storage.foldername(name)'),'Storage uploads must be user sc
 assert(sql.includes('grant update (read_at) on public.notifications'),'Notifications update should be column limited');
 const auth=get('components/AuthPortal.tsx');
 for(const part of ['signUp({','signInWithPassword({','resetPasswordForEmail(','signInWithOAuth({','captchaToken','<TurnstileChallenge'])assert(auth.includes(part),`Missing auth flow: ${part}`);
+assert(auth.includes("window.location.hostname==='fix-auth-turnstile-check-weizai.weizai.workers.dev'"),'Temporary site key fallback must be restricted to the exact preview hostname');
 const challenge=get('components/TurnstileChallenge.tsx');
 for(const part of ['challenges.cloudflare.com/turnstile/v0/api.js?render=explicit', "'expired-callback'", "'error-callback'", 'turnstile.remove(widgetId)'])assert(challenge.includes(part),`Missing Turnstile lifecycle: ${part}`);
 for(const method of ['signUp','signInWithPassword','resetPasswordForEmail']){

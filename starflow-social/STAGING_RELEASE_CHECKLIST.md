@@ -14,4 +14,7 @@ This document records the intended **pre-release** workflow for PR #2. It must n
 - Configure staging Auth redirect URLs for the actual preview hostname and test email delivery before testing signup confirmation and password reset.
 - Keep production Auth CAPTCHA unchanged and PR #2 in Draft until browser-based acceptance passes.
 
+- Temporary contingency: Cloudflare existing Preview may not inherit a newly saved public `NEXT_PUBLIC_TURNSTILE_SITE_KEY` value. AuthPortal has a strictly preview-host-scoped **public** site key fallback, which only turns on after mount on the exact staging hostname; no secret is embedded. Remove this temporary fallback before merging PR #2 into `main`. This is frontend rendering only and does **not** turn on Supabase Auth server-side CAPTCHA.
+- Verify build logs and actual preview page confirm a visible CAPTCHA challenge. Then configure the matching Turnstile secret in **staging Supabase Auth** and enable CAPTCHA there, not on production.
+
 See `AUTH_RELEASE_ACCEPTANCE.md` for validation cases and release gates.
