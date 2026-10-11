@@ -6,7 +6,7 @@ const page=src('app/page.tsx');
 const comp=src('components/StarflowMotionShowcase.tsx');
 const css=src('components/StarflowMotionShowcase.css');
 test('video-inspired experience rail is wired to public homepage',()=>{
- assert.match(page,/<StarflowMotionShowcase english=\{en\} onJoin=\{enter\}\/>/);
+ assert.match(page,/<StarflowMotionShowcase english=\{en\} locale=\{lang\} onJoin=\{enter\}\/>/);
  assert.match(comp,/sf-motion-featured/);
  assert.match(comp,/sf-motion-marquee/);
  assert.match(comp,/sf-motion-tile/);

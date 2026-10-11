@@ -7,7 +7,7 @@ const art=read('components/StarflowAssemblyHero.tsx');
 const css=read('components/StarflowAssemblyHero.css');
 
 test('hero removes the original white mockup and renders a romantic Starflow constellation',()=>{
- assert.match(page,/<StarflowAssemblyHero english=\{en\}\/>/);
+ assert.match(page,/<StarflowAssemblyHero english=\{en\} locale=\{lang\}\/>/);
  assert.doesNotMatch(page,/className=\{styles\.mockup\}/);
  assert.doesNotMatch(art,/sf-assembly-window|sf-assembly-row/);
  assert.match(art,/sf-constellation-scene/);

@@ -107,7 +107,7 @@ export default function Home(){
   const [screen,setScreen]=useState<Screen>('checking');
   const [showInitialLogo,setShowInitialLogo]=useState(false);
   const {lang}=useLanguage();
-  const en=lang==='en';
+  const en=isEnglishLocale(lang);
   useEffect(()=>{
     // One true branded startup per browser tab. Returning from inner routes
     // must never replay the intro or interrupt the active navigation.
