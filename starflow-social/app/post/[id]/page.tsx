@@ -1,5 +1,6 @@
-import { SocialApp } from '@/components/SocialApp';
+import {StarflowPostDetail} from '@/components/StarflowPostDetail';
+
 export default async function PostPage({params}:{params:Promise<{id:string}>}){
   const {id}=await params;
-  return <SocialApp view="post" target={id} />;
+  return <StarflowPostDetail postId={id}/>;
 }
