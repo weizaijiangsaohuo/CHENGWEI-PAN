@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
@@ -24,7 +24,7 @@ import type { Notif, Post, Profile } from '@/lib/types';
 import { ago, unwrap } from '@/lib/types';
 
 type View = 'home' | 'explore' | 'notifications' | 'bookmarks' | 'settings' | 'profile' | 'post';
-type Metrics = Record<string,{likes:number; reposts:number; replies:number; liked:boolean; reposted:boolean; saved:boolean}>;
+type Metrics = Record<string,{likes:number; reposts:number; replies:number; views:number; liked:boolean; reposted:boolean; saved:boolean}>;
 const postFields='id,author_id,content,image_url,video_url,has_poll,has_gallery,parent_id,created_at,profiles!posts_author_id_fkey(id,handle,display_name,bio,avatar_url,created_at)';
 const nav = [
   {to:'/',name:'home',icon:Home}, {to:'/explore',name:'explore',icon:Compass}, {to:'/notifications',name:'notifications',icon:Bell},
@@ -255,18 +255,25 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       if(error)throw error;
       const result=(rows||[]) as unknown as Post[];
       setPosts(result);
+      if (view==='post' && target && result.some(p=>p.id===target)) {
+        // Record one genuine authenticated viewer when opening post details.
+        // The server enforces one count per account/post pair.
+        await client.rpc('sf_record_post_view', {p_post_id:target});
+      }
       await loadBadges([...result.map(p=>p.author_id),...(currentProfile?[currentProfile.id]:[]),user.id]);
       const ids=result.map(p=>p.id);
       if(ids.length){
-        const [l,r,b,c]=await Promise.all([
+        const [l,r,b,c,v]=await Promise.all([
           client.from('likes').select('post_id,user_id').in('post_id',ids),
           client.from('reposts').select('post_id,user_id').in('post_id',ids),
           client.from('bookmarks').select('post_id,user_id').in('post_id',ids),
           client.from('posts').select('parent_id').in('parent_id',ids),
+          client.rpc('sf_post_view_counts',{p_post_ids:ids}),
         ]);
+        const collectedViews = new Map((v.data||[]).map(row=>[row.post_id,Number(row.views)||0]));
         const collect:Metrics={};
         for(const id of ids){const ls=(l.data||[]).filter(x=>x.post_id===id),rs=(r.data||[]).filter(x=>x.post_id===id),bs=(b.data||[]).filter(x=>x.post_id===id);
-          collect[id]={likes:ls.length,reposts:rs.length,replies:(c.data||[]).filter(x=>x.parent_id===id).length,
+          collect[id]={likes:ls.length,reposts:rs.length,replies:(c.data||[]).filter(x=>x.parent_id===id).length,views:collectedViews.get(id)||0,
             liked:ls.some(x=>x.user_id===user.id),reposted:rs.some(x=>x.user_id===user.id),saved:bs.some(x=>x.user_id===user.id)};
         }setMetrics(collect);
       }else setMetrics({});
@@ -298,7 +305,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     const lockKey=table+':'+post.id;
     if(pendingToggles.current.has(lockKey))return;
     pendingToggles.current.add(lockKey);
-    const fallback={likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
+    const fallback={likes:0,reposts:0,replies:0,views:0,liked:false,reposted:false,saved:false};
     const old=metrics[post.id]||fallback;
     const property=table==='likes'?'liked':table==='reposts'?'reposted':'saved';
     const countProperty=table==='likes'?'likes':table==='reposts'?'reposts':null;
@@ -465,6 +472,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
       <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
       <button className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} onClick={()=>toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
+      <span className="sf-post-unique-views" title="打开帖子详情的不同登录用户数"><Eye size={17}/><span>{m.views} 浏览</span></span>
       <button className={m.saved?'action-green':''} title={t('saveBookmark')} aria-label={m.saved?t('undoBookmark'):t('saveBookmark')} onClick={()=>toggle('bookmarks',post)}><Bookmark size={18} fill={m.saved?'currentColor':'none'}/></button>
       </div></div></article>;
   };
