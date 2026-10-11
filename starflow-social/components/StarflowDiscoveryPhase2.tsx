@@ -203,7 +203,7 @@ function SearchExperience({ host }: { host: Element }) {
   const trimmedPeople = tab === 'all' ? people.slice(0, 5) : people;
   const trimmedTopics = tab === 'all' ? topics.slice(0, 5) : topics;
   return createPortal(<section className="sf2-search" aria-label="探索与搜索">
-    <div className="sf2-page-title"><h2>探索</h2><p>{communityWithoutPosts ? '认识新用户，发布第一条公开动态' : '发现用户、帖子和正在讨论的话题'}</p></div>
+    <div className="sf2-page-title"><h2>探索 <span className="sf2-ai-title">AI 搜索</span></h2><p>{communityWithoutPosts ? '认识新用户，发布第一条公开动态' : '发现用户、帖子和正在讨论的话题'}</p></div>
     <div className="sf2-ai-search-slot">
       <StarflowAISearch value={term} onChange={setTerm}
         onSearch={word=>{setTerm(word);setTab('all');window.history.replaceState(window.history.state,'','/explore?q='+encodeURIComponent(word));}} />
