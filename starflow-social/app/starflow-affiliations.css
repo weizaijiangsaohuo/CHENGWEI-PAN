@@ -41,3 +41,7 @@
 .sf-aff-chip-group{display:inline-flex;align-items:center;vertical-align:middle;gap:3px;white-space:nowrap}.sf-aff-derived-check{display:inline-block;vertical-align:middle;flex-shrink:0}
 
 .sf-aff-notice-link{display:flex;align-items:center;gap:9px;padding:12px 17px;font-size:13px;font-weight:750;color:#8149a9;background:#fbf4ff;text-decoration:none;border-bottom:1px solid #eedff0}.sf-aff-notice-link>span{margin-left:auto}
+
+/* Invite validation: clear actionable feedback before making a server request. */
+.sf-aff-invite input[aria-invalid="true"]{border-color:#d65f82;box-shadow:0 0 0 2px #fde8f0}
+.sf-aff-invite-field-error{display:block;font-weight:600;font-size:12px;line-height:1.5;color:#b3355c;max-width:100%;overflow-wrap:anywhere}

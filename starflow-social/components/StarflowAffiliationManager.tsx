@@ -8,7 +8,35 @@ import {db,hasConfig} from '@/lib/supabase';
 
 type P={id:string;handle:string;display_name:string;avatar_url:string|null};
 type Rel={id:string;org_id:string;affiliate_id:string;affiliate_kind:'individual'|'organization';status:'pending'|'active'|'declined'|'revoked';invited_at:string};
-const explain=(x:unknown)=>x instanceof Error?x.message:'操作未完成，请稍后重试。';
+// Supabase PostgrestError is frequently a plain object rather than an Error instance.
+// Keep the server's actionable message instead of replacing all RPC failures with a generic notice.
+function explain(x:unknown):string{
+ const data=(x&&typeof x==='object'?x:{}) as {message?:unknown;details?:unknown;hint?:unknown;code?:unknown};
+ const message=typeof x==='string'?x:typeof data.message==='string'?data.message:
+   typeof data.details==='string'?data.details:x instanceof Error?x.message:'';
+ const value=message.trim();
+ const lower=value.toLowerCase();
+ if(/不能邀请自己|cannot invite yourself|cannot invite self|不能邀请自己的账号/.test(lower))return '不能邀请自己的账号。请输入另一个已注册账号的 @用户名。';
+ if(/找不到这个用户名|user not found|no user found|账号不存在|profile not found/.test(lower))return '找不到这个用户名。请确认对方已经注册 Starflow，且用户名输入正确。';
+ if(/已有待处理|已有.*邀请|duplicate key|unique constraint|23505/.test(lower))return '该账号已有待接受的邀请或有效关联，请勿重复邀请。';
+ if(/只有已认证|有效认证|admin required|not authorized|permission denied/.test(lower))return '只有已通过金色或灰色认证的组织账号可以发送邀请。';
+ if(/邀请不存在或已处理|invitation.*not found/.test(lower))return '这条邀请不存在或已处理，请刷新后再试。';
+ if(/已关联一个官方组织|already.*affiliat/.test(lower))return '该账号已关联其他官方组织，需要先解除原有关系。';
+ if(/jwt|unauthorized|not authenticated|not logged in|请先登录/.test(lower))return '登录已过期，请重新登录后再操作。';
+ if(/failed to fetch|network|fetch failed|timeout/.test(lower))return '网络连接失败，请检查网络后重试。';
+ if(/could not find the function|pgrst202|does not exist/.test(lower))return '官方附属账号服务暂不可用，请稍后重试或联系平台客服。';
+ return value ? '操作失败：'+value.slice(0,220) : '操作未完成，请检查网络后重试。';
+}
+function normalizeHandle(value:string){return value.trim().replace(/^@+/, '').trim()}
+function inviteInputError(value:string,ownHandle:string|undefined):string{
+ const target=normalizeHandle(value);
+ if(!target)return '';
+ if(ownHandle&&target.toLowerCase()===ownHandle.toLowerCase())
+   return '不能邀请自己的账号。请输入另一个已注册账号的 @用户名。';
+ if(!/^[A-Za-z0-9_]{3,24}$/.test(target))
+   return '用户名须为 3～24 位英文字母、数字或下划线。';
+ return '';
+}
 
 export function StarflowAffiliationManager(){
  const [viewer,setViewer]=useState<P|null>(null);
@@ -50,10 +78,18 @@ export function StarflowAffiliationManager(){
  },[]);
  useEffect(()=>{void load()},[load]);
  async function sendInvite(event:FormEvent){
-  event.preventDefault();if(!handle.trim()||busy)return;
+  event.preventDefault();if(busy)return;
+  const target=normalizeHandle(handle);
+  const validation=inviteInputError(handle,viewer?.handle);
+  if(!target||validation){setError(validation||'请输入被邀请账号的用户名。');setHint('');return;}
+  if(!viewer||!canManage){setError('当前账号没有发送组织邀请的权限。');return;}
   setBusy('invite');setError('');setHint('');
-  try{const {error}=await db().rpc('sf_invite_organization_affiliate',{p_handle:handle.trim().replace(/^@/,''),p_type:kind});if(error)throw error;
-   setHandle('');setHint('邀请已发送，对方接受后才会显示官方关联徽章。');await load();
+  try{
+   const {error:rpcError}=await db().rpc('sf_invite_organization_affiliate',{p_handle:target,p_type:kind});
+   if(rpcError)throw rpcError;
+   setHandle('');
+   await load();
+   setHint('邀请已发送，对方接受后才会显示官方关联徽章。');
   }catch(e){setError(explain(e))}finally{setBusy('')}
  }
  async function respond(id:string,accept:boolean){
@@ -72,6 +108,7 @@ export function StarflowAffiliationManager(){
  const owner=viewer?connections.filter(r=>r.org_id===viewer.id&&['pending','active'].includes(r.status)):[];
  const mine=viewer?connections.filter(r=>r.affiliate_id===viewer.id&&['pending','active'].includes(r.status)):[];
  const active=owner.filter(r=>r.status==='active');
+ const inputError=inviteInputError(handle,viewer?.handle);
  function avatar(person:P|undefined){return person?.avatar_url?<img src={person.avatar_url} alt=""/>:<span>{(person?.display_name||'S').slice(0,1).toUpperCase()}</span>}
  function record(r:Rel,context:'owner'|'member'){
   const person=profiles[context==='owner'?r.affiliate_id:r.org_id];
@@ -92,11 +129,14 @@ export function StarflowAffiliationManager(){
    <div className="sf-aff-page-head"><div className="sf-aff-icon"><Building2 size={25}/></div><h1>官方附属账号</h1><p>把官方组织与旗下品牌、成员或团队账号关联起来。附属标志是官方账号的头像，不是额外注册的账号。</p></div>
    {loading?<div className="sf-aff-card">正在读取账户关系…</div>:<>
     {error&&<p className="sf-aff-error" role="alert">{error}</p>}{hint&&<p className="sf-aff-hint" role="status">{hint}</p>}
-    {canManage?<section className="sf-aff-card"><div className="sf-aff-title"><UserPlus size={21}/><h2>邀请附属账号</h2></div><p>你的组织已具备金色或灰色有效认证资格。被邀请者同意前，不会获得关联徽章。</p>
+    {canManage?<section className="sf-aff-card"><div className="sf-aff-title"><UserPlus size={21}/><h2>邀请附属账号</h2></div><p>你的组织已具备金色或灰色有效认证资格。请邀请<b>另一个已注册的 Starflow 账号</b>，不能邀请自己；被邀请者接受后才会显示附属徽章。</p>
       <form className="sf-aff-invite" onSubmit={sendInvite}>
-        <label>被邀请账号的用户名（@）<input autoComplete="off" maxLength={32} placeholder="例如 @starflow_support" value={handle} onChange={e=>setHandle(e.target.value)}/></label>
+        <label>被邀请账号的用户名（@）<input autoComplete="off" maxLength={32} placeholder="例如 @starflow_support" value={handle}
+          aria-invalid={!!inputError} aria-describedby={inputError?'sf-aff-invite-input-error':undefined}
+          onChange={e=>{setHandle(e.target.value);setError('');setHint('')}}/>
+          {inputError&&<span className="sf-aff-invite-field-error" id="sf-aff-invite-input-error" role="alert">{inputError}</span>}</label>
         <label>账号类型<select value={kind} onChange={e=>setKind(e.target.value as typeof kind)}><option value="individual">个人／员工（蓝色勾）</option><option value="organization">旗下品牌／部门（组织色勾）</option></select></label>
-        <button type="submit" disabled={!!busy||!handle.trim()} className="sf-aff-primary"><UserPlus size={16}/>发送邀请</button>
+        <button type="submit" disabled={!!busy||!normalizeHandle(handle)||!!inputError} className="sf-aff-primary"><UserPlus size={16}/>发送邀请</button>
       </form>
       <div className="sf-aff-note"><ShieldCheck size={18}/>只有关联到有效认证组织，且邀请经本人同意，徽章才显示。失效、撤销或拒绝的关系不会显示。</div>
     </section>:<section className="sf-aff-card sf-aff-unverified"><BadgeCheck size={23}/><div><strong>组织邀请管理</strong><p>只有通过 Starflow 金色或灰色组织认证的账号可以邀请附属账号。你仍然可以接受来自其他组织的邀请。</p><Link href="/verification">前往认证中心 →</Link></div></section>}
