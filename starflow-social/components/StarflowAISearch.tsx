@@ -75,7 +75,7 @@ export function StarflowAISearch({value,onChange,onSearch,compact=false}:Props){
   setSelected(-1);
   onSearch(cleaned);
   if(viewerId&&hasConfig()){
-   void db().rpc('sf_record_search',{p_query:cleaned})
+   void Promise.resolve(db().rpc('sf_record_search',{p_query:cleaned}))
     .then(({error})=>{
       if(!error)setHistory(prev=>[
         {query:cleaned,times_searched:(prev.find(h=>h.query===cleaned)?.times_searched||0)+1,last_searched_at:new Date().toISOString()},
