@@ -10,6 +10,7 @@ import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
 import { LanguageSwitch, useLanguage } from './LanguageProvider';
+import {isEnglishLocale,LANGUAGE_OPTIONS} from '@/lib/i18n';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
 import { StarflowMasonryFeed } from './StarflowMasonryFeed';
@@ -113,7 +114,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(!user){setSelf(null);return;}
     db().from('profiles').select('*').eq('id',user.id).single().then(({data,error})=>{
       if(data){const p=data as Profile;setSelf(p);setDisplay(p.display_name);setBio(p.bio);setHandle(p.handle)}
-      else if(error)showMessage((lang==='en'?'Cannot load account profile. Check database migrations: ':'无法读取账户资料，请确认数据库迁移已执行：')+error.message);
+      else if(error)showMessage((isEnglishLocale(lang)?'Cannot load account profile. Check database migrations: ':'无法读取账户资料，请确认数据库迁移已执行：')+error.message);
     });
   },[user]);
 
@@ -230,7 +231,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           await loadBadges((u||[]).map(x=>x.id));}
         else setAccounts([]);
       }
-    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(lang==='en'?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
+    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
     finally{setLoading(false)}
   },[user,view,target,search,tab,loadBadges]);
   useEffect(()=>{if(user)void load();},[load,user]);
@@ -294,7 +295,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   function chooseVideo(e:ChangeEvent<HTMLInputElement>){
     const file=e.currentTarget.files?.[0];if(!file)return;
     if(file.size>50*1024*1024 || file.size===0 || !['video/mp4','video/webm','video/quicktime'].includes(file.type)){
-      showMessage(lang==='en'?'Video must be MP4, WebM or MOV and no larger than 50 MB.':'请选择 50 MB 以内的 MP4、WebM 或 MOV 视频');
+      showMessage(isEnglishLocale(lang)?'Video must be MP4, WebM or MOV and no larger than 50 MB.':'请选择 50 MB 以内的 MP4、WebM 或 MOV 视频');
       e.currentTarget.value='';return;
     }
     if(videoPreview)URL.revokeObjectURL(videoPreview);
@@ -349,7 +350,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       setVideo(null);if(videoPreview)URL.revokeObjectURL(videoPreview);setVideoPreview(null);
       showMessage(t('posted'));
       if(view==='home'||view==='profile'||view==='post')void load();else router.push('/');
-    }catch(e){showMessage(e instanceof Error?e.message:(lang==='en'?'Failed to publish':'发布失败'));}
+    }catch(e){showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Failed to publish':'发布失败'));}
     finally{setSending(false);}
   }
   async function follow(id:string){
@@ -369,11 +370,11 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     const reason=prompt(t('reportReason'));
     if(!reason)return;if(reason.trim().length<5)return showMessage(t('reportMin'));
     const {error}=await db().from('reports').insert({reporter_id:user.id,post_id:post.id,reason:reason.trim().slice(0,500)});
-    showMessage(error?(lang==='en'?'Report failed: ':'举报提交失败：')+error.message:(lang==='en'?'Report submitted. Moderators must review it.':'举报已记录，网站运营者需设置后台审核流程。'));
+    showMessage(error?(isEnglishLocale(lang)?'Report failed: ':'举报提交失败：')+error.message:(isEnglishLocale(lang)?'Report submitted. Moderators must review it.':'举报已记录，网站运营者需设置后台审核流程。'));
   }
   async function saveProfile(e:FormEvent){
     e.preventDefault();if(!user)return;
-    const cleaned=handle.toLowerCase().trim();if(!/^[a-z0-9_]{3,24}$/.test(cleaned))return showMessage((lang==='en'?'Username: 3–24 lowercase letters, numbers or underscores':'用户名只能使用 3–24 位小写英文、数字或下划线'));
+    const cleaned=handle.toLowerCase().trim();if(!/^[a-z0-9_]{3,24}$/.test(cleaned))return showMessage((isEnglishLocale(lang)?'Username: 3–24 lowercase letters, numbers or underscores':'用户名只能使用 3–24 位小写英文、数字或下划线'));
     const {error}=await db().from('profiles').update({display_name:display.trim(),bio:bio.trim(),handle:cleaned}).eq('id',user.id);
     if(error)showMessage(error.message);else{setSelf(self?{...self,display_name:display.trim(),bio:bio.trim(),handle:cleaned}:null);showMessage(t('profileSaved'));if(view==='profile')router.push(`/profile/${cleaned}`);}
   }
@@ -391,7 +392,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       URL.revokeObjectURL(src);const updated=galleryFiles.filter((_,i)=>i!==index);
       setGalleryFiles(updated);setGalleryPreviews(galleryPreviews.filter((_,i)=>i!==index));setImage(updated[0]||null);
     }}><X size={16}/></button></div>)}</div>}
-    {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={lang==='en'?'Remove video':'移除视频'}><X size={16}/></button></div>}
+    {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={isEnglishLocale(lang)?'Remove video':'移除视频'}><X size={16}/></button></div>}
     {pollOpen&&<div className="sf-poll-editor"><strong>创建投票</strong><input value={pollQuestion} onChange={e=>setPollQuestion(e.target.value)} placeholder="投票问题（最多160字）" maxLength={160}/>
      {pollOptions.map((choice,index)=><div key={index}><input value={choice} maxLength={100} placeholder={`选项${index+1}`} onChange={e=>setPollOptions(v=>v.map((x,i)=>i===index?e.target.value:x))}/>{pollOptions.length>2&&<button type="button" onClick={()=>setPollOptions(v=>v.filter((_,i)=>i!==index))} aria-label="删除选项"><X size={16}/></button>}</div>)}
      <div><button type="button" className="btn btn-outline" disabled={pollOptions.length>=4} onClick={()=>setPollOptions(v=>[...v,''])}>＋ 添加选项</button><select value={pollHours} onChange={e=>setPollHours(Number(e.target.value))}><option value={1}>1小时</option><option value={6}>6小时</option><option value={24}>24小时</option><option value={72}>3天</option><option value={168}>7天</option></select></div>
@@ -399,7 +400,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <div className="composer-actions"><div className="composer-tools"><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={chooseImage}/>
     <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" className="sr-only" onChange={chooseVideo}/>
     <button type="button" title={t('photo')} aria-label={t('photo')} disabled={sending||pollOpen} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button>
-    <button type="button" title={lang==='en'?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={lang==='en'?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
+    <button type="button" title={isEnglishLocale(lang)?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={isEnglishLocale(lang)?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
     <button type="button" title="发布投票" aria-label="发布投票" disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
     <span className={Array.from(draft).length>280?'char-count over':'char-count'}>{280-Array.from(draft).length}</span>
     <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video&&!pollOpen)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
@@ -412,9 +413,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <span className="post-handle">@{a?.handle||'unknown'} · {ago(post.created_at,lang)}</span>
       <div className="post-menu">{user?.id===post.author_id?<button title={t('deletePost')} aria-label={t('deletePost')} onClick={()=>deletePost(post)}><Trash2 size={17}/></button>:<button title={t('report')} aria-label={t('report')} onClick={()=>reportPost(post)}><Ellipsis size={19}/></button>}</div></div>
       <div className="post-content">{post.content.split(/(#[\p{L}\p{N}_]+)/gu).map((part,index)=>part.startsWith('#')?<Link key={index} href={`/explore?tag=${encodeURIComponent(part.slice(1))}`} style={{color:'#8854c5'}}>{part}</Link>:<span key={index}>{part}</span>)}</div>
-      {post.has_gallery?<PostGallery postId={post.id} fallback={post.image_url}/>:post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={lang==='en'?'Post image':'动态配图'} loading="lazy"/></a>}
+      {post.has_gallery?<PostGallery postId={post.id} fallback={post.image_url}/>:post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={isEnglishLocale(lang)?'Post image':'动态配图'} loading="lazy"/></a>}
       {post.has_poll&&<PollCard postId={post.id}/>}
-      {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={lang==='en'?'Post video':'帖子视频'}/></div>}
+      {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={isEnglishLocale(lang)?'Post video':'帖子视频'}/></div>}
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
       <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
       <button className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} onClick={()=>toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
@@ -435,16 +436,16 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <StarflowDisplayPreferences/>
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
-    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang==='en'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
+    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={isEnglishLocale(lang)?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(isEnglishLocale(lang)?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
       {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button><Link className="btn btn-outline" href={'/messages?to='+encodeURIComponent(profile.handle)}><MessageCircle size={16}/> 私信</Link></div>}</div>
-      <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(lang==='en'?'en-US':'zh-CN')} {t('joined')}</p>
+      <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(LANGUAGE_OPTIONS.find(option=>option.code===lang)?.htmlLang??'zh-CN')} {t('joined')}</p>
       {profile.id===user?.id&&<div className="sf-own-profile-quicklinks" aria-label="我的主页快捷入口">
        <Link href="/bookmarks"><Bookmark size={19}/><strong>我的收藏</strong><small>查看保存的动态</small></Link>
        <Link href="/creator"><BarChart3 size={19}/><strong>创作者中心</strong><small>发布与数据管理</small></Link>
        <Link href="/settings/security"><Shield size={19}/><strong>账号安全</strong><small>绑定与找回方式</small></Link>
-      </div>}</div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{lang==='en'?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={lang==='en'?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
-    if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={lang==='en'?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
+      </div>}</div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{isEnglishLocale(lang)?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={isEnglishLocale(lang)?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
+    if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={isEnglishLocale(lang)?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;

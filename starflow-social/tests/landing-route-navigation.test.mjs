@@ -25,7 +25,7 @@ test('public-facing landing animates without blocking navigation, supports reduc
 });
 
 test('logo tap genuinely refreshes the public homepage',()=>{
- assert.match(home,/aria-label=\{en\?'Refresh Starflow home':'刷新星流首页'\}/);
+ assert.match(home,/aria-label=\{l\("Refresh Starflow home","刷新星流首页"\)\}/);
  assert.match(home,/event\.preventDefault\(\);window\.location\.reload\(\)/);
 });
 test('AI customer support is at the footer bottom and not repeated under hero title',()=>{
