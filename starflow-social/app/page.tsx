@@ -118,7 +118,7 @@ export default function Home(){
     }).catch(()=>{if(active)setScreen('landing')});
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
-  if(screen==='checking')return <main className={styles.loading} role="status" aria-live="polite"><span className={styles.logoSymbol}>✦</span>{en?'Loading Starflow…':'正在进入星流…'}</main>;
+  if(screen==='checking')return <main className={styles.loading} role="status" aria-live="polite"><span style={{width:26,height:26,border:'3px solid #efe2f4',borderTopColor:'#a56aca',borderRadius:'50%',animation:'spin .8s linear infinite'}} aria-hidden="true"/><span style={{fontSize:13}}>{en?'Loading…':'加载中…'}</span></main>;
   const enter=()=>setScreen('auth');
   return <>
     {screen==='member'||screen==='auth'?<SocialApp view="home"/>:<StarflowLandingExperience onJoin={enter}/>}
