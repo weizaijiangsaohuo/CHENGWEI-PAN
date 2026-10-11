@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
-import {Bookmark,Heart,ImageIcon,MessageCircle,Play,RefreshCw,Video} from 'lucide-react';
+import {Bookmark,Eye,Heart,ImageIcon,MessageCircle,Play,RefreshCw,Video} from 'lucide-react';
 import type {Post} from '@/lib/types';
 import type {Lang} from '@/lib/i18n';
 import {ago,unwrap} from '@/lib/types';
@@ -11,7 +11,7 @@ import {VerificationBadge,type VerificationKind} from './VerificationBadge';
 import './StarflowMasonryFeed.css';
 
 export type MasonryMetrics={
-  likes:number;replies:number;reposts:number;
+  likes:number;replies:number;reposts:number;views:number;
   liked:boolean;saved:boolean;reposted:boolean;
 };
 type Props={
@@ -88,7 +88,7 @@ export function StarflowMasonryFeed({posts,metrics,verified,loading,lang,onLike,
      {visible.map((post,index)=>{
       const profile=unwrap(post.profiles);
       const summary=post.content.trim();
-      const m=metrics[post.id]||{likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
+      const m=metrics[post.id]||{likes:0,reposts:0,replies:0,views:0,liked:false,reposted:false,saved:false};
       const isMedia=Boolean(post.image_url||post.video_url);
       const ratio=(post.id.charCodeAt(post.id.length-1)||0)%3;
       return <article key={post.id} className="sf-masonry-card" aria-label={summary.slice(0,50)||'动态'}>
@@ -133,6 +133,7 @@ export function StarflowMasonryFeed({posts,metrics,verified,loading,lang,onLike,
           aria-label={m.saved?'取消收藏':'收藏'}>
           <Bookmark size={16} fill={m.saved?'currentColor':'none'}/>
          </button>
+         <span className="sf-masonry-view-count" title="打开帖子详情的不同登录用户数"><Eye size={15}/><span>{m.views||0}</span></span>
         </div>
        </div>
       </article>;
