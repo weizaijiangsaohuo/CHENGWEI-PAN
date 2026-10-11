@@ -25,7 +25,7 @@ export function AuthPortal(){
   async function submit(e:FormEvent){
     e.preventDefault();if(submitting.current)return;setError('');setSuccess('');
     if(!configured){setError(t('noKeys'));return;}
-    if(mode!=='forgot' && password.length < 12 && mode==='signup'){setError(t('pwdMinimum'));return;}
+    if(mode==='signup' && password.length < 6){setError(t('pwdMinimum'));return;}
     if(mode==='signup' && (!display.trim()||display.trim().length>60)){setError(t('nicknameMinimum'));return;}
     if(siteKey&&!captchaTokenRef.current){setError(t('captchaRequired'));return;}
     submitting.current=true;
@@ -77,7 +77,7 @@ export function AuthPortal(){
         <form onSubmit={submit} className="auth-fields">
           {mode==='signup'&&<label><span>{t('nickname')}</span><div className="field-wrap"><Users size={18}/><input type="text" placeholder={t('nicknamePlace')} value={display} onChange={e=>setDisplay(e.target.value)} maxLength={60} required autoComplete="nickname"/></div></label>}
           <label><span>{t('email')}</span><div className="field-wrap"><Mail size={18}/><input type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></div></label>
-          {mode!=='forgot'&&<label><span>{t('password')}</span><div className="field-wrap"><Lock size={18}/><input type={visible?'text':'password'} placeholder={mode==='signup'?t('passwordHint'):t('inputPassword')} value={password} onChange={e=>setPassword(e.target.value)} required minLength={mode==='signup'?12:1} autoComplete={mode==='signup'?'new-password':'current-password'}/><button type="button" className="show-pass" onClick={()=>setVisible(!visible)} aria-label={visible?t('hidePassword'):t('showPassword')}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>}
+          {mode!=='forgot'&&<label><span>{t('password')}</span><div className="field-wrap"><Lock size={18}/><input type={visible?'text':'password'} placeholder={mode==='signup'?t('passwordHint'):t('inputPassword')} value={password} onChange={e=>setPassword(e.target.value)} required minLength={mode==='signup'?6:1} autoComplete={mode==='signup'?'new-password':'current-password'}/><button type="button" className="show-pass" onClick={()=>setVisible(!visible)} aria-label={visible?t('hidePassword'):t('showPassword')}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>}
           {siteKey?<TurnstileChallenge key={captchaGeneration} siteKey={siteKey} onToken={updateCaptcha} onError={()=>setError(t('captchaFailure'))}/>:<p className="captcha-alert">{t('captchaNotReady')}</p>}
           {error&&<div className="form-error" role="alert">{error}</div>}{success&&<div className="form-success" role="status"><Check size={16}/>{success}</div>}
           <button className="btn btn-primary auth-submit" disabled={busy||!configured||Boolean(siteKey&&!captchaToken)}>{busy?t('processing'):t(mode==='signup'?'create':mode==='login'?'loginButton':'sendReset')}<ArrowRight size={18}/></button>

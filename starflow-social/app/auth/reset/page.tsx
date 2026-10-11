@@ -31,7 +31,7 @@ export default function ResetPassword(){
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
   async function submit(e:React.FormEvent){
-    e.preventDefault();if(password.length<12){setMessage((en?'Password must be at least 12 characters':'密码至少需要 12 位字符'));return;}
+    e.preventDefault();if(password.length<6){setMessage((en?'Password must be at least 6 characters':'密码至少需要 6 位字符'));return;}
     if(password!==confirm){setMessage((en?'Passwords do not match':'两次输入的密码不一致'));return;}
     setBusy(true);
     const {error}=await db().auth.updateUser({password});
@@ -41,8 +41,8 @@ export default function ResetPassword(){
   }
   return <main className="center-screen"><div className="mini-card"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}><Brand/><LanguageSwitch/></div><h1>{en?'Reset password':'重设密码'}</h1><p className="muted">{en?'Set a new, secure password for your account.':'为账户设置新的安全密码。'}</p>
     {ready&&!finished?<form className="stack" onSubmit={submit}>
-      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'New password (12+ characters)':'新密码（至少 12 位)'} minLength={12} value={password} onChange={e=>setPassword(e.target.value)} required/>
-      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'Confirm password':'再次输入新密码'} minLength={12} value={confirm} onChange={e=>setConfirm(e.target.value)} required/>
+      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'New password (6+ characters)':'新密码（至少 6 位）'} minLength={6} value={password} onChange={e=>setPassword(e.target.value)} required/>
+      <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'Confirm password':'再次输入新密码'} minLength={6} value={confirm} onChange={e=>setConfirm(e.target.value)} required/>
       <button className="btn btn-primary" disabled={busy}>{busy?(en?'Saving…':'正在保存…'):(en?'Update password':'确认修改密码')}</button>
     </form>:null}
     <p aria-live="polite">{message||(en?'Verifying reset link…':'正在验证密码重置链接…')}</p><a href="/">{en?'Back to home':'返回首页'}</a></div></main>;

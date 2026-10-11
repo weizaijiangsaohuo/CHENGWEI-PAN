@@ -21,6 +21,11 @@ for(const method of ['signUp','signInWithPassword','resetPasswordForEmail']){
   const call=auth.slice(auth.indexOf(`supabase.auth.${method}(`)).split('if(error)')[0];
   assert(call.includes('captchaToken:requestCaptchaToken'),`${method} must send the CAPTCHA token`);
 }
+assert(auth.includes("if(mode==='signup' && password.length < 6)"),'Sign-up password must be at least 6 characters');
+assert(auth.includes("minLength={mode==='signup'?6:1}"),'Sign-up input minimum must be 6; login must accept existing shorter passwords');
+const resetPage=get('app/auth/reset/page.tsx');
+assert(resetPage.includes("password.length<6"),'Password reset validation must match Supabase minimum');
+assert((resetPage.match(/minLength=\{6\}/g)||[]).length===2,'Both new-password fields must accept 6 characters');
 assert(auth.includes('if(submitting.current)return;'),'Auth requests must reject duplicate submissions');
 assert(auth.includes("if(siteKey&&!captchaTokenRef.current)"),'Configured CAPTCHA must guard form submission');
 assert(auth.includes('finally{submitting.current=false;setBusy(false);resetCaptcha();}'),'Consumed CAPTCHA tokens must be reset after requests');

@@ -145,3 +145,24 @@ test('script failure and widget render exceptions report failure and clear the t
   h.renderProps(props);h.flush();
   assert.deepEqual(tokens,['','']);assert.equal(errors,2);
 });
+
+test('sign-up accepts 6-digit, 7-character alphanumeric and symbol passwords, rejects fewer than six',async()=>{
+  for(const password of ['123456','pcw2006','Ab!123']){
+    const p=portal();
+    p.fill();
+    const passwordInput=find(p.render(),n=>n.type==='input'&&n.props.autoComplete==='new-password');
+    assert.equal(passwordInput.props.minLength,6);
+    passwordInput.props.onChange({target:{value:password}});
+    p.challenge().props.onToken('valid-test-token');
+    const submit=p.submit();
+    assert.equal(p.calls.length,1,`Expected accepted password: ${password}`);
+    p.finish({data:{session:null},error:null});
+    await submit;
+  }
+  const p=portal();
+  p.fill();
+  find(p.render(),n=>n.type==='input'&&n.props.autoComplete==='new-password').props.onChange({target:{value:'12345'}});
+  p.challenge().props.onToken('valid-test-token');
+  await p.submit();
+  assert.equal(p.calls.length,0,'Five-character password must not submit');
+});
