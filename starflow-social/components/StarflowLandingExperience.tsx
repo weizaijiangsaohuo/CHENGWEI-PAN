@@ -171,14 +171,15 @@ export function StarflowLandingExperience({onJoin}:{onJoin:()=>void}){
     return()=>window.clearTimeout(id);
   },[intro,reduced]);
   useEffect(()=>{
-    if(!ready||reduced||!container.current||!('IntersectionObserver' in window))return;
+    if(!ready||reduced||!container.current)return;
     const items=container.current.querySelectorAll<HTMLElement>('.sf-cinema-reveal');
+    if(!('IntersectionObserver' in window)){items.forEach(item=>item.classList.add('sf-cinema-seen'));return}
     const observer=new IntersectionObserver((entries)=>{
       entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('sf-cinema-seen');observer.unobserve(entry.target)}})
     },{threshold:0.11,rootMargin:'0px 0px -5% 0px'});
     items.forEach(item=>observer.observe(item));
     return()=>observer.disconnect();
-  },[ready,reduced]);
+  },[ready,reduced,active]);
   useEffect(()=>{
     if(!more)return;
     const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!menu.current?.contains(event.target))setMore(false)};
