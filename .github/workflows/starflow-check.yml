@@ -40,3 +40,6 @@ jobs:
 
       - name: Build website
         run: npm run build
+
+      - name: Smoke-test browser hydration
+        run: bash scripts/smoke-browser.sh
