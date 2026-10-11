@@ -174,7 +174,7 @@ export function StarflowMessages() {
     if (!activeId || !user) { setCanSend(false); return; }
     let live = true;
     setCanSend(false);
-    void db().rpc('sf_dm_can_send', { p_conversation: activeId }).then(({ data, error: permissionError }) => {
+    void Promise.resolve(db().rpc('sf_dm_can_send', { p_conversation: activeId })).then(({ data, error: permissionError }) => {
       if (live) setCanSend(!permissionError && data === true);
     }).catch(() => { if (live) setCanSend(false); });
     return () => { live = false; };
