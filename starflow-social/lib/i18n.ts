@@ -1,4 +1,4 @@
-export type Lang = 'zh' | 'en';
+export type Lang = 'zh' | 'en' | 'zh-hk' | 'ko' | 'ja' | 'en-sg' | 'en-gb' | 'de' | 'fr';
 export const messages = {
   zh: {
     home:'首页', explore:'探索', notifications:'通知', bookmarks:'书签', settings:'设置', profile:'个人主页', admin:'管理中心',
@@ -32,4 +32,24 @@ export const messages = {
   }
 } as const;
 export type TranslationKey = keyof typeof messages.zh;
-export function translate(lang:Lang, key:TranslationKey):string{return messages[lang][key]??messages.zh[key]}
+const traditional:Partial<Record<TranslationKey,string>>={
+  home:'首頁',explore:'探索',notifications:'通知',bookmarks:'書籤',settings:'設定',profile:'個人主頁',admin:'管理中心',
+  newPost:'發佈動態',post:'發佈',reply:'回覆',yourWorld:'分享你的世界',forYou:'為你推薦',following:'正在追蹤',
+  compose:'此刻，你在想甚麼？',replyPlaceholder:'寫下你的回覆…',photo:'新增圖片',
+  comments:'留言',repost:'轉發',undoRepost:'取消轉發',like:'讚好',unlike:'取消讚好',saveBookmark:'收藏',
+  undoBookmark:'取消收藏',report:'舉報',deletePost:'刪除動態',exploreSub:'發現新鮮事',search:'搜尋動態或用戶',
+  people:'相關用戶',notificationSub:'有人與你互動時會顯示在這裏',allRead:'全部標記已讀',
+  settingsTitle:'帳戶與偏好',settingsIntro:'在這裏管理帳戶資料及安全設定',profileEdit:'編輯個人資料',
+  name:'顯示名稱',handle:'用戶名稱',bio:'個人簡介',save:'儲存',security:'帳戶安全',logout:'登出',
+  language:'語言 / Language',edit:'編輯資料',follow:'追蹤',unfollow:'已追蹤',posts:'動態',
+  loading:'載入中…',signup:'加入星流',login:'歡迎回來',forgot:'重設密碼',
+  continueGoogle:'使用 Google 繼續',orEmail:'或使用電郵',email:'電郵地址',password:'密碼',
+  create:'建立帳戶',loginButton:'登入',sendReset:'發送重設連結',processing:'處理中…',
+  signIn:'立即登入',signUp:'免費註冊',forgotLink:'忘記密碼？',backLogin:'返回登入',
+  terms:'服務條款',privacy:'私隱政策',close:'關閉'
+};
+export function translate(lang:Lang, key:TranslationKey):string {
+  if(lang==='zh')return messages.zh[key];
+  if(lang==='zh-hk')return traditional[key]??messages.en[key];
+  return messages.en[key];
+}
