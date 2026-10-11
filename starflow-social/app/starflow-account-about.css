@@ -52,3 +52,8 @@
 .sf-about-notice{margin:14px 0;color:#654277;font-size:13px;line-height:1.5;background:#f5edf8;border-radius:9px;padding:12px 14px}
 .sf-about-status{padding:50px 20px;text-align:center;color:#69707a}
 @media(max-width:400px){.sf-about-body{padding:0 18px 44px}.sf-about-identity{padding:28px 0 26px}.sf-about-name{font-size:23px}.sf-about-line{gap:14px;min-height:89px}.sf-about-line strong{font-size:15px}.sf-about-line span:not(.sf-about-line-body){font-size:14px}.sf-about-inline-note,.sf-about-verification-detail{margin-left:38px}}
+
+/* Compact organizational emblem next to the verified badge, matching the X-style relationship semantics. */
+.sf-about-name-org{display:inline-grid;place-items:center;vertical-align:middle;flex:none;width:23px;height:23px;background:#f5f5f7;border:1px solid #dedee6;border-radius:6px;overflow:hidden;text-decoration:none;color:#342938;font-size:13px;font-weight:800;line-height:1}
+.sf-about-name-org>img{display:block;width:100%;height:100%;object-fit:cover}
+.sf-about-name-org:focus-visible{outline:2px solid #9662b8;outline-offset:2px}
