@@ -4,6 +4,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {Bookmark,Heart,ImageIcon,MessageCircle,Play,RefreshCw,Video} from 'lucide-react';
 import type {Post} from '@/lib/types';
+import type {Lang} from '@/lib/i18n';
 import {ago,unwrap} from '@/lib/types';
 import {Avatar} from './Brand';
 import {VerificationBadge,type VerificationKind} from './VerificationBadge';
@@ -18,7 +19,7 @@ type Props={
   metrics:Record<string,MasonryMetrics>;
   verified:Record<string,VerificationKind>;
   loading:boolean;
-  lang:'zh'|'en';
+  lang:Lang;
   onLike:(post:Post)=>void;
   onBookmark:(post:Post)=>void;
   onOpenPost:(post:Post)=>void;
