@@ -95,11 +95,53 @@ function Center({ host }: { host: Element }) {
       } finally { if (active) setLoading(false); running = false; }
     };
     void load(false);
-    const timer = window.setInterval(() => { if (document.visibilityState !== 'hidden') void load(true); }, 30000);
+    const timer = window.setInterval(() => { if (document.visibilityState !== 'hidden') void load(true); }, 12000);
     const resume = () => { if (document.visibilityState === 'visible') void load(true); };
     document.addEventListener('visibilitychange', resume);
     return () => { active = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', resume); };
   }, [reload]);
+
+  // Changes are delivered through authenticated RLS-filtered Realtime, with
+  // the existing timed refresh retained when the socket is unavailable.
+  useEffect(() => {
+    if (!hasConfig()) return;
+    let active = true;
+    const client = db();
+    let channel: ReturnType<typeof client.channel> | null = null;
+    let timer: number | null = null;
+    const refresh = () => {
+      if (!active || document.visibilityState === 'hidden') return;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        if (active) {
+          setReload(value => value + 1);
+          window.dispatchEvent(new Event('sf-notifications-updated'));
+        }
+      }, 140);
+    };
+    void client.auth.getUser().then(({ data, error: authError }) => {
+      if (!active || authError || !data.user) return;
+      channel = client.channel('sf-notifications-' + data.user.id)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'notifications',
+          filter: 'recipient_id=eq.' + data.user.id,
+        }, refresh)
+        .subscribe(status => { if (status === 'SUBSCRIBED') refresh(); });
+    }).catch(() => { /* Periodic reload still works when authentication is temporarily unavailable. */ });
+    const resume = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    return () => {
+      active = false;
+      if (timer !== null) window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+      if (channel) void client.removeChannel(channel);
+    };
+  }, []);
 
   async function markRead(id?: string) {
     if (!viewer || busy) return;
@@ -112,6 +154,7 @@ function Center({ host }: { host: Element }) {
       if (error) throw error;
       const now = new Date().toISOString();
       setItems(prev => prev.map(n => !n.read_at && (!id || n.id === id) ? { ...n, read_at: now } : n));
+      window.dispatchEvent(new Event('sf-notifications-updated'));
     } catch (cause) { setError(cause instanceof Error ? cause.message : '操作失败，请重试。'); }
     finally { setBusy(false); }
   }
@@ -189,7 +232,7 @@ function Center({ host }: { host: Element }) {
           <strong>{tab === 'system' ? '暂无官方系统消息' : tab === 'mentions' ? '暂时没有人提及你' : tab === 'unread' ? '所有通知都已读' : '暂时没有新通知'}</strong>
           <p>{tab === 'system' ? '认证结果、组织附属邀请、账号安全和违规处理通知将在这里显示。' : tab === 'all' ? '有人关注、点赞、转发或回复时，这里会收到消息。' : '新的消息到来后会自动更新。'}</p>
         </div>}
-    <p className="sf3-notification-footnote">站内通知来自真实数据库，通知页打开时约每 30 秒刷新；不代表 iPhone 系统推送已开启。</p>
+    <p className="sf3-notification-footnote">站内通知来自真实数据库，通知页实时接收站内更新，断线时约每 12 秒自动同步；不代表 iPhone 系统推送已开启。</p>
     {items.length === 100 && <p className="sf3-notification-footnote">当前只显示最近 100 条记录。</p>}
   </section>, host);
 }
