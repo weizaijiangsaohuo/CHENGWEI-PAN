@@ -9,7 +9,8 @@ import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
-import { LanguageSwitch, useLanguage } from './LanguageProvider';
+import { LanguageSwitch, useLanguage, languageOptions } from './LanguageProvider';
+import type {Lang} from '@/lib/i18n';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
 import { PostGallery } from './PostGallery';
@@ -25,9 +26,22 @@ const nav = [
   {to:'/bookmarks',name:'bookmarks',icon:Bookmark}, {to:'/settings',name:'settings',icon:Settings}
 ];
 
+const memberCopy:Record<Lang,{community:string;creator:string;poll:string;notFound:string;profileError:string;usernameChanged:string}>={
+  zh:{community:'社区 / 列表',creator:'数据中心',poll:'发布投票',notFound:'用户不存在',profileError:'资料加载失败，请稍后重试。',usernameChanged:'此用户名可能已经被修改。'},
+  'zh-hk':{community:'社群 / 列表',creator:'數據中心',poll:'發佈投票',notFound:'用戶不存在',profileError:'資料載入失敗，請稍後重試。',usernameChanged:'此用戶名稱可能已更改。'},
+  en:{community:'Community / Lists',creator:'Analytics',poll:'Create poll',notFound:'User not found',profileError:'Unable to load profile. Please try again.',usernameChanged:'This username may have changed.'},
+  'en-sg':{community:'Community / Lists',creator:'Analytics',poll:'Create poll',notFound:'User not found',profileError:'Unable to load profile. Please try again.',usernameChanged:'This username may have changed.'},
+  'en-gb':{community:'Community / Lists',creator:'Analytics',poll:'Create poll',notFound:'User not found',profileError:'Unable to load profile. Please try again.',usernameChanged:'This username may have changed.'},
+  ja:{community:'コミュニティ / リスト',creator:'アナリティクス',poll:'投票を作成',notFound:'ユーザーが見つかりません',profileError:'プロフィールを読み込めませんでした。',usernameChanged:'ユーザー名が変更された可能性があります。'},
+  ko:{community:'커뮤니티 / 목록',creator:'분석',poll:'투표 만들기',notFound:'사용자를 찾을 수 없습니다',profileError:'프로필을 불러올 수 없습니다.',usernameChanged:'사용자 이름이 변경되었을 수 있습니다.'},
+  de:{community:'Community / Listen',creator:'Statistiken',poll:'Umfrage erstellen',notFound:'Nutzer nicht gefunden',profileError:'Profil konnte nicht geladen werden.',usernameChanged:'Dieser Benutzername könnte geändert worden sein.'},
+  fr:{community:'Communauté / Listes',creator:'Statistiques',poll:'Créer un sondage',notFound:'Utilisateur introuvable',profileError:'Impossible de charger le profil.',usernameChanged:'Cet identifiant a peut-être changé.'}
+};
 export function SocialApp({view,target}:{view:View;target?:string}){
   const router=useRouter();
   const {t,lang}=useLanguage();
+  const locale=languageOptions.find(item=>item.code===lang)?.htmlLang??'en-US';
+  const member=memberCopy[lang];
   const [user,setUser]=useState<User|null>(null);const [self,setSelf]=useState<Profile|null>(null);
   const [checking,setChecking]=useState(true);const [loading,setLoading]=useState(false);
   const [posts,setPosts]=useState<Post[]>([]);const [metrics,setMetrics]=useState<Metrics>({});
@@ -87,7 +101,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(!user){setSelf(null);return;}
     db().from('profiles').select('*').eq('id',user.id).single().then(({data,error})=>{
       if(data){const p=data as Profile;setSelf(p);setDisplay(p.display_name);setBio(p.bio);setHandle(p.handle)}
-      else if(error)showMessage((lang==='en'?'Cannot load account profile. Check database migrations: ':'无法读取账户资料，请确认数据库迁移已执行：')+error.message);
+      else if(error)showMessage((lang!=='zh'&&lang!=='zh-hk'?'Cannot load account profile. Check database migrations: ':'无法读取账户资料，请确认数据库迁移已执行：')+error.message);
     });
   },[user]);
 
@@ -178,7 +192,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           await loadBadges((u||[]).map(x=>x.id));}
         else setAccounts([]);
       }
-    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(lang==='en'?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
+    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(lang!=='zh'&&lang!=='zh-hk'?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
     finally{setLoading(false)}
   },[user,view,target,search,tab,loadBadges]);
   useEffect(()=>{if(user)void load();},[load,user]);
@@ -221,7 +235,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   function chooseVideo(e:ChangeEvent<HTMLInputElement>){
     const file=e.currentTarget.files?.[0];if(!file)return;
     if(file.size>50*1024*1024 || file.size===0 || !['video/mp4','video/webm','video/quicktime'].includes(file.type)){
-      showMessage(lang==='en'?'Video must be MP4, WebM or MOV and no larger than 50 MB.':'请选择 50 MB 以内的 MP4、WebM 或 MOV 视频');
+      showMessage(lang!=='zh'&&lang!=='zh-hk'?'Video must be MP4, WebM or MOV and no larger than 50 MB.':'请选择 50 MB 以内的 MP4、WebM 或 MOV 视频');
       e.currentTarget.value='';return;
     }
     if(videoPreview)URL.revokeObjectURL(videoPreview);
@@ -276,7 +290,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       setVideo(null);if(videoPreview)URL.revokeObjectURL(videoPreview);setVideoPreview(null);
       showMessage(t('posted'));
       if(view==='home'||view==='profile'||view==='post')void load();else router.push('/');
-    }catch(e){showMessage(e instanceof Error?e.message:(lang==='en'?'Failed to publish':'发布失败'));}
+    }catch(e){showMessage(e instanceof Error?e.message:(lang!=='zh'&&lang!=='zh-hk'?'Failed to publish':'发布失败'));}
     finally{setSending(false);}
   }
   async function follow(id:string){
@@ -296,11 +310,11 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     const reason=prompt(t('reportReason'));
     if(!reason)return;if(reason.trim().length<5)return showMessage(t('reportMin'));
     const {error}=await db().from('reports').insert({reporter_id:user.id,post_id:post.id,reason:reason.trim().slice(0,500)});
-    showMessage(error?(lang==='en'?'Report failed: ':'举报提交失败：')+error.message:(lang==='en'?'Report submitted. Moderators must review it.':'举报已记录，网站运营者需设置后台审核流程。'));
+    showMessage(error?(lang!=='zh'&&lang!=='zh-hk'?'Report failed: ':'举报提交失败：')+error.message:(lang!=='zh'&&lang!=='zh-hk'?'Report submitted. Moderators must review it.':'举报已记录，网站运营者需设置后台审核流程。'));
   }
   async function saveProfile(e:FormEvent){
     e.preventDefault();if(!user)return;
-    const cleaned=handle.toLowerCase().trim();if(!/^[a-z0-9_]{3,24}$/.test(cleaned))return showMessage((lang==='en'?'Username: 3–24 lowercase letters, numbers or underscores':'用户名只能使用 3–24 位小写英文、数字或下划线'));
+    const cleaned=handle.toLowerCase().trim();if(!/^[a-z0-9_]{3,24}$/.test(cleaned))return showMessage((lang!=='zh'&&lang!=='zh-hk'?'Username: 3–24 lowercase letters, numbers or underscores':'用户名只能使用 3–24 位小写英文、数字或下划线'));
     const {error}=await db().from('profiles').update({display_name:display.trim(),bio:bio.trim(),handle:cleaned}).eq('id',user.id);
     if(error)showMessage(error.message);else{setSelf(self?{...self,display_name:display.trim(),bio:bio.trim(),handle:cleaned}:null);showMessage(t('profileSaved'));if(view==='profile')router.push(`/profile/${cleaned}`);}
   }
@@ -318,7 +332,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       URL.revokeObjectURL(src);const updated=galleryFiles.filter((_,i)=>i!==index);
       setGalleryFiles(updated);setGalleryPreviews(galleryPreviews.filter((_,i)=>i!==index));setImage(updated[0]||null);
     }}><X size={16}/></button></div>)}</div>}
-    {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={lang==='en'?'Remove video':'移除视频'}><X size={16}/></button></div>}
+    {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Remove video':'移除视频'}><X size={16}/></button></div>}
     {pollOpen&&<div className="sf-poll-editor"><strong>创建投票</strong><input value={pollQuestion} onChange={e=>setPollQuestion(e.target.value)} placeholder="投票问题（最多160字）" maxLength={160}/>
      {pollOptions.map((choice,index)=><div key={index}><input value={choice} maxLength={100} placeholder={`选项${index+1}`} onChange={e=>setPollOptions(v=>v.map((x,i)=>i===index?e.target.value:x))}/>{pollOptions.length>2&&<button type="button" onClick={()=>setPollOptions(v=>v.filter((_,i)=>i!==index))} aria-label="删除选项"><X size={16}/></button>}</div>)}
      <div><button type="button" className="btn btn-outline" disabled={pollOptions.length>=4} onClick={()=>setPollOptions(v=>[...v,''])}>＋ 添加选项</button><select value={pollHours} onChange={e=>setPollHours(Number(e.target.value))}><option value={1}>1小时</option><option value={6}>6小时</option><option value={24}>24小时</option><option value={72}>3天</option><option value={168}>7天</option></select></div>
@@ -326,8 +340,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <div className="composer-actions"><div className="composer-tools"><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={chooseImage}/>
     <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" className="sr-only" onChange={chooseVideo}/>
     <button type="button" title={t('photo')} aria-label={t('photo')} disabled={sending||pollOpen} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button>
-    <button type="button" title={lang==='en'?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={lang==='en'?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
-    <button type="button" title="发布投票" aria-label="发布投票" disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
+    <button type="button" title={lang!=='zh'&&lang!=='zh-hk'?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
+    <button type="button" title={member.poll} aria-label={member.poll} disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
     <span className={Array.from(draft).length>280?'char-count over':'char-count'}>{280-Array.from(draft).length}</span>
     <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video&&!pollOpen)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
   </form>;
@@ -339,9 +353,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <span className="post-handle">@{a?.handle||'unknown'} · {ago(post.created_at,lang)}</span>
       <div className="post-menu">{user?.id===post.author_id?<button title={t('deletePost')} aria-label={t('deletePost')} onClick={()=>deletePost(post)}><Trash2 size={17}/></button>:<button title={t('report')} aria-label={t('report')} onClick={()=>reportPost(post)}><Ellipsis size={19}/></button>}</div></div>
       <div className="post-content">{post.content.split(/(#[\p{L}\p{N}_]+)/gu).map((part,index)=>part.startsWith('#')?<Link key={index} href={`/explore?tag=${encodeURIComponent(part.slice(1))}`} style={{color:'#8854c5'}}>{part}</Link>:<span key={index}>{part}</span>)}</div>
-      {post.has_gallery?<PostGallery postId={post.id} fallback={post.image_url}/>:post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={lang==='en'?'Post image':'动态配图'} loading="lazy"/></a>}
+      {post.has_gallery?<PostGallery postId={post.id} fallback={post.image_url}/>:post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={lang!=='zh'&&lang!=='zh-hk'?'Post image':'动态配图'} loading="lazy"/></a>}
       {post.has_poll&&<PollCard postId={post.id}/>}
-      {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={lang==='en'?'Post video':'帖子视频'}/></div>}
+      {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Post video':'帖子视频'}/></div>}
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
       <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
       <button className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} onClick={()=>toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
@@ -366,11 +380,11 @@ export function SocialApp({view,target}:{view:View;target?:string}){
 
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
-    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang==='en'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
+    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang!=='zh'&&lang!=='zh-hk'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang!=='zh'&&lang!=='zh-hk'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
       {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button>}</div>
-      <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(lang==='en'?'en-US':'zh-CN')} {t('joined')}</p></div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{lang==='en'?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={lang==='en'?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
-    if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={lang==='en'?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
+      <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(locale)} {t('joined')}</p></div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{member.profileError}</div>:<Empty text={member.notFound} detail={member.usernameChanged}/>}</>;
+    if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
@@ -380,10 +394,10 @@ export function SocialApp({view,target}:{view:View;target?:string}){
 </>;
   };
 
-  if(checking)return <main className="center-screen"><div className="spinner" aria-label="加载中"/></main>;
+  if(checking)return <main className="center-screen"><div className="spinner" aria-label={t("loading")}/></main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
   return <div className="app-frame"><div className="app-layout">
-    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
+    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>{member.community}</span></Link><Link href="/creator"><BarChart3 size={25}/><span>{member.creator}</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
       <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
@@ -396,7 +410,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <div className="right-card tips-card"><h3>{t('rules')}</h3><div>✦ {t('ruleOne')}</div><div>✦ {t('ruleTwo')}</div><div>✦ {t('ruleThree')}</div></div>
       <div className="footer-links"><Link href="/terms">{t('terms')}</Link><Link href="/privacy">{t('privacy')}</Link><span>© 2026 Starflow</span></div>
     </aside>
-    <nav className="mobile-nav" aria-label={lang==='en'?'Mobile navigation':'移动端导航'}>{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} aria-label={t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}><Icon size={23} strokeWidth={view===item.to.slice(1)||view==='home'&&item.to==='/'?2.8:2}/>{item.to==='/notifications'&&unread>0&&<i/>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} aria-label={t('profile')}><UserRound size={23}/></Link></nav>
+    <nav className="mobile-nav" aria-label={lang!=='zh'&&lang!=='zh-hk'?'Mobile navigation':'移动端导航'}>{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} aria-label={t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}><Icon size={23} strokeWidth={view===item.to.slice(1)||view==='home'&&item.to==='/'?2.8:2}/>{item.to==='/notifications'&&unread>0&&<i/>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} aria-label={t('profile')}><UserRound size={23}/></Link></nav>
     {message&&<div className="toast" role="status"><span>{message}</span><button onClick={()=>setMessage('')} aria-label={t('close')}><X size={16}/></button></div>}
   </div></div>;
 }

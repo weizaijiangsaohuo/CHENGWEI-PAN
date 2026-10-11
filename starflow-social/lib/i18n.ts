@@ -1,4 +1,5 @@
-export type Lang = 'zh' | 'en';
+import {extraTranslations} from './i18n-locales';
+export type Lang = 'zh' | 'en' | 'zh-hk' | 'ko' | 'ja' | 'en-sg' | 'en-gb' | 'de' | 'fr';
 export const messages = {
   zh: {
     home:'首页', explore:'探索', notifications:'通知', bookmarks:'书签', settings:'设置', profile:'个人主页', admin:'管理中心',
@@ -32,4 +33,70 @@ export const messages = {
   }
 } as const;
 export type TranslationKey = keyof typeof messages.zh;
-export function translate(lang:Lang, key:TranslationKey):string{return messages[lang][key]??messages.zh[key]}
+const traditional:Partial<Record<TranslationKey,string>>={
+  home:'首頁',explore:'探索',notifications:'通知',bookmarks:'書籤',settings:'設定',profile:'個人主頁',admin:'管理中心',
+  newPost:'發佈動態',post:'發佈',reply:'回覆',yourWorld:'分享你的世界',forYou:'為你推薦',following:'正在追蹤',
+  compose:'此刻，你在想甚麼？',replyPlaceholder:'寫下你的回覆…',photo:'新增圖片',
+  comments:'留言',repost:'轉發',undoRepost:'取消轉發',like:'讚好',unlike:'取消讚好',saveBookmark:'收藏',
+  undoBookmark:'取消收藏',report:'舉報',deletePost:'刪除動態',exploreSub:'發現新鮮事',search:'搜尋動態或用戶',
+  people:'相關用戶',notificationSub:'有人與你互動時會顯示在這裏',allRead:'全部標記已讀',
+  settingsTitle:'帳戶與偏好',settingsIntro:'在這裏管理帳戶資料及安全設定',profileEdit:'編輯個人資料',
+  name:'顯示名稱',handle:'用戶名稱',bio:'個人簡介',save:'儲存',security:'帳戶安全',logout:'登出',
+  language:'語言 / Language',edit:'編輯資料',follow:'追蹤',unfollow:'已追蹤',posts:'動態',
+  loading:'載入中…',signup:'加入星流',login:'歡迎回來',forgot:'重設密碼',
+  continueGoogle:'使用 Google 繼續',orEmail:'或使用電郵',email:'電郵地址',password:'密碼',
+  create:'建立帳戶',loginButton:'登入',sendReset:'發送重設連結',processing:'處理中…',
+  signIn:'立即登入',signUp:'免費註冊',forgotLink:'忘記密碼？',backLogin:'返回登入',
+  terms:'服務條款',privacy:'私隱政策',close:'關閉',
+  likedYour:'讚好了你的動態',repliedYou:'回覆了你',followedYou:'開始追蹤你',
+  repostedYou:'轉發了你的動態',interacted:'與你互動了',
+  securityDesc:'電郵驗證及密碼重設由 Supabase Auth 處理。',
+  resetMail:'發送密碼重設電郵',profileMissing:'用戶資料',
+  missingBio:'尚未填寫個人簡介。',joined:'加入 Starflow',
+  thread:'動態詳情',discuss:'加入討論',bookmarksTitle:'我的書籤',
+  bookmarksIntro:'收藏值得重溫的內容',emptyNotifications:'暫時沒有新通知',
+  emptyBook:'還沒有收藏',emptyPost:'找不到這條動態',
+  emptyFollowing:'追蹤一些有趣的人吧',emptyFeed:'這裏暫時沒有動態',
+  emptyHint:'發佈第一條內容，開始交流。',discoverCommunity:'探索社群 →',
+  rightHeadline:'正在發生',rightTitle:'歡迎來到 Starflow',
+  rightDesc:'與感興趣的人連繫，分享此刻的想法。',
+  rules:'社群守則',ruleOne:'尊重不同觀點',
+  ruleTwo:'保護自己及他人的私隱',ruleThree:'發現違規內容時及時舉報',
+  signupDesc:'分享想法，認識志同道合的人。',
+  loginDesc:'繼續探索屬於你的世界。',
+  forgotDesc:'輸入註冊電郵，我們會發送重設連結。',
+  nickname:'顯示名稱',nicknamePlace:'希望別人如何稱呼你',
+  passwordHint:'最少 12 個字元',inputPassword:'輸入密碼',
+  haveAccount:'已有帳戶？',newAccount:'還沒有帳戶？',
+  rememberPassword:'想起密碼了？',showPassword:'顯示密碼',
+  hidePassword:'隱藏密碼',heroLineOne:'你關心的世界，',
+  heroLineTwo:'此刻正在發生。',heroSub:'分享真實想法，連繫有趣的人。',
+  heroBadge:'連接下一種可能',heroSpot:'從一句話開始',
+  heroSpotSub:'發佈 · 追蹤 · 對話',
+  heroOne:'開放交流',heroTwo:'更注重私隱',heroThree:'即時連繫',
+  legalLead:'繼續即表示你同意',and:'及',
+  legalTail:'。Starflow 是獨立平台。',
+  authFooter:'為真實交流而建 · Starflow © 2026',
+  configNeeded:'尚未連接 Supabase。請先設定環境變數。',
+  captchaNotReady:'接受註冊前，請設定 Cloudflare Turnstile。',
+  noKeys:'請先設定 Supabase 項目密鑰，詳見 README.md。',
+  noCaptcha:'請先啟用 Cloudflare Turnstile。',
+  finishCaptcha:'請先完成人機驗證。',
+  pwdMinimum:'註冊密碼最少需要 12 個字元。',
+  nicknameMinimum:'請輸入 1 至 60 個字元的顯示名稱。',
+  signupConfirm:'請查看電郵並完成驗證。',
+  signupDone:'註冊成功，正在登入…',
+  resetConfirm:'如果該電郵已註冊，便會收到密碼重設連結。',
+  authFailure:'操作失敗，請重試。',
+  googleFailure:'Google 登入失敗。',
+  googleNotReady:'（尚待設定）',authNotReady:'請先完成 Supabase 設定。',
+  profileSaved:'個人資料已儲存',posted:'發佈成功',
+  posting:'發佈中…',mustPost:'請輸入內容或新增相片。',
+  postLimit:'動態最多 280 個字元。',
+  resetSent:'已要求發送密碼重設電郵，請查看收件箱。'
+};
+export function translate(lang:Lang, key:TranslationKey):string {
+  if(lang==='zh')return messages.zh[key];
+  if(lang==='zh-hk')return traditional[key]??extraTranslations['zh-hk']?.[key]??messages.en[key];
+  return extraTranslations[lang]?.[key]??messages.en[key];
+}

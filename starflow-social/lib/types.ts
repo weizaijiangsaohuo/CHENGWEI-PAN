@@ -11,10 +11,14 @@ export type Notif = {
   read_at: string | null; created_at: string; profiles?: Profile | Profile[] | null;
 };
 export const unwrap = (val?: Profile | Profile[] | null): Profile | null => Array.isArray(val) ? (val[0] ?? null) : (val ?? null);
-export const ago = (iso: string, lang: "zh" | "en" = "zh") => {
-  const elapsed = Math.max(0, Date.now() - new Date(iso).getTime());
-  if (elapsed < 60000) return lang === 'en' ? 'now' : '刚刚';
-  if (elapsed < 3600000) return lang === "en" ? `${Math.floor(elapsed / 60000)}m` : `${Math.floor(elapsed / 60000)} 分钟`;
-  if (elapsed < 86400000) return lang === "en" ? `${Math.floor(elapsed / 3600000)}h` : `${Math.floor(elapsed / 3600000)} 小时`;
-  return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-CN', { month: 'short', day: 'numeric' });
+import type { Lang } from './i18n';
+const langTag:Record<Lang,string> = {zh:'zh-CN',en:'en-US','zh-hk':'zh-HK',ko:'ko-KR',ja:'ja-JP','en-sg':'en-SG','en-gb':'en-GB',de:'de-DE',fr:'fr-FR'};
+export const ago = (iso:string,lang:Lang='zh')=>{
+  const elapsed=Math.max(0,Date.now()-new Date(iso).getTime());
+  const locale=langTag[lang]??'en-US';
+  if(elapsed>=86400000)return new Date(iso).toLocaleDateString(locale,{month:'short',day:'numeric'});
+  const relative=new Intl.RelativeTimeFormat(locale,{numeric:'auto',style:'short'});
+  if(elapsed<60000)return relative.format(0,'second');
+  if(elapsed<3600000)return relative.format(-Math.floor(elapsed/60000),'minute');
+  return relative.format(-Math.floor(elapsed/3600000),'hour');
 };
