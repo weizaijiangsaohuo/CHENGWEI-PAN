@@ -214,12 +214,12 @@ export function StarflowLandingExperience({onJoin}:{onJoin:()=>void}){
   const detailBody=active===0?c.cardShareBody:active===1?c.cardExploreBody:c.cardSafeBody;
   return <div ref={container} className={`sf-cinema ${ready&&!reduced?'sf-cinema-motion':''} ${reduced?'sf-cinema-reduced':''} ${compact?'sf-cinema-compact':''}`}>
     {intro&&!introComplete&&<div className="sf-cinema-intro" role="status" aria-label="Starflow">
-      <div className="sf-cinema-intro-mark"><StarflowMark size={84}/></div><b>starflow<span>.</span></b>
+      <div className="sf-cinema-intro-mark"><img src="/starflow-official-mark.webp" width="84" height="84" alt=""/></div><b>starflow<span>.</span></b>
       <button type="button" onClick={()=>{setIntro(false);setIntroComplete(true)}} aria-label="Skip introduction"><X size={17}/></button>
     </div>}
     <div className="sf-cinema-space" aria-hidden="true"/>
     <header className="sf-cinema-header">
-      <Link className="sf-cinema-brand" href="/" aria-label="Starflow home"><span aria-hidden="true"><StarflowMark/></span>starflow<span className="sf-cinema-dot">.</span></Link>
+      <Link className="sf-cinema-brand" href="/" aria-label="Starflow home"><span aria-hidden="true"><img src="/starflow-official-mark.webp" width="44" height="44" alt=""/></span>starflow<span className="sf-cinema-dot">.</span></Link>
       <nav className="sf-cinema-mainnav" aria-label="Starflow">
         <a href="#sf-cinema-experience">{c.navExplore}</a>
         <a href="#sf-cinema-world">{c.navWorld}</a>
