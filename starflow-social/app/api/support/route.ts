@@ -1,20 +1,7 @@
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import type { Lang } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
-
-const responseLanguage: Record<Lang, string> = {
-  zh: '请使用简体中文回复。',
-  'zh-hk': '請使用香港繁體中文回覆，採用香港常用詞彙。',
-  en: 'Reply in American English.',
-  'en-sg': 'Reply in natural Singapore English.',
-  'en-gb': 'Reply in British English.',
-  ko: '한국어로 대답하세요.',
-  ja: '日本語で回答してください。',
-  de: 'Antworte auf Deutsch.',
-  fr: 'Réponds en français.'
-};
 
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -79,6 +66,15 @@ function getAnswer(result: AiOutput): string {
     .trim();
 }
 
+// Public readiness does not expose credentials or private configuration.
+export async function GET() {
+  try {
+    const {env}=getCloudflareContext();
+    const bindings=env as unknown as Bindings;
+    return reply({ready:Boolean(bindings.AI&&bindings.SUPPORT_PER_IP&&bindings.SUPPORT_GLOBAL)});
+  }catch{return reply({ready:false});}
+}
+
 export async function POST(request: Request) {
   try {
     const origin = new URL(request.url).origin;
@@ -127,7 +123,6 @@ export async function POST(request: Request) {
     const body = parsed as {
       message?: unknown;
       messages?: unknown;
-      locale?: unknown;
     };
 
     if (typeof body.message !== 'string') {
@@ -142,9 +137,6 @@ export async function POST(request: Request) {
       }, 400);
     }
 
-    // Only accept a supported locale; never inject arbitrary client text into the system prompt.
-    const locale:Lang = typeof body.locale === 'string' && Object.prototype.hasOwnProperty.call(responseLanguage,body.locale)
-      ? body.locale as Lang : 'zh';
     const history: ChatMessage[] = [];
 
     if (body.messages != null) {
@@ -218,11 +210,11 @@ export async function POST(request: Request) {
           '任何访客都可以使用客服，无需登录。',
           '帮助用户了解账号、登录、注册、',
           '发布动态、评论、关注、隐私和安全。',
-          '用户之间的私信功能已取消。',
+          '用户可以使用站内私信。尊重对方拉黑以及系统安全限制。',
           '不要编造账号、订单或支付信息。',
           '不要索取密码、验证码和银行卡信息。',
           '回答应当准确、简洁、清楚。',
-          responseLanguage[locale],
+          '使用简体中文。',
           '/no_think'
         ].join('\n')
       },

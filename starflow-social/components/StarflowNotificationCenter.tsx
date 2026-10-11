@@ -19,10 +19,11 @@ type Notice = {
   created_at: string;
   profiles: { id: string; handle: string; display_name: string; avatar_url: string | null } | { id: string; handle: string; display_name: string; avatar_url: string | null }[] | null;
 };
-type Panel = 'all' | 'unread' | 'mentions' | 'system';
+type Panel = 'all' | 'unread' | 'mentions' | 'system' | 'likes' | 'follows' | 'comments';
 const SYSTEM_KINDS = new Set([
   'verification_approved', 'verification_rejected', 'verification_revoked',
-  'account_warning', 'account_violation', 'account_restored',
+  'account_warning', 'account_violation', 'account_restored', 'account_security',
+  'system_announcement', 'appeal_result', 'subscription_activated', 'subscription_expired',
   'affiliation_invite', 'affiliation_accepted', 'affiliation_activated',
   'affiliation_declined', 'affiliation_removed',
 ]);
@@ -32,6 +33,9 @@ const KIND_TITLES: Record<string, string> = {
   verification_rejected: '认证申请未通过', verification_revoked: '认证资格已撤销',
   account_warning: '账号安全提醒', account_violation: '账号违规处理通知',
   account_restored: '账号处理结果更新',
+  account_security: '账号安全提醒', system_announcement: 'Starflow 官方公告',
+  appeal_result: '账号申诉处理结果', subscription_activated: '会员资格开通通知',
+  subscription_expired: '会员资格到期通知',
   affiliation_invite: '官方组织邀请你成为附属账号',
   affiliation_accepted: '对方接受了附属账号邀请',
   affiliation_activated: '官方附属账号关联已生效',
@@ -113,7 +117,21 @@ function Center({ host }: { host: Element }) {
   }
 
   const unread = items.filter(n => !n.read_at).length;
-  const shown = items.filter(n => tab === 'all' || (tab === 'unread' ? !n.read_at : tab === 'mentions' ? n.kind === 'mention' : SYSTEM_KINDS.has(n.kind)));
+  const shown=items.filter(n=>{
+    if(tab==='all')return true;
+    if(tab==='unread')return !n.read_at;
+    if(tab==='mentions')return n.kind==='mention';
+    if(tab==='system')return SYSTEM_KINDS.has(n.kind);
+    if(tab==='likes')return n.kind==='like';
+    if(tab==='follows')return n.kind==='follow';
+    if(tab==='comments')return n.kind==='reply'||n.kind==='mention';
+    return false;
+  });
+  const activityCategories=[
+    {tab:'likes' as const,name:'获赞互动',icon:Heart,kinds:['like']},
+    {tab:'follows' as const,name:'新增关注',icon:UserPlus,kinds:['follow']},
+    {tab:'comments' as const,name:'评论与提及',icon:MessageCircle,kinds:['reply','mention']},
+  ];
   const panels: { value: Panel; title: string }[] = [
     { value: 'all', title: '全部' }, { value: 'unread', title: unread ? `未读 ${unread}` : '未读' },
     { value: 'mentions', title: '提及' }, { value: 'system', title: '系统' },
@@ -124,6 +142,17 @@ function Center({ host }: { host: Element }) {
       <div className="sf3-actions"><button type="button" disabled={loading || busy} aria-label="刷新通知" onClick={() => setReload(v => v + 1)}><RefreshCw size={18}/></button>
         <button type="button" disabled={busy || unread === 0} onClick={() => void markRead()}><CheckCheck size={16}/> 全部已读</button></div>
     </div>
+    <div className="sf3-activity-shortcuts" role="group" aria-label="互动通知快捷分类">
+      {activityCategories.map(category=>{
+        const Icon=category.icon;
+        const count=items.filter(n=>category.kinds.includes(n.kind)).length;
+        return <button key={category.tab} type="button" className={'sf3-activity-shortcut'+(tab===category.tab?' active':'')}
+         aria-pressed={tab===category.tab} onClick={()=>setTab(category.tab)}>
+         <span className="sf3-activity-icon"><Icon size={23}/></span>
+         <strong>{category.name}</strong><small>{loading?'读取中…':count+' 条记录'}</small>
+        </button>;
+      })}
+    </div>
     <div className="sf3-notification-tabs" role="tablist" aria-label="通知分类">
       {panels.map(item => <button key={item.value} type="button" role="tab" aria-selected={tab === item.value} onClick={() => setTab(item.value)}>{item.title}</button>)}
     </div>
@@ -132,7 +161,7 @@ function Center({ host }: { host: Element }) {
       : shown.length ? <div className="sf3-notification-items">{shown.map(n => {
         const system = SYSTEM_KINDS.has(n.kind);
         const actor = author(n);
-        const target = system ? (n.kind.startsWith('affiliation_') ? '/organization/affiliates' : n.kind.startsWith('verification_') ? '/verification' : '/support')
+        const target = system ? '/notifications/' + encodeURIComponent(n.id)
           : n.post_id ? '/post/' + encodeURIComponent(n.post_id)
           : actor ? '/profile/' + encodeURIComponent(actor.handle) : '/notifications';
         const label = KIND_TITLES[n.kind] ?? '与你互动';

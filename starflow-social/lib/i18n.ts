@@ -1,5 +1,19 @@
-import {extraTranslations} from './i18n-locales';
-export type Lang = 'zh' | 'en' | 'zh-hk' | 'ko' | 'ja' | 'en-sg' | 'en-gb' | 'de' | 'fr';
+import {localizedMessages} from './i18n-locales';
+
+export const LANGUAGE_OPTIONS = [
+ {code:'zh',flag:'🇨🇳',shortLabel:'简体中文',label:'简体中文',description:'中国大陆',htmlLang:'zh-CN'},
+ {code:'en',flag:'🇺🇸',shortLabel:'English',label:'English (US)',description:'United States',htmlLang:'en-US'},
+ {code:'zh-HK',flag:'🇭🇰',shortLabel:'繁體中文',label:'繁體中文',description:'香港',htmlLang:'zh-HK'},
+ {code:'ko-KR',flag:'🇰🇷',shortLabel:'한국어',label:'한국어',description:'대한민국',htmlLang:'ko-KR'},
+ {code:'ja-JP',flag:'🇯🇵',shortLabel:'日本語',label:'日本語',description:'日本',htmlLang:'ja-JP'},
+ {code:'en-SG',flag:'🇸🇬',shortLabel:'English',label:'English (SG)',description:'Singapore',htmlLang:'en-SG'},
+ {code:'en-GB',flag:'🇬🇧',shortLabel:'English',label:'English (UK)',description:'United Kingdom',htmlLang:'en-GB'},
+ {code:'de-DE',flag:'🇩🇪',shortLabel:'Deutsch',label:'Deutsch',description:'Deutschland',htmlLang:'de-DE'},
+ {code:'fr-FR',flag:'🇫🇷',shortLabel:'Français',label:'Français',description:'France',htmlLang:'fr-FR'},
+] as const;
+export type Lang = typeof LANGUAGE_OPTIONS[number]['code'];
+export function isEnglishLocale(lang:Lang){return lang==='en'||lang==='en-SG'||lang==='en-GB';}
+export function isChineseLocale(lang:Lang){return lang==='zh'||lang==='zh-HK';}
 export const messages = {
   zh: {
     home:'首页', explore:'探索', notifications:'通知', bookmarks:'书签', settings:'设置', profile:'个人主页', admin:'管理中心',
@@ -10,10 +24,10 @@ export const messages = {
     profileMissing:'用户资料', edit:'编辑资料', follow:'关注', unfollow:'已关注', missingBio:'这个人还没有填写简介。', joined:'加入 Starflow', posts:'动态', thread:'动态详情', discuss:'加入讨论', bookmarksTitle:'我的书签', bookmarksIntro:'保存值得再次阅读的内容',
     loading:'加载中…', emptyNotifications:'暂时没有新通知', emptyBook:'还没有收藏', emptyPost:'没有找到这条动态', emptyFollowing:'关注一些有趣的人吧', emptyFeed:'这里暂时还没有动态', emptyHint:'去发布第一条内容，开启新的交流。', discoverCommunity:'探索社区 →',
     rightHeadline:'正在发生', rightTitle:'欢迎来到 Starflow', rightDesc:'与感兴趣的人连接，分享此刻的想法。一个更专注于真实表达的社区。', exploreLink:'去探索 →', rules:'社区原则', ruleOne:'尊重不同观点', ruleTwo:'保护自己与他人的隐私', ruleThree:'发现违规内容，及时举报', terms:'服务条款', privacy:'隐私政策', independent:'独立社交社区 · 非 X 官方产品',
-    signup:'加入 Starflow', login:'欢迎回来', forgot:'重置密码', signupDesc:'分享想法，发现志同道合的人。', loginDesc:'继续探索属于你的世界。', forgotDesc:'输入注册邮箱，我们将发送重置链接。', continueGoogle:'使用 Google 继续', orEmail:'或使用电子邮件', nickname:'你的昵称', nicknamePlace:'希望别人怎么称呼你', email:'电子邮件', password:'密码', passwordHint:'至少 12 位字符', inputPassword:'输入你的密码', create:'创建账号', loginButton:'登录 Starflow', sendReset:'发送重置邮件', processing:'处理中…', haveAccount:'已有账号？', newAccount:'还没有账号？', signIn:'立即登录', signUp:'免费注册', forgotLink:'忘记密码？', rememberPassword:'想起密码了？', backLogin:'返回登录', showPassword:'显示密码', hidePassword:'隐藏密码',
-    heroLineOne:'你关心的世界，', heroLineTwo:'此刻正在发生。', heroSub:'发现有趣的人，分享真实的想法。让每一次连接，都值得期待。', heroBadge:'连接下一种可能', heroSpot:'现在，就从一句话开始', heroSpotSub:'发布 · 关注 · 对话', heroOne:'开放交流', heroTwo:'更注重隐私', heroThree:'实时连接', captchaNotReady:'尚未启用人机验证。正式开放注册前请配置 Cloudflare Turnstile。',
+    signup:'加入 Starflow', login:'欢迎回来', forgot:'重置密码', signupDesc:'分享想法，发现志同道合的人。', loginDesc:'继续探索属于你的世界。', forgotDesc:'输入注册邮箱，我们将发送重置链接。', continueGoogle:'使用 Google 继续', orEmail:'或使用电子邮件', nickname:'你的昵称', nicknamePlace:'希望别人怎么称呼你', email:'电子邮件', password:'密码', passwordHint:'至少 6 位，支持英文字母、数字和符号', inputPassword:'输入你的密码', create:'创建账号', loginButton:'登录 Starflow', sendReset:'发送重置邮件', processing:'处理中…', haveAccount:'已有账号？', newAccount:'还没有账号？', signIn:'立即登录', signUp:'免费注册', forgotLink:'忘记密码？', rememberPassword:'想起密码了？', backLogin:'返回登录', showPassword:'显示密码', hidePassword:'隐藏密码',
+    heroLineOne:'你关心的世界，', heroLineTwo:'此刻正在发生。', heroSub:'发现有趣的人，分享真实的想法。让每一次连接，都值得期待。', heroBadge:'连接下一种可能', heroSpot:'现在，就从一句话开始', heroSpotSub:'发布 · 关注 · 对话', heroOne:'开放交流', heroTwo:'更注重隐私', heroThree:'实时连接', captchaRequired:'请先完成人机验证。', captchaFailure:'人机验证加载失败，请刷新页面重试。', captchaNotReady:'尚未启用人机验证。正式开放注册前请配置 Cloudflare Turnstile。',
     configNeeded:'此项目尚未连接你的 Supabase 后端。配置环境变量后才能真实注册登录。', legalLead:'继续即表示你同意', and:'和', legalTail:'。Starflow 为独立平台。', authFooter:'为真实交流而构建 · Starflow © 2026',
-    noKeys:'请先配置 Supabase 项目密钥，见 README.md。', noCaptcha:'请先配置并在 Supabase 控制台启用 Cloudflare Turnstile。', finishCaptcha:'请先完成人机验证。', pwdMinimum:'注册密码至少需要 12 位字符。', nicknameMinimum:'请输入 1–60 字的昵称。', signupConfirm:'请前往邮箱完成验证；首次登录后会尝试发送欢迎邮件。', signupDone:'注册成功，正在进入…', resetConfirm:'如该邮箱存在账号，将收到密码重置邮件，请检查收件箱。', authFailure:'操作失败，请重试。', googleFailure:'Google 登录失败。', googleNotReady:'（待配置）', authNotReady:'请先完成 Supabase 配置。',
+    noKeys:'请先配置 Supabase 项目密钥，见 README.md。', noCaptcha:'请先配置并在 Supabase 控制台启用 Cloudflare Turnstile。', finishCaptcha:'请先完成人机验证。', pwdMinimum:'注册密码至少需要 6 位字符。', nicknameMinimum:'请输入 1–60 字的昵称。', signupConfirm:'请前往邮箱完成验证；首次登录后会尝试发送欢迎邮件。', signupDone:'注册成功，正在进入…', resetConfirm:'如该邮箱存在账号，将收到密码重置邮件，请检查收件箱。', authFailure:'操作失败，请重试。', googleFailure:'Google 登录失败。', googleNotReady:'（待配置）', authNotReady:'请先完成 Supabase 配置。',
     deletedConfirm:'确定永久删除这条动态及其回复吗？', reportReason:'请描述举报原因，例如骚扰、诈骗或垃圾信息（至少 5 字）：', reportMin:'举报原因至少需要 5 个字。', profileSaved:'个人资料已保存', posted:'发布成功', posting:'发布中…', onlyImage:'仅支持 JPG/PNG/WebP/GIF，最大 5 MB。', mustPost:'请写点内容或添加图片。', postLimit:'动态最多 280 字。', resetSent:'已请求密码重置邮件，请查看邮箱。', close:'关闭',
   },
   en: {
@@ -25,78 +39,15 @@ export const messages = {
     profileMissing:'Profile', edit:'Edit profile', follow:'Follow', unfollow:'Following', missingBio:'No bio yet.', joined:'Joined Starflow', posts:'Posts', thread:'Post details', discuss:'Join the conversation', bookmarksTitle:'Your bookmarks', bookmarksIntro:'Keep the good stuff close',
     loading:'Loading…', emptyNotifications:'No new notifications', emptyBook:'No bookmarks yet', emptyPost:'This post could not be found', emptyFollowing:'Find some interesting people to follow', emptyFeed:'Nothing here yet', emptyHint:'Share your first thought and join the conversation.', discoverCommunity:'Explore the community →',
     rightHeadline:'What’s happening', rightTitle:'Welcome to Starflow', rightDesc:'Connect with people who inspire you and share your thoughts in a place built for real conversation.', exploreLink:'Explore →', rules:'Community guidelines', ruleOne:'Respect different points of view', ruleTwo:'Protect everyone’s privacy', ruleThree:'Report abusive content', terms:'Terms of service', privacy:'Privacy policy', independent:'Independent social community · Not affiliated with X',
-    signup:'Join Starflow', login:'Welcome back', forgot:'Reset your password', signupDesc:'Share your story. Find your people.', loginDesc:'Pick up where you left off.', forgotDesc:'Enter your email to receive a reset link.', continueGoogle:'Continue with Google', orEmail:'or continue with email', nickname:'Display name', nicknamePlace:'What should people call you?', email:'Email address', password:'Password', passwordHint:'At least 12 characters', inputPassword:'Enter your password', create:'Create account', loginButton:'Log in', sendReset:'Send reset link', processing:'Please wait…', haveAccount:'Already have an account?', newAccount:'New to Starflow?', signIn:'Log in', signUp:'Sign up', forgotLink:'Forgot password?', rememberPassword:'Remembered it?', backLogin:'Back to login', showPassword:'Show password', hidePassword:'Hide password',
-    heroLineOne:'Your world.', heroLineTwo:'Your conversation.', heroSub:'Find people who inspire you. Share thoughts that matter. Make every connection count.', heroBadge:'A new kind of connection', heroSpot:'Your next story starts here', heroSpotSub:'Share · Follow · Connect', heroOne:'Open conversations', heroTwo:'Privacy matters', heroThree:'Instant connection', captchaNotReady:'CAPTCHA is not enabled. Configure Cloudflare Turnstile before accepting registrations.',
+    signup:'Join Starflow', login:'Welcome back', forgot:'Reset your password', signupDesc:'Share your story. Find your people.', loginDesc:'Pick up where you left off.', forgotDesc:'Enter your email to receive a reset link.', continueGoogle:'Continue with Google', orEmail:'or continue with email', nickname:'Display name', nicknamePlace:'What should people call you?', email:'Email address', password:'Password', passwordHint:'At least 6 characters; letters, numbers and symbols supported', inputPassword:'Enter your password', create:'Create account', loginButton:'Log in', sendReset:'Send reset link', processing:'Please wait…', haveAccount:'Already have an account?', newAccount:'New to Starflow?', signIn:'Log in', signUp:'Sign up', forgotLink:'Forgot password?', rememberPassword:'Remembered it?', backLogin:'Back to login', showPassword:'Show password', hidePassword:'Hide password',
+    heroLineOne:'Your world.', heroLineTwo:'Your conversation.', heroSub:'Find people who inspire you. Share thoughts that matter. Make every connection count.', heroBadge:'A new kind of connection', heroSpot:'Your next story starts here', heroSpotSub:'Share · Follow · Connect', heroOne:'Open conversations', heroTwo:'Privacy matters', heroThree:'Instant connection', captchaRequired:'Please complete the verification first.', captchaFailure:'Verification failed to load. Please refresh and try again.', captchaNotReady:'CAPTCHA is not enabled. Configure Cloudflare Turnstile before accepting registrations.',
     configNeeded:'This project is not connected to Supabase yet. Configure environment variables to enable real sign-in.', legalLead:'By continuing you agree to our', and:'and', legalTail:'. Starflow is an independent platform.', authFooter:'Made for meaningful connection · Starflow © 2026',
-    noKeys:'Configure Supabase project credentials first; see README.md.', noCaptcha:'Enable Cloudflare Turnstile in your site and Supabase dashboard.', finishCaptcha:'Complete the human verification first.', pwdMinimum:'Passwords must have at least 12 characters.', nicknameMinimum:'Enter a display name between 1 and 60 characters.', signupConfirm:'Please verify your email. A welcome email will be attempted after your first verified sign-in.', signupDone:'Account created. Signing you in…', resetConfirm:'If this email exists, you will receive a reset link. Please check your inbox.', authFailure:'Something went wrong. Try again.', googleFailure:'Google sign-in failed.', googleNotReady:'(setup required)', authNotReady:'Configure Supabase first.',
+    noKeys:'Configure Supabase project credentials first; see README.md.', noCaptcha:'Enable Cloudflare Turnstile in your site and Supabase dashboard.', finishCaptcha:'Complete the human verification first.', pwdMinimum:'Passwords must have at least 6 characters.', nicknameMinimum:'Enter a display name between 1 and 60 characters.', signupConfirm:'Please verify your email. A welcome email will be attempted after your first verified sign-in.', signupDone:'Account created. Signing you in…', resetConfirm:'If this email exists, you will receive a reset link. Please check your inbox.', authFailure:'Something went wrong. Try again.', googleFailure:'Google sign-in failed.', googleNotReady:'(setup required)', authNotReady:'Configure Supabase first.',
     deletedConfirm:'Permanently delete this post and its replies?', reportReason:'Why are you reporting this post? (at least 5 characters)', reportMin:'Please enter at least 5 characters.', profileSaved:'Profile saved', posted:'Post published', posting:'Posting…', onlyImage:'Only JPG/PNG/WebP/GIF files up to 5 MB are allowed.', mustPost:'Write something or add a photo.', postLimit:'Posts have a maximum of 280 characters.', resetSent:'Password reset email requested. Check your inbox.', close:'Close',
   }
 } as const;
 export type TranslationKey = keyof typeof messages.zh;
-const traditional:Partial<Record<TranslationKey,string>>={
-  home:'首頁',explore:'探索',notifications:'通知',bookmarks:'書籤',settings:'設定',profile:'個人主頁',admin:'管理中心',
-  newPost:'發佈動態',post:'發佈',reply:'回覆',yourWorld:'分享你的世界',forYou:'為你推薦',following:'正在追蹤',
-  compose:'此刻，你在想甚麼？',replyPlaceholder:'寫下你的回覆…',photo:'新增圖片',
-  comments:'留言',repost:'轉發',undoRepost:'取消轉發',like:'讚好',unlike:'取消讚好',saveBookmark:'收藏',
-  undoBookmark:'取消收藏',report:'舉報',deletePost:'刪除動態',exploreSub:'發現新鮮事',search:'搜尋動態或用戶',
-  people:'相關用戶',notificationSub:'有人與你互動時會顯示在這裏',allRead:'全部標記已讀',
-  settingsTitle:'帳戶與偏好',settingsIntro:'在這裏管理帳戶資料及安全設定',profileEdit:'編輯個人資料',
-  name:'顯示名稱',handle:'用戶名稱',bio:'個人簡介',save:'儲存',security:'帳戶安全',logout:'登出',
-  language:'語言 / Language',edit:'編輯資料',follow:'追蹤',unfollow:'已追蹤',posts:'動態',
-  loading:'載入中…',signup:'加入星流',login:'歡迎回來',forgot:'重設密碼',
-  continueGoogle:'使用 Google 繼續',orEmail:'或使用電郵',email:'電郵地址',password:'密碼',
-  create:'建立帳戶',loginButton:'登入',sendReset:'發送重設連結',processing:'處理中…',
-  signIn:'立即登入',signUp:'免費註冊',forgotLink:'忘記密碼？',backLogin:'返回登入',
-  terms:'服務條款',privacy:'私隱政策',close:'關閉',
-  likedYour:'讚好了你的動態',repliedYou:'回覆了你',followedYou:'開始追蹤你',
-  repostedYou:'轉發了你的動態',interacted:'與你互動了',
-  securityDesc:'電郵驗證及密碼重設由 Supabase Auth 處理。',
-  resetMail:'發送密碼重設電郵',profileMissing:'用戶資料',
-  missingBio:'尚未填寫個人簡介。',joined:'加入 Starflow',
-  thread:'動態詳情',discuss:'加入討論',bookmarksTitle:'我的書籤',
-  bookmarksIntro:'收藏值得重溫的內容',emptyNotifications:'暫時沒有新通知',
-  emptyBook:'還沒有收藏',emptyPost:'找不到這條動態',
-  emptyFollowing:'追蹤一些有趣的人吧',emptyFeed:'這裏暫時沒有動態',
-  emptyHint:'發佈第一條內容，開始交流。',discoverCommunity:'探索社群 →',
-  rightHeadline:'正在發生',rightTitle:'歡迎來到 Starflow',
-  rightDesc:'與感興趣的人連繫，分享此刻的想法。',
-  rules:'社群守則',ruleOne:'尊重不同觀點',
-  ruleTwo:'保護自己及他人的私隱',ruleThree:'發現違規內容時及時舉報',
-  signupDesc:'分享想法，認識志同道合的人。',
-  loginDesc:'繼續探索屬於你的世界。',
-  forgotDesc:'輸入註冊電郵，我們會發送重設連結。',
-  nickname:'顯示名稱',nicknamePlace:'希望別人如何稱呼你',
-  passwordHint:'最少 12 個字元',inputPassword:'輸入密碼',
-  haveAccount:'已有帳戶？',newAccount:'還沒有帳戶？',
-  rememberPassword:'想起密碼了？',showPassword:'顯示密碼',
-  hidePassword:'隱藏密碼',heroLineOne:'你關心的世界，',
-  heroLineTwo:'此刻正在發生。',heroSub:'分享真實想法，連繫有趣的人。',
-  heroBadge:'連接下一種可能',heroSpot:'從一句話開始',
-  heroSpotSub:'發佈 · 追蹤 · 對話',
-  heroOne:'開放交流',heroTwo:'更注重私隱',heroThree:'即時連繫',
-  legalLead:'繼續即表示你同意',and:'及',
-  legalTail:'。Starflow 是獨立平台。',
-  authFooter:'為真實交流而建 · Starflow © 2026',
-  configNeeded:'尚未連接 Supabase。請先設定環境變數。',
-  captchaNotReady:'接受註冊前，請設定 Cloudflare Turnstile。',
-  noKeys:'請先設定 Supabase 項目密鑰，詳見 README.md。',
-  noCaptcha:'請先啟用 Cloudflare Turnstile。',
-  finishCaptcha:'請先完成人機驗證。',
-  pwdMinimum:'註冊密碼最少需要 12 個字元。',
-  nicknameMinimum:'請輸入 1 至 60 個字元的顯示名稱。',
-  signupConfirm:'請查看電郵並完成驗證。',
-  signupDone:'註冊成功，正在登入…',
-  resetConfirm:'如果該電郵已註冊，便會收到密碼重設連結。',
-  authFailure:'操作失敗，請重試。',
-  googleFailure:'Google 登入失敗。',
-  googleNotReady:'（尚待設定）',authNotReady:'請先完成 Supabase 設定。',
-  profileSaved:'個人資料已儲存',posted:'發佈成功',
-  posting:'發佈中…',mustPost:'請輸入內容或新增相片。',
-  postLimit:'動態最多 280 個字元。',
-  resetSent:'已要求發送密碼重設電郵，請查看收件箱。'
-};
-export function translate(lang:Lang, key:TranslationKey):string {
-  if(lang==='zh')return messages.zh[key];
-  if(lang==='zh-hk')return traditional[key]??extraTranslations['zh-hk']?.[key]??messages.en[key];
-  return extraTranslations[lang]?.[key]??messages.en[key];
+export function translate(lang:Lang,key:TranslationKey):string {
+ const extra=localizedMessages[lang as keyof typeof localizedMessages] as Record<string,string>|undefined;
+ return extra?.[key]??(isChineseLocale(lang)?messages.zh[key]:messages.en[key]);
 }

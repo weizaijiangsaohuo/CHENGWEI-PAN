@@ -9,11 +9,15 @@ import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
-import { LanguageSwitch, useLanguage, languageOptions } from './LanguageProvider';
-import {StarflowMoreMenu} from './StarflowMoreMenu';
-import type {Lang} from '@/lib/i18n';
+import { LanguageSwitch, useLanguage } from './LanguageProvider';
+import {isEnglishLocale,LANGUAGE_OPTIONS} from '@/lib/i18n';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
+import { StarflowMasonryFeed } from './StarflowMasonryFeed';
+import { StarflowHomeMenu } from './StarflowHomeMenu';
+import { StarflowMobileNavigation } from './StarflowMobileNavigation';
+import { StarflowServicesPanel } from './StarflowServicesPanel';
+import { StarflowDisplayPreferences } from './StarflowDisplayPreferences';
 import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
@@ -27,22 +31,9 @@ const nav = [
   {to:'/bookmarks',name:'bookmarks',icon:Bookmark}, {to:'/settings',name:'settings',icon:Settings}
 ];
 
-const memberCopy:Record<Lang,{community:string;creator:string;poll:string;notFound:string;profileError:string;usernameChanged:string}>={
-  zh:{community:'社区 / 列表',creator:'数据中心',poll:'发布投票',notFound:'用户不存在',profileError:'资料加载失败，请稍后重试。',usernameChanged:'此用户名可能已经被修改。'},
-  'zh-hk':{community:'社群 / 列表',creator:'數據中心',poll:'發佈投票',notFound:'用戶不存在',profileError:'資料載入失敗，請稍後重試。',usernameChanged:'此用戶名稱可能已更改。'},
-  en:{community:'Community / Lists',creator:'Analytics',poll:'Create poll',notFound:'User not found',profileError:'Unable to load profile. Please try again.',usernameChanged:'This username may have changed.'},
-  'en-sg':{community:'Community / Lists',creator:'Analytics',poll:'Create poll',notFound:'User not found',profileError:'Unable to load profile. Please try again.',usernameChanged:'This username may have changed.'},
-  'en-gb':{community:'Community / Lists',creator:'Analytics',poll:'Create poll',notFound:'User not found',profileError:'Unable to load profile. Please try again.',usernameChanged:'This username may have changed.'},
-  ja:{community:'コミュニティ / リスト',creator:'アナリティクス',poll:'投票を作成',notFound:'ユーザーが見つかりません',profileError:'プロフィールを読み込めませんでした。',usernameChanged:'ユーザー名が変更された可能性があります。'},
-  ko:{community:'커뮤니티 / 목록',creator:'분석',poll:'투표 만들기',notFound:'사용자를 찾을 수 없습니다',profileError:'프로필을 불러올 수 없습니다.',usernameChanged:'사용자 이름이 변경되었을 수 있습니다.'},
-  de:{community:'Community / Listen',creator:'Statistiken',poll:'Umfrage erstellen',notFound:'Nutzer nicht gefunden',profileError:'Profil konnte nicht geladen werden.',usernameChanged:'Dieser Benutzername könnte geändert worden sein.'},
-  fr:{community:'Communauté / Listes',creator:'Statistiques',poll:'Créer un sondage',notFound:'Utilisateur introuvable',profileError:'Impossible de charger le profil.',usernameChanged:'Cet identifiant a peut-être changé.'}
-};
 export function SocialApp({view,target}:{view:View;target?:string}){
   const router=useRouter();
   const {t,lang}=useLanguage();
-  const locale=languageOptions.find(item=>item.code===lang)?.htmlLang??'en-US';
-  const member=memberCopy[lang];
   const [user,setUser]=useState<User|null>(null);const [self,setSelf]=useState<Profile|null>(null);
   const [checking,setChecking]=useState(true);const [loading,setLoading]=useState(false);
   const [posts,setPosts]=useState<Post[]>([]);const [metrics,setMetrics]=useState<Metrics>({});
@@ -51,6 +42,27 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
   const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
   const [tab,setTab]=useState<'all'|'following'>('all');const [search,setSearch]=useState('');
+  const [homeComposerOpen,setHomeComposerOpen]=useState(false);
+  const pendingToggles=useRef<Set<string>>(new Set());
+  useEffect(()=>{
+    if(view!=='home')return;
+    const focusComposer=()=>{
+      setHomeComposerOpen(true);
+      window.setTimeout(()=>{
+        const field=document.querySelector<HTMLTextAreaElement>('.app-frame .composer textarea');
+        field?.scrollIntoView({behavior:'smooth',block:'center'});
+        field?.focus({preventScroll:true});
+      },100);
+    };
+    window.addEventListener('sf-open-home-composer',focusComposer);
+    const query=new URLSearchParams(window.location.search);
+    if(query.get('compose')==='1'){
+      focusComposer();query.delete('compose');
+      window.history.replaceState(window.history.state,'',window.location.pathname+(query.size?'?'+query.toString():''));
+    }
+    return()=>window.removeEventListener('sf-open-home-composer',focusComposer);
+  },[view]);
+  const openPublish=()=>{if(view==='home')window.dispatchEvent(new Event('sf-open-home-composer'));else router.push('/?compose=1');};
   const [accounts,setAccounts]=useState<Profile[]>([]);const [notifs,setNotifs]=useState<Notif[]>([]);
   const [message,setMessage]=useState('');const [draft,setDraft]=useState('');
   const [image,setImage]=useState<File|null>(null);const [imagePreview,setImagePreview]=useState<string|null>(null);
@@ -61,21 +73,10 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [draftHydrated,setDraftHydrated]=useState(false);
   const [sending,setSending]=useState(false);
   const [display,setDisplay]=useState('');const [bio,setBio]=useState('');const [handle,setHandle]=useState('');
-  const [unread,setUnread]=useState(0);const [isAdmin,setIsAdmin]=useState(false);
+  const [unread,setUnread]=useState(0);const [dmUnread,setDmUnread]=useState(0);const [isAdmin,setIsAdmin]=useState(false);
   const inputRef=useRef<HTMLInputElement>(null);
   const videoInputRef=useRef<HTMLInputElement>(null);
   const showMessage=(msg:string)=>{setMessage(msg);window.setTimeout(()=>setMessage(''),6500)};
-  useEffect(()=>{
-    if(view!=='home'||checking||!user)return;
-    const params=new URLSearchParams(window.location.search);
-    if(params.get('compose')!=='1')return;
-    const timer=window.setTimeout(()=>{
-      const editor=document.querySelector<HTMLTextAreaElement>('.composer textarea');
-      editor?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'center'});
-      editor?.focus({preventScroll:true});
-    },100);
-    return()=>window.clearTimeout(timer);
-  },[view,checking,user?.id]);
   useEffect(()=>{
     if(!user)return;
     setDraftHydrated(false);
@@ -113,9 +114,35 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(!user){setSelf(null);return;}
     db().from('profiles').select('*').eq('id',user.id).single().then(({data,error})=>{
       if(data){const p=data as Profile;setSelf(p);setDisplay(p.display_name);setBio(p.bio);setHandle(p.handle)}
-      else if(error)showMessage((lang!=='zh'&&lang!=='zh-hk'?'Cannot load account profile. Check database migrations: ':'无法读取账户资料，请确认数据库迁移已执行：')+error.message);
+      else if(error)showMessage((isEnglishLocale(lang)?'Cannot load account profile. Check database migrations: ':'无法读取账户资料，请确认数据库迁移已执行：')+error.message);
     });
   },[user]);
+
+  // DM badge counts unread conversations from private, RLS-filtered participant rows.
+  useEffect(()=>{
+    if(!user){setDmUnread(0);return;}
+    let mounted=true;
+    const check=async()=>{
+      if(document.visibilityState==='hidden')return;
+      const client=db();
+      const [inbox,receipts]=await Promise.all([
+        client.from('dm_conversations')
+          .select('id,last_message_at,last_sender_id')
+          .or('user_low.eq.'+user.id+',user_high.eq.'+user.id)
+          .not('last_message_at','is',null).limit(1000),
+        client.from('dm_read_state').select('conversation_id,last_read_at').eq('user_id',user.id),
+      ]);
+      if(!mounted||inbox.error||receipts.error)return;
+      const seen=new Map((receipts.data||[]).map(item=>[item.conversation_id,item.last_read_at]));
+      const count=(inbox.data||[]).filter(item=>item.last_message_at
+        &&item.last_sender_id!==user.id
+        &&(!seen.get(item.id)||item.last_message_at>seen.get(item.id)!)).length;
+      setDmUnread(count);
+    };
+    void check();
+    const interval=window.setInterval(()=>{void check();},15000);
+    return()=>{mounted=false;window.clearInterval(interval)};
+  },[user?.id]);
 
   // Only server-approved account verification records can produce badges.
   // RLS permits public reads of approved records; no client-side approval path exists.
@@ -204,7 +231,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           await loadBadges((u||[]).map(x=>x.id));}
         else setAccounts([]);
       }
-    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(lang!=='zh'&&lang!=='zh-hk'?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
+    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
     finally{setLoading(false)}
   },[user,view,target,search,tab,loadBadges]);
   useEffect(()=>{if(user)void load();},[load,user]);
@@ -222,13 +249,34 @@ export function SocialApp({view,target}:{view:View;target?:string}){
 
   async function toggle(table:'likes'|'reposts'|'bookmarks',post:Post){
     if(!user)return;
-    const existing=metrics[post.id] || {liked:false,reposted:false,saved:false};
-    const key=table==='likes'?'liked':table==='reposts'?'reposted':'saved';
-    const has=Boolean(existing[key]);
-    const client=db();const {error}=has?
-      await client.from(table).delete().eq('post_id',post.id).eq('user_id',user.id):
-      await client.from(table).insert({post_id:post.id,user_id:user.id});
-    if(error)showMessage(error.message);else void load();
+    const lockKey=table+':'+post.id;
+    if(pendingToggles.current.has(lockKey))return;
+    pendingToggles.current.add(lockKey);
+    const fallback={likes:0,reposts:0,replies:0,liked:false,reposted:false,saved:false};
+    const old=metrics[post.id]||fallback;
+    const property=table==='likes'?'liked':table==='reposts'?'reposted':'saved';
+    const countProperty=table==='likes'?'likes':table==='reposts'?'reposts':null;
+    const was=Boolean(old[property]);
+    // Optimistic feedback lets a tap visibly react before network round trips.
+    setMetrics(previous=>{
+      const current=previous[post.id]||fallback;
+      return {...previous,[post.id]:{
+        ...current,[property]:!was,
+        ...(countProperty?{[countProperty]:Math.max(0,current[countProperty]+(was?-1:1))}:{}),
+      }};
+    });
+    try{
+      const client=db();
+      const {error}=was?
+        await client.from(table).delete().eq('post_id',post.id).eq('user_id',user.id):
+        await client.from(table).insert({post_id:post.id,user_id:user.id});
+      if(error)throw error;
+      // Bookmark listings need to remove unsaved posts; homepage must not jump/reload after every tap.
+      if(view==='bookmarks')void load();
+    }catch(error){
+      setMetrics(previous=>({...previous,[post.id]:old}));
+      showMessage(error instanceof Error?error.message:'操作失败，请重试');
+    }finally{pendingToggles.current.delete(lockKey);}
   }
   function chooseImage(e:ChangeEvent<HTMLInputElement>){
     const files=Array.from(e.currentTarget.files||[]);
@@ -247,7 +295,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   function chooseVideo(e:ChangeEvent<HTMLInputElement>){
     const file=e.currentTarget.files?.[0];if(!file)return;
     if(file.size>50*1024*1024 || file.size===0 || !['video/mp4','video/webm','video/quicktime'].includes(file.type)){
-      showMessage(lang!=='zh'&&lang!=='zh-hk'?'Video must be MP4, WebM or MOV and no larger than 50 MB.':'请选择 50 MB 以内的 MP4、WebM 或 MOV 视频');
+      showMessage(isEnglishLocale(lang)?'Video must be MP4, WebM or MOV and no larger than 50 MB.':'请选择 50 MB 以内的 MP4、WebM 或 MOV 视频');
       e.currentTarget.value='';return;
     }
     if(videoPreview)URL.revokeObjectURL(videoPreview);
@@ -302,7 +350,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       setVideo(null);if(videoPreview)URL.revokeObjectURL(videoPreview);setVideoPreview(null);
       showMessage(t('posted'));
       if(view==='home'||view==='profile'||view==='post')void load();else router.push('/');
-    }catch(e){showMessage(e instanceof Error?e.message:(lang!=='zh'&&lang!=='zh-hk'?'Failed to publish':'发布失败'));}
+    }catch(e){showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Failed to publish':'发布失败'));}
     finally{setSending(false);}
   }
   async function follow(id:string){
@@ -322,11 +370,11 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     const reason=prompt(t('reportReason'));
     if(!reason)return;if(reason.trim().length<5)return showMessage(t('reportMin'));
     const {error}=await db().from('reports').insert({reporter_id:user.id,post_id:post.id,reason:reason.trim().slice(0,500)});
-    showMessage(error?(lang!=='zh'&&lang!=='zh-hk'?'Report failed: ':'举报提交失败：')+error.message:(lang!=='zh'&&lang!=='zh-hk'?'Report submitted. Moderators must review it.':'举报已记录，网站运营者需设置后台审核流程。'));
+    showMessage(error?(isEnglishLocale(lang)?'Report failed: ':'举报提交失败：')+error.message:(isEnglishLocale(lang)?'Report submitted. Moderators must review it.':'举报已记录，网站运营者需设置后台审核流程。'));
   }
   async function saveProfile(e:FormEvent){
     e.preventDefault();if(!user)return;
-    const cleaned=handle.toLowerCase().trim();if(!/^[a-z0-9_]{3,24}$/.test(cleaned))return showMessage((lang!=='zh'&&lang!=='zh-hk'?'Username: 3–24 lowercase letters, numbers or underscores':'用户名只能使用 3–24 位小写英文、数字或下划线'));
+    const cleaned=handle.toLowerCase().trim();if(!/^[a-z0-9_]{3,24}$/.test(cleaned))return showMessage((isEnglishLocale(lang)?'Username: 3–24 lowercase letters, numbers or underscores':'用户名只能使用 3–24 位小写英文、数字或下划线'));
     const {error}=await db().from('profiles').update({display_name:display.trim(),bio:bio.trim(),handle:cleaned}).eq('id',user.id);
     if(error)showMessage(error.message);else{setSelf(self?{...self,display_name:display.trim(),bio:bio.trim(),handle:cleaned}:null);showMessage(t('profileSaved'));if(view==='profile')router.push(`/profile/${cleaned}`);}
   }
@@ -344,7 +392,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       URL.revokeObjectURL(src);const updated=galleryFiles.filter((_,i)=>i!==index);
       setGalleryFiles(updated);setGalleryPreviews(galleryPreviews.filter((_,i)=>i!==index));setImage(updated[0]||null);
     }}><X size={16}/></button></div>)}</div>}
-    {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Remove video':'移除视频'}><X size={16}/></button></div>}
+    {videoPreview&&<div className="upload-preview"><video src={videoPreview} controls playsInline preload="metadata" style={{width:'100%',maxHeight:290,background:'#231d2b',borderRadius:15}}/><button type="button" disabled={sending} onClick={()=>{setVideo(null);URL.revokeObjectURL(videoPreview);setVideoPreview(null)}} aria-label={isEnglishLocale(lang)?'Remove video':'移除视频'}><X size={16}/></button></div>}
     {pollOpen&&<div className="sf-poll-editor"><strong>创建投票</strong><input value={pollQuestion} onChange={e=>setPollQuestion(e.target.value)} placeholder="投票问题（最多160字）" maxLength={160}/>
      {pollOptions.map((choice,index)=><div key={index}><input value={choice} maxLength={100} placeholder={`选项${index+1}`} onChange={e=>setPollOptions(v=>v.map((x,i)=>i===index?e.target.value:x))}/>{pollOptions.length>2&&<button type="button" onClick={()=>setPollOptions(v=>v.filter((_,i)=>i!==index))} aria-label="删除选项"><X size={16}/></button>}</div>)}
      <div><button type="button" className="btn btn-outline" disabled={pollOptions.length>=4} onClick={()=>setPollOptions(v=>[...v,''])}>＋ 添加选项</button><select value={pollHours} onChange={e=>setPollHours(Number(e.target.value))}><option value={1}>1小时</option><option value={6}>6小时</option><option value={24}>24小时</option><option value={72}>3天</option><option value={168}>7天</option></select></div>
@@ -352,8 +400,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <div className="composer-actions"><div className="composer-tools"><input ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={chooseImage}/>
     <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" className="sr-only" onChange={chooseVideo}/>
     <button type="button" title={t('photo')} aria-label={t('photo')} disabled={sending||pollOpen} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button>
-    <button type="button" title={lang!=='zh'&&lang!=='zh-hk'?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
-    <button type="button" title={member.poll} aria-label={member.poll} disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
+    <button type="button" title={isEnglishLocale(lang)?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={isEnglishLocale(lang)?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
+    <button type="button" title="发布投票" aria-label="发布投票" disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
     <span className={Array.from(draft).length>280?'char-count over':'char-count'}>{280-Array.from(draft).length}</span>
     <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video&&!pollOpen)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
   </form>;
@@ -365,9 +413,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <span className="post-handle">@{a?.handle||'unknown'} · {ago(post.created_at,lang)}</span>
       <div className="post-menu">{user?.id===post.author_id?<button title={t('deletePost')} aria-label={t('deletePost')} onClick={()=>deletePost(post)}><Trash2 size={17}/></button>:<button title={t('report')} aria-label={t('report')} onClick={()=>reportPost(post)}><Ellipsis size={19}/></button>}</div></div>
       <div className="post-content">{post.content.split(/(#[\p{L}\p{N}_]+)/gu).map((part,index)=>part.startsWith('#')?<Link key={index} href={`/explore?tag=${encodeURIComponent(part.slice(1))}`} style={{color:'#8854c5'}}>{part}</Link>:<span key={index}>{part}</span>)}</div>
-      {post.has_gallery?<PostGallery postId={post.id} fallback={post.image_url}/>:post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={lang!=='zh'&&lang!=='zh-hk'?'Post image':'动态配图'} loading="lazy"/></a>}
+      {post.has_gallery?<PostGallery postId={post.id} fallback={post.image_url}/>:post.image_url&&<a className="post-photo" href={post.image_url} target="_blank" rel="noopener noreferrer"><img src={post.image_url} alt={isEnglishLocale(lang)?'Post image':'动态配图'} loading="lazy"/></a>}
       {post.has_poll&&<PollCard postId={post.id}/>}
-      {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Post video':'帖子视频'}/></div>}
+      {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={isEnglishLocale(lang)?'Post video':'帖子视频'}/></div>}
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
       <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
       <button className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} onClick={()=>toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
@@ -384,50 +432,90 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <form onSubmit={saveProfile} className="stack"><label>{t('name')}<input className="text-input" value={display} onChange={e=>setDisplay(e.target.value)} required minLength={1} maxLength={60}/></label><label>{t('handle')}<input className="text-input" value={handle} onChange={e=>setHandle(e.target.value)} pattern="[a-z0-9_]{3,24}" required/></label>
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
       
-<Link href="/support" className="btn btn-outline" style={{display:'flex',justifyContent:'center',margin:'16px 0',padding:'14px',borderRadius:16}}>✦ AI 客服中心 · 无需登录</Link>
-<Link href="/verification" className="btn btn-outline" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,margin:'12px 0',padding:'14px',borderRadius:16}}><Shield size={16}/> 账号认证中心 · 蓝 / 金 / 灰</Link>
-<Link href="/hub" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>社交社区与关注列表 →</Link>
-<Link href="/creator" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>创作者数据中心 →</Link>
-{isAdmin&&<Link href="/admin/verifications" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>管理员：三色认证审核 →</Link>}
-
+<StarflowServicesPanel isAdmin={isAdmin}/>
+      <StarflowDisplayPreferences/>
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
-    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang!=='zh'&&lang!=='zh-hk'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang!=='zh'&&lang!=='zh-hk'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
+    if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={isEnglishLocale(lang)?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(isEnglishLocale(lang)?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
-      {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button>}</div>
-      <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(locale)} {t('joined')}</p></div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{member.profileError}</div>:<Empty text={member.notFound} detail={member.usernameChanged}/>}</>;
-    if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={lang!=='zh'&&lang!=='zh-hk'?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
+      {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button><Link className="btn btn-outline" href={'/messages?to='+encodeURIComponent(profile.handle)}><MessageCircle size={16}/> 私信</Link></div>}</div>
+      <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(LANGUAGE_OPTIONS.find(option=>option.code===lang)?.htmlLang??'zh-CN')} {t('joined')}</p>
+      {profile.id===user?.id&&<div className="sf-own-profile-quicklinks" aria-label="我的主页快捷入口">
+       <Link href="/bookmarks"><Bookmark size={19}/><strong>我的收藏</strong><small>查看保存的动态</small></Link>
+       <Link href="/creator"><BarChart3 size={19}/><strong>创作者中心</strong><small>发布与数据管理</small></Link>
+       <Link href="/settings/security"><Shield size={19}/><strong>账号安全</strong><small>绑定与找回方式</small></Link>
+      </div>}</div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{isEnglishLocale(lang)?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={isEnglishLocale(lang)?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
+    if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={isEnglishLocale(lang)?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
     if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
       {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
-    return <><div className="section-heading"><h2>{t('home')} <span className="live-mark">✦</span></h2><p>{t('yourWorld')}</p></div><div className="home-tabs"><button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>{t('forYou')}</button><button className={tab==='following'?'active':''} onClick={()=>setTab('following')}>{t('following')}</button></div>{composer()}
-<div style={{display:'flex',gap:8,margin:'8px 16px',flexWrap:'wrap'}}><Link href="/hub" className="btn btn-outline">社交社区 / 列表</Link><Link href="/creator" className="btn btn-outline">创作者数据</Link></div>
-<Link href="/support" style={{display:'block',margin:16,padding:16,borderRadius:18,background:'#f5e5ff',color:'#7a3d6a',textAlign:'center',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 点击咨询 →</Link>
-</>;
+    return <>
+      <div className="sf-home-minihead">
+        <div><h1>发现精彩</h1>
+          <p>分享生活、探索兴趣、遇见同好</p></div>
+        <Link href="/explore"><Sparkles size={15}/> AI 搜索</Link>
+      </div>
+      <div className="sf-home-channels">
+        <div className="home-tabs">
+          <button type="button" className={tab==='all'?'active':''} onClick={()=>setTab('all')}>发现</button>
+          <button type="button" className={tab==='following'?'active':''} onClick={()=>setTab('following')}>关注</button>
+        </div>
+
+      </div>
+      {homeComposerOpen?<div className="sf-home-compose-expanded">
+          <button className="sf-home-compose-dismiss" type="button" onClick={()=>setHomeComposerOpen(false)}>收起发布框</button>
+          {composer()}
+         </div>:
+         <div className="sf-home-composer-collapsed">
+          <button type="button" onClick={()=>{
+            setHomeComposerOpen(true);
+            window.setTimeout(()=>document.querySelector<HTMLTextAreaElement>('.sf-home-compose-expanded textarea')?.focus(),30);
+          }}>
+            <Avatar name={self?.display_name||'星'} image={self?.avatar_url} size={31}/>
+            <strong>分享这一刻的美好…</strong><ImagePlus size={19}/>
+          </button>
+          <Link href="/hub">社区 →</Link>
+         </div>}
+    </>;
   };
 
-  if(checking)return <main className="center-screen"><div className="spinner" aria-label={t("loading")}/></main>;
+  if(checking)return <main className="sf-section-loading" role="status" aria-live="polite">
+    <div className="sf-section-loading-top"><span className="sf-section-loading-dot"/><span>正在切换页面…</span></div>
+    <div className="sf-section-loading-bar"/><div className="sf-section-loading-bar short"/>
+   </main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
-  return <div className="app-frame"><div className="app-layout">
-    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>{member.community}</span></Link><Link href="/creator"><BarChart3 size={25}/><span>{member.creator}</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
-      <button className="btn btn-primary sidebar-publish" onClick={()=>{
-        if(view!=='home'){router.push('/?compose=1');return}
-        const editor=document.querySelector<HTMLTextAreaElement>('.composer textarea');
-        editor?.scrollIntoView({behavior:'smooth',block:'center'});
-        editor?.focus({preventScroll:true});
-      }}><PenLine size={19}/> {t('newPost')}</button>
+  return <div className={'app-frame'+(view==='home'?' sf-xhs-home':'')}><div className="app-layout">
+    <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href="/messages"><MessageCircle size={25}/><span>私信</span>{dmUnread>0&&<b className="count-bubble">{dmUnread>9?'9+':dmUnread}</b>}</Link><Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
+      <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
-    <main className="feed-panel"><div className="sf-top-utility"><span className="sf-top-logo">✦ <b>starflow<span>.</span></b></span><LanguageSwitch/><StarflowMoreMenu profileHref={self?`/profile/${self.handle}`:'/settings'}/></div>{renderContent()}{!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&<div className="posts-list">
-      {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
-      {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):tab==='following'&&view==='home'?t('emptyFollowing'):t('emptyFeed')} detail={t('emptyHint')}/>}
-      {ordered.map(card)}
-    </div>}<div className="feed-end">© 2026 Starflow · {t('independent')}</div></main>
+    <main className="feed-panel">
+      <div className="sf-top-utility">
+        <StarflowHomeMenu/>
+        <Brand/><div className="sf-home-toolbar"><LanguageSwitch/></div>
+      </div>
+      {renderContent()}
+      {!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&(
+        view==='home'?
+         <div className="posts-list sf-masonry-feed-wrapper">
+          <StarflowMasonryFeed posts={ordered} metrics={metrics} verified={verified} loading={loading}
+            lang={lang} onLike={post=>void toggle('likes',post)}
+            onBookmark={post=>void toggle('bookmarks',post)}
+            onOpenPost={post=>router.push('/post/'+encodeURIComponent(post.id))}/>
+         </div>:
+         <div className="posts-list">
+          {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
+          {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')} detail={t('emptyHint')}/>}
+          {ordered.map(card)}
+         </div>
+      )}
+      <div className="feed-end">© 2026 Starflow · {t('independent')}</div>
+    </main>
     <aside className="right-sidebar"><div className="right-card"><div className="right-card-eyebrow"><Sparkles size={15}/> {t('rightHeadline')}</div><h3>{t('rightTitle')}</h3><p>{t('rightDesc')}</p><Link href="/explore" className="discover-link">{t('exploreLink')} <span>↗</span></Link></div>
       <div className="right-card tips-card"><h3>{t('rules')}</h3><div>✦ {t('ruleOne')}</div><div>✦ {t('ruleTwo')}</div><div>✦ {t('ruleThree')}</div></div>
       <div className="footer-links"><Link href="/terms">{t('terms')}</Link><Link href="/privacy">{t('privacy')}</Link><span>© 2026 Starflow</span></div>
     </aside>
-    <nav className="mobile-nav" aria-label={lang!=='zh'&&lang!=='zh-hk'?'Mobile navigation':'移动端导航'}>{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} aria-label={t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}><Icon size={23} strokeWidth={view===item.to.slice(1)||view==='home'&&item.to==='/'?2.8:2}/>{item.to==='/notifications'&&unread>0&&<i/>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} aria-label={t('profile')}><UserRound size={23}/></Link></nav>
+    <StarflowMobileNavigation view={view} profileUrl={self?'/profile/'+encodeURIComponent(self.handle):'/settings'} unread={unread+dmUnread} onPublish={openPublish}/>
     {message&&<div className="toast" role="status"><span>{message}</span><button onClick={()=>setMessage('')} aria-label={t('close')}><X size={16}/></button></div>}
   </div></div>;
 }

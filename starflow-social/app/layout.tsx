@@ -24,6 +24,7 @@ import { StarflowAffiliationBadges } from '@/components/StarflowAffiliationBadge
 import { StarflowNotificationCenter } from '@/components/StarflowNotificationCenter';
 import { StarflowAccountAboutEntry } from '@/components/StarflowAccountAboutEntry';
 import { StarflowMentions } from '@/components/StarflowMentions';
+import { StarflowExperienceBootstrap } from '@/components/StarflowDisplayPreferences';
 
 export const metadata: Metadata = {
   title: '星流 Starflow · 分享此刻，连接彼此',
@@ -39,5 +40,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="zh-CN"><body><LanguageProvider>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /><StarflowAccountAboutEntry /><StarflowMentions /></LanguageProvider></body></html>;
+  return <html lang="zh-CN"><body><LanguageProvider><StarflowExperienceBootstrap/>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /><StarflowAccountAboutEntry /><StarflowMentions /></LanguageProvider></body></html>;
 }

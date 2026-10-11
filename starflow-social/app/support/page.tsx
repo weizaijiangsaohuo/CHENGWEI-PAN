@@ -1,10 +1,8 @@
 
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useLanguage } from '@/components/LanguageProvider';
-import { siteText, topicQuestion, type SiteKey } from '@/lib/site-copy';
 import {
   ArrowLeft,
   Sparkles,
@@ -22,21 +20,52 @@ type Message = {
   content: string;
 };
 
-const topics: {key:SiteKey;detail:SiteKey;icon:typeof UserRound}[] = [
-  {key:'account',detail:'accountDetail',icon:UserRound},
-  {key:'posting',detail:'postingDetail',icon:MessageCircle},
-  {key:'privacy',detail:'privacyDetail',icon:ShieldCheck},
-  {key:'verification',detail:'verificationDetail',icon:BadgeCheck},
-  {key:'billing',detail:'billingDetail',icon:CreditCard}
+const topics = [
+  {
+    name: '账号管理',
+    detail: '登录、注册与账号设置',
+    icon: UserRound
+  },
+  {
+    name: '发布与互动',
+    detail: '动态、评论与关注',
+    icon: MessageCircle
+  },
+  {
+    name: '隐私与安全',
+    detail: '保护个人资料与账号',
+    icon: ShieldCheck
+  },
+  {
+    name: '账号认证',
+    detail: '认证相关常见问题',
+    icon: BadgeCheck
+  },
+  {
+    name: '订阅与支付',
+    detail: '了解现有收费与支付功能',
+    icon: CreditCard
+  }
 ];
 
 export default function SupportPage() {
-  const {lang} = useLanguage();
-  const copy = (key:SiteKey) => siteText(lang,key);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [serviceStatus,setServiceStatus]=useState<'checking'|'ready'|'unavailable'>('checking');
+  useEffect(()=>{
+    const controller=new AbortController();
+    const check=async()=>{
+      try{
+        const response=await fetch('/api/support',{cache:'no-store',signal:controller.signal});
+        const status=await response.json() as {ready?:boolean};
+        if(!controller.signal.aborted)setServiceStatus(response.ok&&status.ready===true?'ready':'unavailable');
+      }catch{if(!controller.signal.aborted)setServiceStatus('unavailable');}
+    };
+    void check();
+    return()=>controller.abort();
+  },[]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -46,7 +75,7 @@ export default function SupportPage() {
 
     const question = input.trim();
 
-    if (!question || loading || question.length > 400) {
+    if (!question || loading || serviceStatus!=='ready' || question.length > 400) {
       return;
     }
 
@@ -69,8 +98,7 @@ export default function SupportPage() {
         },
         body: JSON.stringify({
           message: question,
-          messages: history,
-          locale: lang
+          messages: history
         }),
         cache: 'no-store'
       });
@@ -88,9 +116,9 @@ export default function SupportPage() {
         !data.reply.trim()
       ) {
         throw new Error(
-          typeof data.error === 'string' && (lang === 'zh' || lang === 'zh-hk')
+          typeof data.error === 'string'
             ? data.error
-            : copy('noReply')
+            : '暂时没有收到 AI 回复'
         );
       }
 
@@ -113,7 +141,7 @@ export default function SupportPage() {
       setError(
         caught instanceof Error
           ? caught.message
-          : copy('connectError')
+          : '连接 AI 客服失败'
       );
     } finally {
       setLoading(false);
@@ -128,17 +156,17 @@ export default function SupportPage() {
           <Link
             href="/"
             className="support-back"
-            aria-label={copy("back")}
+            aria-label="返回星流首页"
           >
             <ArrowLeft size={21} />
           </Link>
 
           <div className="support-brand">
-            <div className="support-logo">✦</div>
+            <div className="support-logo"><img src="/starflow-official-mark.webp" alt="星流正式 Logo" width="46" height="46"/></div>
 
             <div>
               <strong>Starflow AI 客服中心</strong>
-              <small>{copy('brandDetail')}</small>
+              <small>无需登录 · {serviceStatus==='ready'?'AI 问答已就绪':serviceStatus==='checking'?'正在检测服务…':'AI 问答暂不可用'}</small>
             </div>
           </div>
         </header>
@@ -149,18 +177,21 @@ export default function SupportPage() {
             <strong>✦ Starflow AI</strong>
           </div>
 
-          <h1>{copy('welcome')}</h1>
+          <h1>你好，欢迎来到星流 ✨</h1>
 
-          <p>{copy('intro')}</p>
+          <p>
+            有账号或网站使用方面的问题？
+            直接向 AI 客服提问，无需登录。
+          </p>
 
-          <span>{copy('disclaimer')}</span>
+          <span>AI 模型自动回复 · 无人工客服</span>
         </section>
 
         <section
           className="support-topics"
-          aria-label={copy("topics")}
+          aria-label="帮助主题"
         >
-          <h2>{copy('topics')}</h2>
+          <h2>常见问题</h2>
 
           <div className="support-grid">
             {topics.map(topic => {
@@ -168,20 +199,24 @@ export default function SupportPage() {
 
               return (
                 <button
-                  key={topic.key}
+                  key={topic.name}
                   type="button"
                   onClick={() => {
-                    setInput(topicQuestion(lang, copy(topic.key)));
+                    setInput(
+                      '我想了解 Starflow 的' +
+                      topic.name +
+                      '，请说明目前的功能和操作方法。'
+                    );
 
                     setError('');
-                    inputRef.current?.focus();
+                    if(serviceStatus==='ready')inputRef.current?.focus();
                   }}
                 >
                   <Icon size={23} strokeWidth={1.8} />
 
-                  <strong>{copy(topic.key)}</strong>
+                  <strong>{topic.name}</strong>
 
-                  <small>{copy(topic.detail)}</small>
+                  <small>{topic.detail}</small>
 
                   <ChevronRight
                     className="support-chevron"
@@ -195,12 +230,16 @@ export default function SupportPage() {
 
         <section
           className="support-chat"
-          aria-label={copy("chatTitle")}
+          aria-label="Starflow AI 客服聊天"
         >
           <div className="support-chat-heading">
             <MessageCircle size={20} />
-            <strong>{copy('chatTitle')}</strong>
+            <strong>与星流 AI 客服对话</strong>
           </div>
+          {serviceStatus!=='ready'&&<p role="status" className="support-service-note">
+            {serviceStatus==='checking'?'正在检查 AI 客服状态…':
+              '测试站的 AI 服务尚未就绪，暂时无法进行实时问答。账号安全、搜索及社区功能不受影响。'}
+          </p>}
 
           <div
             className="support-messages"
@@ -208,7 +247,9 @@ export default function SupportPage() {
             ref={scrollRef}
           >
             <div className="support-bubble assistant">
-              {copy('greeting')}
+              你好！这里是 Starflow 智能帮助中心。
+              AI 服务就绪后，你可以直接提问。
+              请勿发送密码或验证码。
             </div>
 
             {messages.map((message, index) => (
@@ -224,7 +265,7 @@ export default function SupportPage() {
 
             {loading && (
               <div className="support-bubble assistant">
-                {copy('thinking')}
+                正在思考…
               </div>
             )}
           </div>
@@ -245,25 +286,32 @@ export default function SupportPage() {
               onChange={event => {
                 setInput(event.target.value);
               }}
-              placeholder={copy("placeholder")}
+              placeholder={serviceStatus==='ready'?'输入问题，AI 客服将为你解答…':'AI 客服暂时不可用'}
+              disabled={serviceStatus!=='ready'}
               maxLength={400}
-              aria-label={copy("questionLabel")}
+              aria-label="输入问题"
             />
 
             <button
               type="submit"
-              disabled={loading || !input.trim()}
-              aria-label={copy("send")}
+              disabled={serviceStatus!=='ready' || loading || !input.trim()}
+              aria-label="发送给 AI 客服"
             >
               <Send size={20} />
             </button>
           </form>
 
-          <p className="support-note">{copy('note')}</p>
+          <p className="support-note">
+            任何人均可使用。
+            请勿发送密码、验证码等敏感信息。
+            AI 回复可能有误，请以网站实际功能为准。
+            对话不保存到用户账号，
+            刷新页面后可能丢失。
+          </p>
         </section>
 
         <footer>
-          {copy('footer')}
+          © Starflow · 星流官方 AI 客服
         </footer>
       </div>
 
@@ -335,15 +383,12 @@ export default function SupportPage() {
           display: grid;
           place-items: center;
           color: white;
-          font-size: 30px;
-          background:
-            linear-gradient(
-              135deg,
-              #ff94bf,
-              #b99bff
-            );
+          overflow:hidden;
+          background:#17162b;
         }
 
+        .support-logo img{display:block;width:100%;height:100%;object-fit:cover}
+        .support-service-note{margin:0 0 14px;padding:12px 14px;border:1px solid #ead8ec;background:#fcf5ff;border-radius:13px;color:#84658f;font-size:12px;line-height:1.7}
         .support-hero,
         .support-topics,
         .support-chat {
@@ -499,7 +544,8 @@ export default function SupportPage() {
           outline: none;
           background: transparent;
           color: #58334e;
-          font-size: 14px;
+          /* Safari autozooms if input text is smaller than 16px. */
+          font-size: 16px;
         }
 
         .support-form button {
