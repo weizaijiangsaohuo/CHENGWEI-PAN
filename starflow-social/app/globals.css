@@ -133,3 +133,6 @@ html.sf-user-compact .sf-masonry-card-content{padding:7px!important}
 
 /* When opening the drawer, focus its container rather than outlining the logo. */
 .sf-home-drawer:focus{outline:none!important}
+
+/* Actual distinct signed-in post viewers on discussion and profile cards. */
+.app-frame .sf-post-unique-views{display:inline-flex;align-items:center;gap:4px;color:#867a8a;font-size:12px;white-space:nowrap}
