@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Run project and email verification tests
+        run: npm run check
+
       - name: Check TypeScript
         run: npm run lint
 
