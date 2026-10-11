@@ -37,7 +37,6 @@ export default function SupportPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<'checking'|'ready'|'unavailable'>('checking');
-  const [serviceStatus,setServiceStatus] = useState<'checking'|'ready'|'unavailable'>('checking');
   const [error, setError] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -51,14 +50,6 @@ export default function SupportPage() {
       .catch(()=>{if(!abort.signal.aborted)setServiceStatus('unavailable')});
     return ()=>abort.abort();
   }, []);
-  useEffect(()=>{
-    let active=true;
-    fetch('/api/support',{cache:'no-store'}).then(async response=>{
-      const body=await response.json() as {ready?:boolean};
-      if(active)setServiceStatus(response.ok&&body.ready?'ready':'unavailable');
-    }).catch(()=>{if(active)setServiceStatus('unavailable')});
-    return()=>{active=false};
-  },[]);
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -279,7 +270,6 @@ export default function SupportPage() {
             </button>
           </form>
 
-          {serviceStatus==='unavailable'&&<p className="support-error" role="status">{copy('connectError')}</p>}
           <p className="support-note">{copy('note')}</p>
         </section>
 
