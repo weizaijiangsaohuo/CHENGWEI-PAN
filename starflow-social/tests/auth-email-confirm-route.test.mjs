@@ -108,3 +108,13 @@ test('used or expired email token does not persist session', async () => {
   assert.equal(response.status, 400);
   assert.equal(app.actualCookies.length, 0);
 });
+
+
+test('signup UI exposes a rate-limited confirmation resend without repeating signUp', () => {
+  const auth = readFileSync(new URL('../components/AuthPortal.tsx', import.meta.url), 'utf8');
+  assert.match(auth, /auth\.resend\(\{/);
+  assert.match(auth, /type:'signup'/);
+  assert.match(auth, /emailRedirectTo:\s*`\$\{location\.origin\}\/auth\/confirm`/);
+  assert.match(auth, /Date\.now\(\)\+60_000/);
+  assert.match(auth, /重新发送注册验证邮件/);
+});

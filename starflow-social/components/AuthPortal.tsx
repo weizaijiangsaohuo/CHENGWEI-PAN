@@ -8,11 +8,21 @@ import { LanguageSwitch, useLanguage } from './LanguageProvider';
 import { db, hasConfig } from '@/lib/supabase';
 
 export function AuthPortal(){
-  const {t}=useLanguage();
+  const {t,lang}=useLanguage();
   const [mode,setMode]=useState<'login'|'signup'|'forgot'>('signup');
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');
   const [display,setDisplay]=useState('');const [visible,setVisible]=useState(false);
   const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [success,setSuccess]=useState('');
+  const [pendingEmail,setPendingEmail]=useState('');
+  const [resendAvailableAt,setResendAvailableAt]=useState(0);
+  const [resendSeconds,setResendSeconds]=useState(0);
+  useEffect(()=>{
+    if(!pendingEmail)return;
+    const tick=()=>setResendSeconds(Math.max(0,Math.ceil((resendAvailableAt-Date.now())/1000)));
+    tick();
+    const timer=window.setInterval(tick,1000);
+    return()=>window.clearInterval(timer);
+  },[pendingEmail,resendAvailableAt]);
   const configured=hasConfig();
   const configuredSiteKey=process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()||'';
   // Temporary preview-host-only fallback. Never use this key on production.
@@ -30,7 +40,7 @@ export function AuthPortal(){
   function updateCaptcha(token:string){captchaTokenRef.current=token;setCaptchaToken(token);}
   const [captchaGeneration,setCaptchaGeneration]=useState(0);
   function resetCaptcha(){updateCaptcha('');setCaptchaGeneration(value=>value+1);}
-  function change(next:'signup'|'login'|'forgot'){if(submitting.current)return;setMode(next);setError('');setSuccess('');resetCaptcha();}
+  function change(next:'signup'|'login'|'forgot'){if(submitting.current)return;setMode(next);setError('');setSuccess('');setPendingEmail('');setResendAvailableAt(0);resetCaptcha();}
   async function submit(e:FormEvent){
     e.preventDefault();if(submitting.current)return;setError('');setSuccess('');
     if(!configured){setError(t('noKeys'));return;}
@@ -48,6 +58,10 @@ export function AuthPortal(){
         if(error)throw error;
         setSuccess(data.session?t('signupDone'):t('signupConfirm'));
         if(data.session)location.assign('/');
+        else {
+          setPendingEmail(email.trim());
+          setResendAvailableAt(Date.now()+60_000);
+        }
       } else if(mode==='login'){
         const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password,options:{captchaToken:requestCaptchaToken}});
         if(error)throw error;
@@ -59,6 +73,28 @@ export function AuthPortal(){
       }
     } catch(e) {setError(e instanceof Error?e.message:t('authFailure'));}
     finally{submitting.current=false;setBusy(false);resetCaptcha();}
+  }
+  async function resendSignupEmail(){
+    if(submitting.current||busy||!pendingEmail||Date.now()<resendAvailableAt||!configured)return;
+    if(siteKey&&!captchaTokenRef.current){setError(t('captchaRequired'));return;}
+    submitting.current=true;setBusy(true);setError('');
+    try{
+      const {error:resendError}=await db().auth.resend({
+        type:'signup',
+        email:pendingEmail,
+        options:{
+          emailRedirectTo:`${location.origin}/auth/confirm`,
+          captchaToken:captchaTokenRef.current||undefined,
+        },
+      });
+      if(resendError)throw resendError;
+      setSuccess(lang==='en'?'Confirmation email requested again. Check your inbox and spam folder.':'已重新请求发送注册验证邮件，请检查收件箱和垃圾邮件。');
+      setResendAvailableAt(Date.now()+60_000);
+    }catch(err){
+      setError(err instanceof Error?err.message:t('authFailure'));
+    }finally{
+      submitting.current=false;setBusy(false);resetCaptcha();
+    }
   }
   async function oauth(){
     if(submitting.current||process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true')return;
@@ -91,6 +127,16 @@ export function AuthPortal(){
           {error&&<div className="form-error" role="alert">{error}</div>}{success&&<div className="form-success" role="status"><Check size={16}/>{success}</div>}
           <button className="btn btn-primary auth-submit" disabled={busy||!configured||Boolean(siteKey&&!captchaToken)}>{busy?t('processing'):t(mode==='signup'?'create':mode==='login'?'loginButton':'sendReset')}<ArrowRight size={18}/></button>
         </form>
+        {mode==='signup'&&pendingEmail&&<div style={{textAlign:'center',margin:'12px 0 4px'}}>
+          <p style={{fontSize:13,margin:'0 0 8px',color:'#6c6482'}}>{lang==='en'?'Already registered? Do not sign up repeatedly. If confirmation is pending, resend here.':'已提交注册？请勿反复注册。尚未收到确认邮件，可在这里重新发送。'}</p>
+          <button type="button" onClick={()=>void resendSignupEmail()}
+            disabled={busy||resendSeconds>0||Boolean(siteKey&&!captchaToken)}
+            style={{border:'none',background:'none',fontWeight:700,color:'#8a42b9',cursor:'pointer',padding:'8px 12px'}}>
+            {resendSeconds>0
+              ? (lang==='en'?`Resend in ${resendSeconds}s`:`${resendSeconds} 秒后可重新发送`)
+              : (lang==='en'?'Resend confirmation email':'重新发送注册验证邮件')}
+          </button>
+        </div>}
         <div className="auth-switch">{mode==='signup'?<>{t('haveAccount')} <button disabled={busy} onClick={()=>change('login')}>{t('signIn')}</button></>:mode==='login'?<>{t('newAccount')} <button disabled={busy} onClick={()=>change('signup')}>{t('signUp')}</button></>:<>{t('rememberPassword')} <button disabled={busy} onClick={()=>change('login')}>{t('backLogin')}</button></>}
           {mode==='login'&&<button disabled={busy} className="forgot-link" onClick={()=>change('forgot')}>{t('forgotLink')}</button>}</div>
         {!configured&&<p className="configuration-note">{t('configNeeded')}</p>}
