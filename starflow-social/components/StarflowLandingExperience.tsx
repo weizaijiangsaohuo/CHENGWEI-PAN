@@ -131,7 +131,7 @@ const fr:Copy={
   footerBody:'Une communauté indépendante pour des liens authentiques.',motion:'Réduire les animations',motionDesc:'Limiter les mouvements et effets animés',
   compact:'Affichage compact',compactDesc:'Réduire les espacements entre les sections',quickLinks:'Explorer Starflow',signIn:'Connexion / Inscription'
 };
-const localeCopy:Record<Lang,Copy>={zh,'zh-hk':zhHK,en,'en-sg':en,'en-gb':en,ja,ko,de,fr};
+const localeCopy:Record<string,Copy>={zh,'zh-hk':zhHK,en,'en-sg':en,'en-gb':en,ja,ko,de,fr};
 
 /** Shared Starflow wave mark, matching the signed-in brand rather than a generic sparkle. */
 function StarflowMark({size=44}:{size?:number}){
@@ -151,7 +151,9 @@ const experiences=[
 ];
 export function StarflowLandingExperience({onJoin}:{onJoin:()=>void}){
   const {lang}=useLanguage();
-  const c=localeCopy[lang]??en;
+  const locale=lang.toLowerCase();
+  const localeKey=locale.startsWith('ja')?'ja':locale.startsWith('ko')?'ko':locale.startsWith('de')?'de':locale.startsWith('fr')?'fr':locale;
+  const c=localeCopy[localeKey]??en;
   const [more,setMore]=useState(false);
   const [active,setActive]=useState(0);
   const [reduced,setReduced]=useState(false);
@@ -235,7 +237,7 @@ export function StarflowLandingExperience({onJoin}:{onJoin:()=>void}){
             <Link role="menuitem" href="/support" onClick={()=>setMore(false)}><MessageCircle size={17}/>{c.support}</Link>
             <Link role="menuitem" href="/terms" onClick={()=>setMore(false)}><BookOpen size={17}/>{c.terms}</Link>
             <Link role="menuitem" href="/privacy" onClick={()=>setMore(false)}><LockKeyhole size={17}/>{c.privacy}</Link>
-            <div className="sf-cinema-popover-label"><Settings2 size={15}/> {lang==='zh'?'显示偏好':lang==='zh-hk'?'顯示偏好':lang==='ja'?'表示設定':lang==='ko'?'화면 설정':lang==='de'?'Anzeige':lang==='fr'?'Affichage':'Display preferences'}</div>
+            <div className="sf-cinema-popover-label"><Settings2 size={15}/> {lang==='zh'?'显示偏好':lang==='zh-HK'?'顯示偏好':lang==='ja-JP'?'表示設定':lang==='ko-KR'?'화면 설정':lang==='de-DE'?'Anzeige':lang==='fr-FR'?'Affichage':'Display preferences'}</div>
             <label className="sf-cinema-toggle"><span><strong>{c.motion}</strong><small>{c.motionDesc}</small></span><input type="checkbox" checked={reduced} onChange={e=>changeReduced(e.target.checked)}/></label>
             <label className="sf-cinema-toggle"><span><strong>{c.compact}</strong><small>{c.compactDesc}</small></span><input type="checkbox" checked={compact} onChange={e=>changeCompact(e.target.checked)}/></label>
           </div>}
