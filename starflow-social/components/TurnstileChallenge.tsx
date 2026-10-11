@@ -9,6 +9,8 @@ type Turnstile = {
     callback: (token: string) => void;
     'expired-callback': () => void;
     'error-callback': () => void;
+    'timeout-callback': () => void;
+    size: 'flexible';
   }) => string;
   remove: (widgetId: string) => void;
 };
@@ -27,14 +29,20 @@ export function TurnstileChallenge({siteKey,onToken,onError}: {
     const turnstile=(window as Window & {turnstile?: Turnstile}).turnstile;
     if(!ready||!container.current||!turnstile)return;
     let active=true;
-    const widgetId=turnstile.render(container.current,{
+    let widgetId:string;
+    try{widgetId=turnstile.render(container.current,{
       sitekey:siteKey,
+      size:'flexible',
       callback:token=>{if(active)callbacks.current.onToken(token);},
+      'timeout-callback':()=>{if(active)callbacks.current.onToken('');},
       'expired-callback':()=>{if(active)callbacks.current.onToken('');},
       'error-callback':()=>{
         if(active){callbacks.current.onToken('');callbacks.current.onError();}
       }
-    });
+    });}catch{
+      callbacks.current.onToken('');callbacks.current.onError();
+      return;
+    }
     return()=>{active=false;turnstile.remove(widgetId);};
   },[ready,siteKey]);
 

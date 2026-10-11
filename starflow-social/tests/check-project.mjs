@@ -19,10 +19,11 @@ const challenge=get('components/TurnstileChallenge.tsx');
 for(const part of ['challenges.cloudflare.com/turnstile/v0/api.js?render=explicit', "'expired-callback'", "'error-callback'", 'turnstile.remove(widgetId)'])assert(challenge.includes(part),`Missing Turnstile lifecycle: ${part}`);
 for(const method of ['signUp','signInWithPassword','resetPasswordForEmail']){
   const call=auth.slice(auth.indexOf(`supabase.auth.${method}(`)).split('if(error)')[0];
-  assert(call.includes('captchaToken:captchaToken||undefined'),`${method} must send the CAPTCHA token`);
+  assert(call.includes('captchaToken:requestCaptchaToken'),`${method} must send the CAPTCHA token`);
 }
-assert(auth.includes("if(siteKey&&!captchaToken)"),'Configured CAPTCHA must guard form submission');
-assert(auth.includes('finally{setBusy(false);resetCaptcha();}'),'Consumed CAPTCHA tokens must be reset after requests');
+assert(auth.includes('if(submitting.current)return;'),'Auth requests must reject duplicate submissions');
+assert(auth.includes("if(siteKey&&!captchaTokenRef.current)"),'Configured CAPTCHA must guard form submission');
+assert(auth.includes('finally{submitting.current=false;setBusy(false);resetCaptcha();}'),'Consumed CAPTCHA tokens must be reset after requests');
 assert(!/provider:'apple'|NEXT_PUBLIC_APPLE_ENABLED|使用 Apple 继续/.test(auth),'Apple auth must be removed');
 assert(auth.includes("process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'"),'Google auth must remain disabled until configured');
 const mailSql=get('supabase/migrations/002_welcome_email.sql');
