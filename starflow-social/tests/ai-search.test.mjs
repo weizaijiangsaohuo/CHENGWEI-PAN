@@ -27,6 +27,9 @@ test('recent topic suggestions reflect actual hashtag counts, with deduplication
  const map=Object.fromEntries(topics.map(x=>[x.term,x.count]));
  assert.equal(map['美食'],2);
  assert.equal(map['美景'],2);
+ const merged=exports.buildAISuggestions('美',[],[],[{term:'美景',count:8}],8);
+ assert.equal(merged[0].term,'#美景');
+ assert.equal(merged[0].source,'topic');
 });
 test('search suggestions never interpret special regex or wildcard characters',()=>{
  const rows=exports.buildAISuggestions('%',exports.SEARCH_FALLBACK,[],[]);

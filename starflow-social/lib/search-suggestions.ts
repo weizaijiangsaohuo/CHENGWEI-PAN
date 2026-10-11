@@ -33,7 +33,7 @@ export function buildAISuggestions(
  const key=input.trim().replace(/^#/,'').toLocaleLowerCase();
  const bucket=new Map<string,SearchSuggestion>();
  function push(term:string,source:SearchSuggestionSource,score:number){
-  const normalized=term.trim().toLocaleLowerCase();
+  const normalized=term.trim().replace(/^#/,'').toLocaleLowerCase();
   if(!normalized||normalized.length>48||!normalized.startsWith(key)||normalized===key)return;
   const previous=bucket.get(normalized);
   if(!previous||previous.score<score)bucket.set(normalized,{term,source,score});

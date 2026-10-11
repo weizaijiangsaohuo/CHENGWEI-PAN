@@ -9,6 +9,7 @@ import { db, hasConfig } from '@/lib/supabase';
 import type { Notif, Post, Profile } from '@/lib/types';
 import { ago, unwrap } from '@/lib/types';
 import { Avatar } from './Brand';
+import { StarflowAISearch } from './StarflowAISearch';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 
 type SearchTab = 'all' | 'people' | 'posts' | 'topics';
@@ -104,9 +105,18 @@ function SearchExperience({ host }: { host: Element }) {
 
   useEffect(() => {
     try {
-      const value = new URLSearchParams(window.location.search).get('tag');
-      if (value) { setTerm('#' + value.slice(0, 40)); setTab('posts'); }
+      const params=new URLSearchParams(window.location.search);
+      const tag=params.get('tag');
+      const query=params.get('q');
+      if (tag) { setTerm('#' + tag.slice(0, 40)); setTab('posts'); }
+      else if(query){setTerm(query.slice(0,48));setTab('all');}
     } catch { /* search still works with an empty query */ }
+    const handle=(event:Event)=>{
+      const detail=(event as CustomEvent<string>).detail;
+      if(typeof detail==='string'){setTerm(detail.slice(0,48));setTab('all');}
+    };
+    window.addEventListener('sf-ai-search',handle);
+    return()=>window.removeEventListener('sf-ai-search',handle);
   }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(term.trim()), 320);
@@ -194,11 +204,9 @@ function SearchExperience({ host }: { host: Element }) {
   const trimmedTopics = tab === 'all' ? topics.slice(0, 5) : topics;
   return createPortal(<section className="sf2-search" aria-label="探索与搜索">
     <div className="sf2-page-title"><h2>探索</h2><p>{communityWithoutPosts ? '认识新用户，发布第一条公开动态' : '发现用户、帖子和正在讨论的话题'}</p></div>
-    <div className="sf2-search-input-wrap">
-      <Search size={20} aria-hidden="true" />
-      <input aria-label="搜索" type="search" value={term} placeholder="搜索用户、帖子或 #话题"
-        maxLength={48} onChange={e => setTerm(e.target.value)} />
-      {term && <button type="button" aria-label="清除搜索" onClick={() => setTerm('')}><X size={18}/></button>}
+    <div className="sf2-ai-search-slot">
+      <StarflowAISearch value={term} onChange={setTerm}
+        onSearch={word=>{setTerm(word);setTab('all');window.history.replaceState(window.history.state,'','/explore?q='+encodeURIComponent(word));}} />
     </div>
     <div className="sf2-tabs" role="tablist" aria-label="搜索分类">
       {([['all', '全部'], ['people', '用户'], ['posts', '帖子'], ['topics', '话题']] as const)
