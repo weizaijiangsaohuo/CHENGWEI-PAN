@@ -1,4 +1,19 @@
-export type Lang = 'zh' | 'en';
+import {localizedMessages} from './i18n-locales';
+
+export const LANGUAGE_OPTIONS = [
+ {code:'zh',flag:'🇨🇳',shortLabel:'简体中文',label:'简体中文',description:'中国大陆',htmlLang:'zh-CN'},
+ {code:'en',flag:'🇺🇸',shortLabel:'English',label:'English (US)',description:'United States',htmlLang:'en-US'},
+ {code:'zh-HK',flag:'🇭🇰',shortLabel:'繁體中文',label:'繁體中文',description:'香港',htmlLang:'zh-HK'},
+ {code:'ko-KR',flag:'🇰🇷',shortLabel:'한국어',label:'한국어',description:'대한민국',htmlLang:'ko-KR'},
+ {code:'ja-JP',flag:'🇯🇵',shortLabel:'日本語',label:'日本語',description:'日本',htmlLang:'ja-JP'},
+ {code:'en-SG',flag:'🇸🇬',shortLabel:'English',label:'English (SG)',description:'Singapore',htmlLang:'en-SG'},
+ {code:'en-GB',flag:'🇬🇧',shortLabel:'English',label:'English (UK)',description:'United Kingdom',htmlLang:'en-GB'},
+ {code:'de-DE',flag:'🇩🇪',shortLabel:'Deutsch',label:'Deutsch',description:'Deutschland',htmlLang:'de-DE'},
+ {code:'fr-FR',flag:'🇫🇷',shortLabel:'Français',label:'Français',description:'France',htmlLang:'fr-FR'},
+] as const;
+export type Lang = typeof LANGUAGE_OPTIONS[number]['code'];
+export function isEnglishLocale(lang:Lang){return lang==='en'||lang==='en-SG'||lang==='en-GB';}
+export function isChineseLocale(lang:Lang){return lang==='zh'||lang==='zh-HK';}
 export const messages = {
   zh: {
     home:'首页', explore:'探索', notifications:'通知', bookmarks:'书签', settings:'设置', profile:'个人主页', admin:'管理中心',
@@ -32,4 +47,7 @@ export const messages = {
   }
 } as const;
 export type TranslationKey = keyof typeof messages.zh;
-export function translate(lang:Lang, key:TranslationKey):string{return messages[lang][key]??messages.zh[key]}
+export function translate(lang:Lang,key:TranslationKey):string {
+ const extra=localizedMessages[lang as keyof typeof localizedMessages] as Record<string,string>|undefined;
+ return extra?.[key]??(isChineseLocale(lang)?messages.zh[key]:messages.en[key]);
+}
