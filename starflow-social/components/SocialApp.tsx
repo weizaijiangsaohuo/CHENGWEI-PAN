@@ -270,7 +270,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           client.from('posts').select('parent_id').in('parent_id',ids),
           client.rpc('sf_post_view_counts',{p_post_ids:ids}),
         ]);
-        const collectedViews = new Map((v.data||[]).map(row=>[row.post_id,Number(row.views)||0]));
+        const collectedViews = new Map<string, number>(((v.data||[]) as {post_id:string;views:number|string}[]).map((row)=>[row.post_id,Number(row.views)||0]));
         const collect:Metrics={};
         for(const id of ids){const ls=(l.data||[]).filter(x=>x.post_id===id),rs=(r.data||[]).filter(x=>x.post_id===id),bs=(b.data||[]).filter(x=>x.post_id===id);
           collect[id]={likes:ls.length,reposts:rs.length,replies:(c.data||[]).filter(x=>x.parent_id===id).length,views:collectedViews.get(id)||0,
