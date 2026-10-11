@@ -13,6 +13,7 @@ import { LanguageSwitch, useLanguage } from './LanguageProvider';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
 import { StarflowMasonryFeed } from './StarflowMasonryFeed';
+import { StarflowHomeMenu } from './StarflowHomeMenu';
 import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
@@ -477,7 +478,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
     <main className="feed-panel">
-      <div className="sf-top-utility"><Brand/><LanguageSwitch/></div>
+      <div className="sf-top-utility"><Brand/><div className="sf-home-toolbar"><LanguageSwitch/>
+        {view==='home'&&<StarflowHomeMenu layout={homeLayout} onLayoutChange={changeHomeLayout}/>}
+      </div></div>
       {renderContent()}
       {!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&(
         view==='home'&&homeLayout==='masonry'?
