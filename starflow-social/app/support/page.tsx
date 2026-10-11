@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/components/LanguageProvider';
 import { siteText, topicQuestion, type SiteKey } from '@/lib/site-copy';
@@ -36,17 +36,26 @@ export default function SupportPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [serviceStatus,setServiceStatus] = useState<'checking'|'ready'|'unavailable'>('checking');
   const [error, setError] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    let active=true;
+    fetch('/api/support',{cache:'no-store'}).then(async response=>{
+      const body=await response.json() as {ready?:boolean};
+      if(active)setServiceStatus(response.ok&&body.ready?'ready':'unavailable');
+    }).catch(()=>{if(active)setServiceStatus('unavailable')});
+    return()=>{active=false};
+  },[]);
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const question = input.trim();
 
-    if (!question || loading || question.length > 400) {
+    if (!question || loading || serviceStatus !== 'ready' || question.length > 400) {
       return;
     }
 
@@ -134,10 +143,10 @@ export default function SupportPage() {
           </Link>
 
           <div className="support-brand">
-            <div className="support-logo">✦</div>
+            <div className="support-logo"><img src="/starflow-official-mark.webp" width="40" height="40" alt="" style={{borderRadius:12,objectFit:"cover"}}/></div>
 
             <div>
-              <strong>Starflow AI 客服中心</strong>
+              <strong>{copy('chatTitle')}</strong>
               <small>{copy('brandDetail')}</small>
             </div>
           </div>
@@ -252,13 +261,14 @@ export default function SupportPage() {
 
             <button
               type="submit"
-              disabled={loading || !input.trim()}
+              disabled={loading || serviceStatus!=='ready' || !input.trim()}
               aria-label={copy("send")}
             >
               <Send size={20} />
             </button>
           </form>
 
+          {serviceStatus==='unavailable'&&<p className="support-error" role="status">{copy('connectError')}</p>}
           <p className="support-note">{copy('note')}</p>
         </section>
 
@@ -499,7 +509,8 @@ export default function SupportPage() {
           outline: none;
           background: transparent;
           color: #58334e;
-          font-size: 14px;
+          /* iOS Safari does not auto-zoom inputs sized 16px or larger. */
+          font-size: 16px;
         }
 
         .support-form button {
