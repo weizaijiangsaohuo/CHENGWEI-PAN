@@ -73,3 +73,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
  .app-frame .feed-panel{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
 }
 @media(prefers-reduced-motion:reduce){.app-frame .sf-mobile-five-nav *{transition:none!important}}
+
+/* A branded state for genuine loading only. No artificial splash delay. */
+.sf-boot-screen{display:flex!important;flex-direction:column!important;gap:12px!important;align-items:center!important;justify-content:center!important;min-height:100dvh!important;background:#fcfaff!important;color:#2e2445!important;text-align:center!important}
+.sf-boot-screen img{width:76px;height:76px;border-radius:22px;box-shadow:0 14px 35px rgba(112,84,193,.14)}
+.sf-boot-screen strong{display:flex;flex-direction:column;gap:6px;font-weight:900;font-size:27px;letter-spacing:.4px}
+.sf-boot-screen strong span{font-size:11px;font-weight:680;color:#988db7;letter-spacing:4px}
+.sf-boot-screen p{font-size:12px;color:#a59ab2;margin:6px 0 0}

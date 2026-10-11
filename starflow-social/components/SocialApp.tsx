@@ -490,7 +490,10 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     </>;
   };
 
-  if(checking)return <main className="center-screen"><div className="spinner" aria-label="加载中"/></main>;
+  if(checking)return <main className="center-screen sf-boot-screen" role="status">
+    <img src="/starflow-official-mark.webp" width="76" height="76" alt=""/>
+    <strong>星流 <span>STARFLOW</span></strong><p>正在连接星流…</p>
+   </main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
   return <div className={'app-frame'+(view==='home'&&homeLayout==='masonry'?' sf-xhs-home':'')}><div className="app-layout">
     <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href="/messages"><MessageCircle size={25}/><span>私信</span>{dmUnread>0&&<b className="count-bubble">{dmUnread>9?'9+':dmUnread}</b>}</Link><Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>社区 / 列表</span></Link><Link href="/creator"><BarChart3 size={25}/><span>数据中心</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>

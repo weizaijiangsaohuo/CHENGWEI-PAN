@@ -115,7 +115,11 @@ export default function Home(){
     }).catch(()=>{if(active)setScreen('landing')});
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
-  if(screen==='checking')return <main className={styles.loading} role="status" aria-live="polite"><span className={styles.logoSymbol}>✦</span>{en?'Loading Starflow…':'正在进入星流…'}</main>;
+  if(screen==='checking')return <main className={styles.loading+' sf-boot-screen'} role="status" aria-live="polite">
+  <img src="/starflow-official-mark.webp" width="76" height="76" alt="" />
+  <strong>星流 <span>STARFLOW</span></strong>
+  <p>{en?'Connecting…':'正在进入星流…'}</p>
+ </main>;
   const enter=()=>setScreen('auth');
   return <>
     {screen==='member'||screen==='auth'?<SocialApp view="home"/>:<div className={styles.page}>

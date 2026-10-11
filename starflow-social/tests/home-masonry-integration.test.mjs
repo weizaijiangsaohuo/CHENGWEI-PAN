@@ -48,3 +48,19 @@ test('the left drawer groups existing product routes without fake commerce tools
  assert.match(drawer,/\/creator/);
  assert.doesNotMatch(drawer,/\/wallet|\/shopping-cart/);
 });
+
+test('notification quick actions filter only real notice kinds and keep counts accurate',()=>{
+ const source=readFileSync(new URL('../components/StarflowNotificationCenter.tsx',import.meta.url),'utf8');
+ assert.match(source,/sf3-activity-shortcuts/);
+ assert.match(source,/tab==='likes'/);
+ assert.match(source,/tab==='follows'/);
+ assert.match(source,/tab==='comments'/);
+ assert.match(source,/category\.kinds\.includes\(n\.kind\)/);
+ assert.doesNotMatch(source,/tab==='bookmarks'/);
+});
+test('initial loading uses genuine Starflow brand asset with no artificial waiting',()=>{
+ const home=readFileSync(new URL('../app/page.tsx',import.meta.url),'utf8');
+ assert.match(home,/sf-boot-screen/);
+ assert.match(home,/starflow-official-mark\.webp/);
+ assert.match(social,/starflow-official-mark\.webp/);
+});
