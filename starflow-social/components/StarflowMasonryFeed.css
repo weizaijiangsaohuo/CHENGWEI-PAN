@@ -107,3 +107,10 @@
 .sf-home-drawer-group>a{display:flex;align-items:center;gap:13px;min-height:49px;padding:12px 11px;color:#40364a!important;text-decoration:none!important;border-radius:11px;font-size:14px;font-weight:700}
 .sf-home-drawer-group>a>span{flex:1}.sf-home-drawer-group>a svg{color:#8b5ab8}.sf-home-drawer-group>a svg:last-child{color:#b8a5c5}
 .sf-home-drawer-group>a:active{background:#f3ebfa}
+
+/* Match the convenient upper-left menu position seen in the mobile reference. */
+.app-frame.sf-xhs-home .sf-top-utility{justify-content:flex-start;gap:10px}
+.app-frame.sf-xhs-home .sf-top-utility>.sf-home-menu-trigger{flex:none;order:0}
+.app-frame.sf-xhs-home .sf-top-utility>.brand{min-width:0;flex:0 1 auto}
+.app-frame.sf-xhs-home .sf-top-utility>.sf-home-toolbar{margin-left:auto}
+@media(max-width:430px){.app-frame.sf-xhs-home .sf-top-utility{gap:7px}.app-frame.sf-xhs-home .sf-top-utility>.sf-home-menu-trigger{width:38px;height:38px}}

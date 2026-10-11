@@ -506,9 +506,10 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
     <main className="feed-panel">
-      <div className="sf-top-utility"><Brand/><div className="sf-home-toolbar"><LanguageSwitch/>
+      <div className="sf-top-utility">
         {view==='home'&&<StarflowHomeMenu layout={homeLayout} onLayoutChange={changeHomeLayout}/>}
-      </div></div>
+        <Brand/><div className="sf-home-toolbar"><LanguageSwitch/></div>
+      </div>
       {renderContent()}
       {!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&(
         view==='home'&&homeLayout==='masonry'?
