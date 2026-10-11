@@ -15,6 +15,7 @@ import { PollCard } from './PollCard';
 import { StarflowMasonryFeed } from './StarflowMasonryFeed';
 import { StarflowHomeMenu } from './StarflowHomeMenu';
 import { StarflowMobileNavigation } from './StarflowMobileNavigation';
+import { StarflowServicesPanel } from './StarflowServicesPanel';
 import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
@@ -429,13 +430,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       <form onSubmit={saveProfile} className="stack"><label>{t('name')}<input className="text-input" value={display} onChange={e=>setDisplay(e.target.value)} required minLength={1} maxLength={60}/></label><label>{t('handle')}<input className="text-input" value={handle} onChange={e=>setHandle(e.target.value)} pattern="[a-z0-9_]{3,24}" required/></label>
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
       
-<Link href="/support" className="btn btn-outline" style={{display:'flex',justifyContent:'center',margin:'16px 0',padding:'14px',borderRadius:16}}>✦ AI 客服中心 · 无需登录</Link>
-<Link href="/verification" className="btn btn-outline" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,margin:'12px 0',padding:'14px',borderRadius:16}}><Shield size={16}/> 账号认证中心 · 蓝 / 金 / 灰</Link>
-<Link href="/hub" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>社交社区与关注列表 →</Link>
-<Link href="/creator" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>创作者数据中心 →</Link>
-{isAdmin&&<Link href="/admin/verifications" className="btn btn-outline" style={{display:'block',margin:'12px 0',padding:14,textAlign:'center'}}>管理员：三色认证审核 →</Link>}
-
-      <Link href="/settings/security" className="btn btn-primary" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,margin:'18px 0',padding:14,borderRadius:16}}><Shield size={18}/> 账户安全管理中心 · 密码／邮箱／第三方绑定</Link>
+<StarflowServicesPanel isAdmin={isAdmin}/>
       <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={lang==='en'?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(lang==='en'?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
