@@ -10,6 +10,7 @@ import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
 import { LanguageSwitch, useLanguage, languageOptions } from './LanguageProvider';
+import {StarflowMoreMenu} from './StarflowMoreMenu';
 import type {Lang} from '@/lib/i18n';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
@@ -64,6 +65,17 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const inputRef=useRef<HTMLInputElement>(null);
   const videoInputRef=useRef<HTMLInputElement>(null);
   const showMessage=(msg:string)=>{setMessage(msg);window.setTimeout(()=>setMessage(''),6500)};
+  useEffect(()=>{
+    if(view!=='home'||checking||!user)return;
+    const params=new URLSearchParams(window.location.search);
+    if(params.get('compose')!=='1')return;
+    const timer=window.setTimeout(()=>{
+      const editor=document.querySelector<HTMLTextAreaElement>('.composer textarea');
+      editor?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'center'});
+      editor?.focus({preventScroll:true});
+    },100);
+    return()=>window.clearTimeout(timer);
+  },[view,checking,user?.id]);
   useEffect(()=>{
     if(!user)return;
     setDraftHydrated(false);
@@ -398,10 +410,15 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   if(!hasConfig()||!user)return <AuthPortal/>;
   return <div className="app-frame"><div className="app-layout">
     <aside className="left-sidebar"><Brand compact/><nav className="main-nav">{nav.map(item=>{const Icon=item.icon;return <Link key={item.to} href={item.to} className={(view===item.to.slice(1)||view==='home'&&item.to==='/')?'nav-active':''}><Icon size={25}/><span>{t(item.name as 'home'|'explore'|'notifications'|'bookmarks'|'settings')}</span>{item.to==='/notifications'&&unread>0&&<b className="count-bubble">{unread>9?'9+':unread}</b>}</Link>})}<Link href={self?`/profile/${self.handle}`:'/settings'} className={view==='profile'&&profile?.id===user.id?'nav-active':''}><UserRound size={25}/><span>{t('profile')}</span></Link><Link href="/hub"><UserPlus size={25}/><span>{member.community}</span></Link><Link href="/creator"><BarChart3 size={25}/><span>{member.creator}</span></Link>{isAdmin&&<Link href="/admin"><LayoutDashboard size={25}/><span>{t('admin')}</span></Link>}</nav>
-      <button className="btn btn-primary sidebar-publish" onClick={()=>{router.push('/');setTimeout(()=>document.querySelector('.composer textarea')?.scrollIntoView({behavior:'smooth',block:'center'}),200)}}><PenLine size={19}/> {t('newPost')}</button>
+      <button className="btn btn-primary sidebar-publish" onClick={()=>{
+        if(view!=='home'){router.push('/?compose=1');return}
+        const editor=document.querySelector<HTMLTextAreaElement>('.composer textarea');
+        editor?.scrollIntoView({behavior:'smooth',block:'center'});
+        editor?.focus({preventScroll:true});
+      }}><PenLine size={19}/> {t('newPost')}</button>
       <Link href={self?`/profile/${self.handle}`:'/settings'} className="my-account"><Avatar name={self?.display_name||'我'} image={self?.avatar_url}/><span><strong>{self?.display_name||user.email?.split('@')[0]}</strong><small>@{self?.handle||'account'}</small></span><Ellipsis size={18}/></Link>
     </aside>
-    <main className="feed-panel"><div className="sf-top-utility"><span className="sf-top-logo">✦ <b>starflow<span>.</span></b></span><LanguageSwitch/></div>{renderContent()}{!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&<div className="posts-list">
+    <main className="feed-panel"><div className="sf-top-utility"><span className="sf-top-logo">✦ <b>starflow<span>.</span></b></span><LanguageSwitch/><StarflowMoreMenu profileHref={self?`/profile/${self.handle}`:'/settings'}/></div>{renderContent()}{!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&<div className="posts-list">
       {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
       {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):tab==='following'&&view==='home'?t('emptyFollowing'):t('emptyFeed')} detail={t('emptyHint')}/>}
       {ordered.map(card)}
