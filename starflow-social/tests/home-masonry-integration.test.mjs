@@ -59,7 +59,9 @@ test('initial loading uses genuine Starflow brand asset with no artificial waiti
  const home=readFileSync(new URL('../app/page.tsx',import.meta.url),'utf8');
  assert.match(home,/sf-boot-screen/);
  assert.match(home,/starflow-official-mark\.webp/);
- assert.match(social,/starflow-official-mark\.webp/);
+ assert.match(social,/if\(checking\)return <main className="sf-section-loading"/);
+ const brand=readFileSync(new URL('../components/Brand.tsx',import.meta.url),'utf8');
+ assert.match(brand,/starflow-official-mark\.webp/);
 });
 
 test('owner profile shortcuts use supported feature pages only',()=>{

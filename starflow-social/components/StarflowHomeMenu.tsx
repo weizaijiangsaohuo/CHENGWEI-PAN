@@ -46,7 +46,14 @@ export function StarflowHomeMenu(){
     <nav className="sf-home-drawer-links" aria-label="星流功能入口">
      {groups.map(group=><section className="sf-home-drawer-group" key={group.heading}>
        <h2>{group.heading}</h2>
-       {group.items.map(({to,label,icon:Icon})=><Link key={to} href={to} onClick={close}>
+       {group.items.map(({to,label,icon:Icon})=><Link key={to} href={to}
+        onClick={event=>{
+          if(to==='/?compose=1'&&window.location.pathname==='/'){
+            event.preventDefault();
+            window.dispatchEvent(new Event('sf-open-home-composer'));
+          }
+          close();
+        }}>
         <Icon size={19}/><span>{label}</span><ChevronRight size={16}/></Link>)}
      </section>)}
     </nav>
