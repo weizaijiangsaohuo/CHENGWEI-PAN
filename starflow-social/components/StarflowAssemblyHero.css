@@ -1,120 +1,122 @@
-/* Starflow / Logo → constellation → community.
-   Transform and opacity only during the entrance; the final mockup stays still.
-   No scrolling interception, motion canvas, external library, or forced loading. */
-.sf-assembly-visual{position:relative;width:100%;max-width:520px;margin-inline:auto;min-width:0;isolation:isolate}
-.sf-assembly-stage{position:relative;width:100%;height:550px;isolation:isolate;contain:layout paint;overflow:visible;transform:translateZ(0)}
-.sf-assembly-glow{position:absolute;inset:5% -4% 7%;border-radius:50%;background:radial-gradient(ellipse at 50% 52%,#bfadfa74 0%,#dfd5fa62 29%,#f5f0fb00 71%);pointer-events:none;filter:blur(12px)}
-.sf-assembly-orbit{position:absolute;z-index:0;left:50%;top:44%;width:84%;height:53%;border:1px solid #a894dc60;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%) rotate(-31deg)}
-.sf-assembly-orbit-two{width:99%;height:41%;transform:translate(-50%,-50%) rotate(23deg);border-color:#9b86e840}
-.sf-assembly-path{position:absolute;z-index:1;top:38%;left:50%;height:1px;width:42%;background:linear-gradient(90deg,transparent,#9981f5b8,transparent);opacity:0;pointer-events:none;transform-origin:left;animation:sf-assembly-trace 4900ms both}
-.sf-assembly-path-one{transform:rotate(-32deg);--trace-rotation:-32deg}
-.sf-assembly-path-two{transform:rotate(153deg);--trace-rotation:153deg;animation-delay:100ms}
-.sf-assembly-dot{position:absolute;z-index:4;left:50%;top:42%;width:7px;height:7px;margin:-3.5px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #b6a0ff80,0 0 17px 4px #ac83f7ac;pointer-events:none;opacity:0;animation:sf-assembly-particle 4900ms cubic-bezier(.17,.83,.22,1) both}
-.sf-assembly-dot-a{--tx:-148px;--ty:-175px;animation-delay:0ms}
-.sf-assembly-dot-b{--tx:146px;--ty:-120px;animation-delay:80ms}
-.sf-assembly-dot-c{--tx:151px;--ty:119px;animation-delay:140ms}
-.sf-assembly-dot-d{--tx:-133px;--ty:141px;animation-delay:210ms}
-.sf-assembly-dot-e{--tx:9px;--ty:-211px;animation-delay:70ms}
-.sf-assembly-dot-f{--tx:20px;--ty:178px;animation-delay:150ms}
-.sf-assembly-fragment{position:absolute;z-index:7;top:42%;left:50%;height:106px;width:106px;margin:-53px;background:url('/starflow-official-mark.webp') center/106px 106px no-repeat;border-radius:27px;filter:drop-shadow(0 14px 24px #48357837);pointer-events:none;animation:sf-assembly-separate 4900ms cubic-bezier(.16,.85,.28,1) both;backface-visibility:hidden}
-.sf-assembly-northwest{clip-path:inset(0 50% 50% 0);--spread-x:-100px;--spread-y:-110px;--spin:-18deg;animation-delay:0ms}
-.sf-assembly-northeast{clip-path:inset(0 0 50% 50%);--spread-x:103px;--spread-y:-99px;--spin:21deg;animation-delay:25ms}
-.sf-assembly-southwest{clip-path:inset(50% 50% 0 0);--spread-x:-112px;--spread-y:104px;--spin:17deg;animation-delay:40ms}
-.sf-assembly-southeast{clip-path:inset(50% 0 0 50%);--spread-x:113px;--spread-y:99px;--spin:-19deg;animation-delay:65ms}
-.sf-assembly-window{position:absolute;z-index:3;top:5%;left:50%;width:min(86%,420px);height:490px;overflow:hidden;border-radius:30px;border:1px solid #c9b9e8;background:#fff;box-shadow:0 30px 70px #45306522,0 0 0 1px #fff9;opacity:0;transform:translate(-50%,34px) rotate(-4deg) scale(.91);animation:sf-assembly-panel 4900ms cubic-bezier(.16,.85,.3,1) both}
-.sf-assembly-window-header{display:flex;align-items:center;justify-content:space-between;height:77px;padding:0 27px;border-bottom:1px solid #e9e5f1}
-.sf-assembly-window-brand{display:inline-flex;align-items:center;gap:12px;color:#6262bf}
-.sf-assembly-window-brand img{border-radius:13px;box-shadow:0 4px 10px #21184226}
-.sf-assembly-window-brand strong{font-size:17px;letter-spacing:4px;font-weight:870}
-.sf-assembly-window-dots{display:flex;gap:7px}
-.sf-assembly-window-dots i{height:7px;width:7px;border-radius:50%;background:#d7d9e6}
-.sf-assembly-window-main{padding:32px 29px 0}
-.sf-assembly-window-eyebrow{color:#6773b8;font-size:11px;font-weight:820;letter-spacing:2px}
-.sf-assembly-window-main h2{font-size:clamp(25px,3vw,35px);letter-spacing:-.05em;line-height:1.25;color:#171623;margin:17px 0 10px;font-weight:900}
-.sf-assembly-window-main>p{color:#898ca3;font-size:13px;margin:0 0 23px;line-height:1.75}
-.sf-assembly-row{display:flex;align-items:center;gap:15px;padding:17px 0;border-top:1px solid #efedf5;opacity:0;animation:sf-assembly-content 4900ms cubic-bezier(.16,.85,.3,1) both}
-.sf-assembly-row-first{animation-delay:0ms}.sf-assembly-row-second{animation-delay:180ms}
-.sf-assembly-row-icon{width:52px;height:52px;flex:none;display:grid;place-items:center;border-radius:17px;background:#f0edff;color:#7f71d8}
-.sf-assembly-row-second .sf-assembly-row-icon{background:#edf7f5;color:#56a697}
-.sf-assembly-row strong{display:block;color:#232434;font-size:13px;font-weight:830}
-.sf-assembly-row small{display:block;color:#9397a8;font-size:11px;line-height:1.6;margin-top:6px}
-.sf-assembly-window-footer{position:absolute;bottom:0;left:0;right:0;height:60px;padding:0 34px;display:flex;justify-content:space-between;align-items:center;color:#a9a6c3;background:#faf9fe;border-top:1px solid #f0ecf6}
-.sf-assembly-world-pill{position:absolute;z-index:8;bottom:58px;right:-6px;display:inline-flex;align-items:center;gap:9px;padding:13px 17px;border-radius:999px;background:#fff;color:#48507b;font-size:12px;font-weight:820;box-shadow:0 14px 33px #4c3b7230;border:1px solid #f0eaf8;opacity:0;animation:sf-assembly-pill 4900ms cubic-bezier(.2,.8,.3,1) both}
-.sf-assembly-replay{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;border:1px solid #d9d2ea;background:#ffffffd9;color:#7968a0;font-weight:780;font-size:11px;padding:9px 13px;border-radius:999px;min-height:38px;cursor:pointer;touch-action:manipulation;transition:background .16s,color .16s}
-.sf-assembly-replay:hover{background:#f0eaff;color:#69549d}.sf-assembly-replay:active{background:#e6dcfa}
-@keyframes sf-assembly-separate{
-  0%,14%{opacity:1;transform:translate3d(0,0,0) rotate(0) scale(.84)}
-  25%{opacity:1;transform:translate3d(0,0,0) rotate(0) scale(1)}
-  43%{opacity:1;transform:translate3d(var(--spread-x),var(--spread-y),0) rotate(var(--spin)) scale(.96)}
-  56%{opacity:1;transform:translate3d(var(--spread-x),var(--spread-y),0) rotate(var(--spin)) scale(.78)}
-  74%{opacity:1;transform:translate3d(-139px,-152px,0) rotate(0) scale(.40)}
-  80%,100%{opacity:0;transform:translate3d(-139px,-152px,0) rotate(0) scale(.40)}
+/* Starflow official-mark constellation. No rectangular white mockup.
+   Only compositor-friendly transform/opacity animations, no scroll interception.
+   The logo ends complete, legible and visually stable on every viewport. */
+.sf-constellation{position:relative;isolation:isolate;width:100%;max-width:590px;min-width:0;margin:auto;contain:layout style}
+.sf-constellation-scene{position:relative;height:585px;overflow:hidden;isolation:isolate;border-radius:42px;
+ background:radial-gradient(ellipse 83% 57% at 52% 36%,#6e52b66b 0,transparent 72%),
+ radial-gradient(ellipse 78% 80% at 81% 77%,#554a9c70 0,transparent 79%),
+ linear-gradient(151deg,#0c102c,#1a1945 55%,#282254)}
+.sf-constellation-scene:before{content:"";position:absolute;inset:0;pointer-events:none;
+ background-image:radial-gradient(circle at 12% 25%,#e9deff 0 1px,transparent 1.8px),
+ radial-gradient(circle at 85% 20%,#faf5ff 0 1px,transparent 1.6px),
+ radial-gradient(circle at 20% 82%,#b2a3ff 0 1px,transparent 1.6px),
+ radial-gradient(circle at 71% 88%,#d9c3ff 0 1px,transparent 1.8px),
+ radial-gradient(circle at 93% 64%,#d5c1ff 0 1px,transparent 1.8px);opacity:.8}
+.sf-cosmos-aurora{position:absolute;width:92%;height:79%;left:4%;top:3%;border-radius:50%;
+ background:radial-gradient(ellipse,#9e78e788 4%,#6055c455 32%,transparent 70%);
+ filter:blur(18px);opacity:.82;pointer-events:none}
+.sf-cosmos-orbit{position:absolute;top:39%;left:50%;border:1px solid #c7b0ff78;border-radius:50%;
+ pointer-events:none;backface-visibility:hidden;transform-origin:center}
+.sf-cosmos-orbit-a{width:85%;height:36%;transform:translate(-50%,-50%) rotate(-29deg);
+ box-shadow:0 0 28px #af9aff16,inset 0 0 24px #b0a1f419}
+.sf-cosmos-orbit-b{width:74%;height:58%;border-color:#93a3ff6d;
+ transform:translate(-50%,-50%) rotate(39deg)}
+.sf-cosmos-orbit-c{width:57%;height:62%;border-color:#c7a7f952;
+ transform:translate(-50%,-50%) rotate(-55deg)}
+.sf-cosmos-trail{position:absolute;z-index:2;left:50%;top:38%;height:1px;width:35%;
+ background:linear-gradient(90deg,transparent,#eee4ff,transparent);opacity:0;pointer-events:none;
+ transform-origin:left center;animation:sf-cosmos-trace 4300ms ease-in-out both}
+.sf-cosmos-trail-a{transform:rotate(-38deg)}.sf-cosmos-trail-b{transform:rotate(154deg);animation-delay:70ms}
+.sf-cosmos-trail-c{transform:rotate(43deg);animation-delay:120ms}
+.sf-cosmos-star{position:absolute;z-index:4;top:39%;left:50%;width:6px;height:6px;margin:-3px;
+ border-radius:50%;background:#f4eaff;box-shadow:0 0 9px 3px #c7a0f9cc;pointer-events:none;
+ opacity:0;animation:sf-cosmos-star-gather 4300ms cubic-bezier(.2,.79,.25,1) both}
+.sf-cosmos-star-a{--x:-190px;--y:-133px}
+.sf-cosmos-star-b{--x:193px;--y:-101px;animation-delay:35ms}
+.sf-cosmos-star-c{--x:165px;--y:99px;animation-delay:75ms}
+.sf-cosmos-star-d{--x:-175px;--y:114px;animation-delay:115ms}
+.sf-cosmos-star-e{--x:-41px;--y:-184px;animation-delay:35ms}
+.sf-cosmos-star-f{--x:78px;--y:180px;animation-delay:100ms}
+.sf-cosmos-star-g{--x:205px;--y:16px;animation-delay:160ms}
+.sf-cosmos-symbol{position:absolute;left:50%;top:38%;z-index:6;width:164px;height:164px;
+ transform:translate(-50%,-50%);pointer-events:none}
+.sf-cosmos-shard,.sf-cosmos-mark{position:absolute;inset:0;width:100%;height:100%;border-radius:35px}
+.sf-cosmos-shard{background:url('/starflow-official-mark.webp') center/cover no-repeat;
+ filter:drop-shadow(0 10px 18px #a07df23d);
+ animation:sf-cosmos-assemble 4300ms cubic-bezier(.2,.77,.2,1) both;backface-visibility:hidden}
+.sf-cosmos-shard-northwest{clip-path:inset(0 50% 50% 0);--sx:-142px;--sy:-114px;--rot:-30deg}
+.sf-cosmos-shard-northeast{clip-path:inset(0 0 50% 50%);--sx:133px;--sy:-146px;--rot:27deg;animation-delay:40ms}
+.sf-cosmos-shard-southwest{clip-path:inset(50% 50% 0 0);--sx:-159px;--sy:117px;--rot:25deg;animation-delay:80ms}
+.sf-cosmos-shard-southeast{clip-path:inset(50% 0 0 50%);--sx:159px;--sy:127px;--rot:-26deg;animation-delay:50ms}
+.sf-cosmos-mark{object-fit:cover;box-shadow:0 16px 70px #8b6bff8a,0 0 0 1px #f0e4ff88;
+ opacity:0;animation:sf-cosmos-full-mark 4300ms cubic-bezier(.16,.78,.25,1) both}
+.sf-cosmos-caption{position:absolute;z-index:7;top:62%;width:100%;text-align:center;padding:0 18px;color:#fff;
+ opacity:0;animation:sf-cosmos-type 4300ms cubic-bezier(.18,.81,.3,1) both}
+.sf-cosmos-kicker{display:inline-flex;justify-content:center;align-items:center;gap:7px;color:#d0beff;
+ font-weight:720;font-size:10px;letter-spacing:2px}
+.sf-cosmos-caption h2{font-size:clamp(46px,6vw,68px);font-weight:890;letter-spacing:.12em;
+ text-shadow:0 8px 32px #080926bd;margin:14px 0 2px;line-height:1.2;color:#f8f5ff}
+.sf-cosmos-caption strong{font-size:15px;letter-spacing:5.5px;color:#c6c0ff;display:block;font-weight:650}
+.sf-cosmos-caption p{font-size:13px;letter-spacing:3px;color:#d0c8ed;margin:18px 0 0}
+.sf-cosmos-aside{position:absolute;z-index:5;font-size:8px;letter-spacing:2px;color:#c3b0f388;
+ font-weight:740;bottom:20px}
+.sf-cosmos-aside-left{left:25px}.sf-cosmos-aside-right{right:25px}
+.sf-cosmos-replay{display:flex;align-items:center;justify-content:center;gap:8px;
+ border:1px solid #c9bce4;border-radius:999px;background:#f4efff;color:#715c9d;
+ font-weight:780;font-size:12px;min-height:41px;padding:9px 18px;margin:16px auto 0;
+ cursor:pointer;touch-action:manipulation;transition:transform .18s ease,background .18s ease}
+.sf-cosmos-replay:active{transform:scale(.96);background:#ebe0ff}
+@keyframes sf-cosmos-assemble{
+  0%,12%{opacity:0;transform:translate3d(var(--sx),var(--sy),0) rotate(var(--rot)) scale(.6)}
+  21%{opacity:1;transform:translate3d(var(--sx),var(--sy),0) rotate(var(--rot)) scale(.9)}
+  45%{opacity:1;transform:translate3d(calc(var(--sx) * .72),calc(var(--sy) * .72),0) rotate(var(--rot)) scale(.92)}
+  74%{opacity:1;transform:translate3d(0,0,0) rotate(0) scale(1)}
+  82%,100%{opacity:0;transform:translate3d(0,0,0) rotate(0) scale(1)}
 }
-@keyframes sf-assembly-particle{
-  0%,23%{opacity:0;transform:translate3d(0,0,0) scale(.4)}
-  37%{opacity:.95;transform:translate3d(calc(var(--tx) * .8),calc(var(--ty) * .8),0) scale(1)}
-  56%{opacity:1;transform:translate3d(var(--tx),var(--ty),0) scale(.7)}
-  73%{opacity:0;transform:translate3d(-140px,-152px,0) scale(.2)}
-  100%{opacity:0}
+@keyframes sf-cosmos-star-gather{
+  0%,15%{opacity:0;transform:translate3d(var(--x),var(--y),0) scale(.3)}
+  26%{opacity:1;transform:translate3d(var(--x),var(--y),0) scale(1)}
+  51%{opacity:.9;transform:translate3d(calc(var(--x) * .63),calc(var(--y) * .63),0) scale(.7)}
+  74%,100%{opacity:0;transform:translate3d(0,0,0) scale(.3)}
 }
-@keyframes sf-assembly-trace{
-  0%,23%{opacity:0;scale:.3 1}
-  34%{opacity:1;scale:1 1}
-  52%{opacity:.8}
-  75%,100%{opacity:0;scale:.2 1}
+@keyframes sf-cosmos-trace{0%,18%{opacity:0}31%,48%{opacity:.86}76%,100%{opacity:0}}
+@keyframes sf-cosmos-full-mark{
+  0%,66%{opacity:0;transform:scale(.94)}
+  78%{opacity:1;transform:scale(1.07)}
+  89%,100%{opacity:1;transform:scale(1)}
 }
-@keyframes sf-assembly-panel{
-  0%,44%{opacity:0;transform:translate(-50%,34px) rotate(-4deg) scale(.91)}
-  58%{opacity:.15;transform:translate(-50%,22px) rotate(-3deg) scale(.94)}
-  73%{opacity:.96;transform:translate(-50%,0) rotate(-2.2deg) scale(.99)}
-  85%,100%{opacity:1;transform:translate(-50%,0) rotate(-2.2deg) scale(1)}
-}
-@keyframes sf-assembly-content{
+@keyframes sf-cosmos-type{
   0%,72%{opacity:0;transform:translate3d(0,14px,0)}
-  87%,100%{opacity:1;transform:translate3d(0,0,0)}
+  91%,100%{opacity:1;transform:translate3d(0,0,0)}
 }
-@keyframes sf-assembly-pill{
-  0%,75%{opacity:0;transform:translate3d(15px,7px,0) scale(.94)}
-  90%,100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
+@media(max-width:960px){.sf-constellation{max-width:530px}}
+@media(max-width:650px){
+ .sf-constellation{max-width:430px}
+ .sf-constellation-scene{height:470px;border-radius:30px}
+ .sf-cosmos-symbol{width:120px;height:120px;top:38%}
+ .sf-cosmos-shard,.sf-cosmos-mark{border-radius:26px}
+ .sf-cosmos-shard-northwest{--sx:-101px;--sy:-88px}
+ .sf-cosmos-shard-northeast{--sx:104px;--sy:-98px}
+ .sf-cosmos-shard-southwest{--sx:-109px;--sy:90px}
+ .sf-cosmos-shard-southeast{--sx:109px;--sy:93px}
+ .sf-cosmos-star-a{--x:-125px;--y:-101px}.sf-cosmos-star-b{--x:127px;--y:-93px}
+ .sf-cosmos-star-c{--x:114px;--y:92px}.sf-cosmos-star-d{--x:-116px;--y:89px}
+ .sf-cosmos-star-e{--x:-37px;--y:-131px}.sf-cosmos-star-f{--x:61px;--y:125px}
+ .sf-cosmos-star-g{--x:135px;--y:10px}
+ .sf-cosmos-caption{top:62%}.sf-cosmos-caption h2{font-size:48px}
+ .sf-cosmos-kicker{font-size:8px;letter-spacing:1px}
+ .sf-cosmos-caption strong{font-size:13px;letter-spacing:4px}
+ .sf-cosmos-caption p{font-size:11px;letter-spacing:2px}
+ .sf-cosmos-aside{bottom:15px;font-size:7px}
+ .sf-cosmos-aside-left{left:15px}.sf-cosmos-aside-right{right:15px}
+ .sf-cosmos-replay{margin-top:10px;font-size:11px}
 }
-@media(max-width:700px){
- .sf-assembly-visual{max-width:390px}
- .sf-assembly-stage{height:486px}
- .sf-assembly-window{width:89%;height:433px;top:5%;border-radius:25px}
- .sf-assembly-window-header{height:63px;padding:0 20px}
- .sf-assembly-window-brand{gap:9px}.sf-assembly-window-brand img{width:36px;height:36px;border-radius:10px}
- .sf-assembly-window-brand strong{font-size:14px;letter-spacing:2.6px}
- .sf-assembly-window-main{padding:25px 21px 0}
- .sf-assembly-window-main h2{font-size:29px;margin:14px 0 8px}
- .sf-assembly-window-main>p{font-size:12px;margin-bottom:15px}
- .sf-assembly-row{padding:12px 0;gap:11px}
- .sf-assembly-row-icon{width:45px;height:45px;border-radius:14px}
- .sf-assembly-row strong{font-size:12px}
- .sf-assembly-row small{font-size:10px}
- .sf-assembly-window-footer{height:50px;padding:0 26px}
- .sf-assembly-world-pill{right:-1px;bottom:52px;padding:11px 13px;font-size:11px}
- .sf-assembly-fragment{height:90px;width:90px;margin:-45px;background-size:90px 90px}
- .sf-assembly-northwest{--spread-x:-79px;--spread-y:-89px}
- .sf-assembly-northeast{--spread-x:82px;--spread-y:-86px}
- .sf-assembly-southwest{--spread-x:-86px;--spread-y:84px}
- .sf-assembly-southeast{--spread-x:83px;--spread-y:82px}
- .sf-assembly-dot-a{--tx:-112px;--ty:-147px}.sf-assembly-dot-b{--tx:110px;--ty:-111px}
- .sf-assembly-dot-c{--tx:113px;--ty:112px}.sf-assembly-dot-d{--tx:-104px;--ty:117px}
- .sf-assembly-dot-e{--tx:7px;--ty:-168px}.sf-assembly-dot-f{--tx:14px;--ty:153px}
-}
-@media(max-width:359px){
- .sf-assembly-window-brand strong{font-size:12px;letter-spacing:2px}
- .sf-assembly-window-main h2{font-size:25px}
- .sf-assembly-window-main{padding-inline:17px}
- .sf-assembly-world-pill{font-size:10px}
-}
+@media(max-width:390px){.sf-constellation-scene{height:430px}.sf-cosmos-caption h2{font-size:41px}}
 @media(prefers-reduced-motion:reduce){
- .sf-assembly-fragment,.sf-assembly-dot,.sf-assembly-path{display:none!important;animation:none!important}
- .sf-assembly-window,.sf-assembly-row,.sf-assembly-world-pill{animation:none!important;opacity:1!important;transform:none}
- .sf-assembly-window{transform:translateX(-50%)!important}
- .sf-assembly-replay{display:none}
+ .sf-cosmos-shard,.sf-cosmos-star,.sf-cosmos-trail{display:none!important;animation:none!important}
+ .sf-cosmos-mark,.sf-cosmos-caption{animation:none!important;opacity:1!important;transform:none!important}
+ .sf-cosmos-replay{display:none!important}
 }
-html.sf-user-motion-off .sf-assembly-fragment,html.sf-user-motion-off .sf-assembly-dot,html.sf-user-motion-off .sf-assembly-path{display:none!important}
-html.sf-user-motion-off .sf-assembly-window,html.sf-user-motion-off .sf-assembly-row,html.sf-user-motion-off .sf-assembly-world-pill{animation:none!important;opacity:1!important}
-html.sf-user-motion-off .sf-assembly-window{transform:translateX(-50%)!important}
-html.sf-user-motion-off .sf-assembly-replay{display:none}
+html.sf-user-motion-off .sf-cosmos-shard,html.sf-user-motion-off .sf-cosmos-star,html.sf-user-motion-off .sf-cosmos-trail{display:none!important}
+html.sf-user-motion-off .sf-cosmos-mark,html.sf-user-motion-off .sf-cosmos-caption{animation:none!important;opacity:1!important;transform:none!important}
+html.sf-user-motion-off .sf-cosmos-replay{display:none!important}

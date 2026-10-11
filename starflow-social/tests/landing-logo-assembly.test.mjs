@@ -5,29 +5,30 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const page=read('app/page.tsx');
 const art=read('components/StarflowAssemblyHero.tsx');
 const css=read('components/StarflowAssemblyHero.css');
-test('reference mockup is replaced in exactly the public homepage hero',()=>{
+
+test('hero removes the original white mockup and renders a romantic Starflow constellation',()=>{
  assert.match(page,/<StarflowAssemblyHero english=\{en\}\/>/);
  assert.doesNotMatch(page,/className=\{styles\.mockup\}/);
- assert.match(art,/让想法相遇。/);
- assert.match(art,/每个人都有自己的故事/);
+ assert.doesNotMatch(art,/sf-assembly-window|sf-assembly-row/);
+ assert.match(art,/sf-constellation-scene/);
+ assert.match(art,/万千星光，在此汇聚。/);
 });
-test('actual official symbol splits into four quarters and assembles at the UI brand',()=>{
+test('real mark quadrants converge into one brand mark',()=>{
  assert.match(art,/starflow-official-mark\.webp/);
- assert.match(art,/fragmentNames=\['northwest','northeast','southwest','southeast'\]/);
+ assert.match(art,/shards=\['northwest','northeast','southwest','southeast'\]/);
  assert.match(css,/clip-path:inset\(0 50% 50% 0\)/);
- assert.match(css,/@keyframes sf-assembly-separate/);
- assert.match(css,/@keyframes sf-assembly-panel/);
- assert.match(css,/@keyframes sf-assembly-particle/);
+ assert.match(css,/@keyframes sf-cosmos-assemble/);
+ assert.match(css,/@keyframes sf-cosmos-full-mark/);
+ assert.match(css,/@keyframes sf-cosmos-star-gather/);
 });
-test('replay is interactive while reduced motion displays a complete readable card',()=>{
- assert.match(art,/useState\(0\)/);
+test('replay works while accessibility disables all entrance movement',()=>{
  assert.match(art,/key=\{replay\}/);
- assert.match(art,/onClick=\{\(\)=>setReplay\(n=>n\+1\)\}/);
+ assert.match(art,/onClick=\{\(\)=>setReplay\(value=>value\+1\)\}/);
  assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(css,/sf-user-motion-off/);
- assert.match(css,/animation:none!important;opacity:1!important/);
+ assert.match(css,/sf-cosmos-replay\{display:none!important\}/);
 });
-test('motion does not hijack scrolling or introduce heavy realtime rendering',()=>{
+test('no client-side scroll listeners or 3D engine in the hero',()=>{
  assert.doesNotMatch(art,/requestAnimationFrame|touchmove|scrollTo|canvas|WebGL|setInterval/);
  assert.doesNotMatch(css,/scroll-snap-type/);
 });
