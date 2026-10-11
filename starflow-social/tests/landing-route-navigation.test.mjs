@@ -23,3 +23,23 @@ test('public-facing landing animates without blocking navigation, supports reduc
  assert.match(home,/starflow-official-mark\.webp/);
  assert.doesNotMatch(style,/scroll-snap-type/);
 });
+
+test('cinematic hero has real brand visuals, layers and working scroll navigation',()=>{
+ assert.match(home,/heroBackdrop/);
+ assert.match(home,/portalStage/);
+ assert.match(home,/portalGlyph/);
+ assert.match(home,/starflow-official-mark\.webp/);
+ assert.match(home,/href="#discover"/);
+ assert.match(home,/showcaseBridge/);
+ assert.match(home,/motionTicker/);
+ assert.match(style,/sf-cinematic-aurora/);
+ assert.match(style,/sf-orbit-sweep/);
+ assert.match(style,/sf-ticker/);
+ assert.match(style,/prefers-reduced-motion:reduce/);
+});
+test('hero pointer effects are passive and respect reduced motion',()=>{
+ assert.match(home,/window\.addEventListener\('pointermove',move,\{passive:true\}\)/);
+ assert.match(home,/cancelAnimationFrame/);
+ assert.match(home,/prefers-reduced-motion: reduce/);
+ assert.doesNotMatch(home,/addEventListener\('touchmove'/);
+});
