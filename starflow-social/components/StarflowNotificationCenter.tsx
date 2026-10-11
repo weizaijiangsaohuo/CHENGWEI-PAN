@@ -22,7 +22,8 @@ type Notice = {
 type Panel = 'all' | 'unread' | 'mentions' | 'system';
 const SYSTEM_KINDS = new Set([
   'verification_approved', 'verification_rejected', 'verification_revoked',
-  'account_warning', 'account_violation', 'account_restored',
+  'account_warning', 'account_violation', 'account_restored', 'account_security',
+  'system_announcement', 'appeal_result', 'subscription_activated', 'subscription_expired',
   'affiliation_invite', 'affiliation_accepted', 'affiliation_activated',
   'affiliation_declined', 'affiliation_removed',
 ]);
@@ -32,6 +33,9 @@ const KIND_TITLES: Record<string, string> = {
   verification_rejected: '认证申请未通过', verification_revoked: '认证资格已撤销',
   account_warning: '账号安全提醒', account_violation: '账号违规处理通知',
   account_restored: '账号处理结果更新',
+  account_security: '账号安全提醒', system_announcement: 'Starflow 官方公告',
+  appeal_result: '账号申诉处理结果', subscription_activated: '会员资格开通通知',
+  subscription_expired: '会员资格到期通知',
   affiliation_invite: '官方组织邀请你成为附属账号',
   affiliation_accepted: '对方接受了附属账号邀请',
   affiliation_activated: '官方附属账号关联已生效',
@@ -132,7 +136,7 @@ function Center({ host }: { host: Element }) {
       : shown.length ? <div className="sf3-notification-items">{shown.map(n => {
         const system = SYSTEM_KINDS.has(n.kind);
         const actor = author(n);
-        const target = system ? (n.kind.startsWith('affiliation_') ? '/organization/affiliates' : n.kind.startsWith('verification_') ? '/verification' : '/support')
+        const target = system ? '/notifications/' + encodeURIComponent(n.id)
           : n.post_id ? '/post/' + encodeURIComponent(n.post_id)
           : actor ? '/profile/' + encodeURIComponent(actor.handle) : '/notifications';
         const label = KIND_TITLES[n.kind] ?? '与你互动';
