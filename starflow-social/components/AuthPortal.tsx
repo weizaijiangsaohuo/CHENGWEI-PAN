@@ -5,6 +5,7 @@ import { ArrowRight, Check, Eye, EyeOff, Globe2, Lock, Mail, ShieldCheck, Sparkl
 import { Brand } from './Brand';
 import { TurnstileChallenge } from './TurnstileChallenge';
 import { LanguageSwitch, useLanguage } from './LanguageProvider';
+import {isEnglishLocale} from '@/lib/i18n';
 import { db, hasConfig } from '@/lib/supabase';
 import { activeLoginProviders } from '@/lib/account-providers';
 
@@ -89,7 +90,7 @@ export function AuthPortal(){
         },
       });
       if(resendError)throw resendError;
-      setSuccess(lang==='en'?'Confirmation email requested again. Check your inbox and spam folder.':'已重新请求发送注册验证邮件，请检查收件箱和垃圾邮件。');
+      setSuccess(isEnglishLocale(lang)?'Confirmation email requested again. Check your inbox and spam folder.':'已重新请求发送注册验证邮件，请检查收件箱和垃圾邮件。');
       setResendAvailableAt(Date.now()+60_000);
     }catch(err){
       setError(err instanceof Error?err.message:t('authFailure'));
@@ -147,13 +148,13 @@ export function AuthPortal(){
           <button className="btn btn-primary auth-submit" disabled={busy||!configured||Boolean(siteKey&&!captchaToken)}>{busy?t('processing'):t(mode==='signup'?'create':mode==='login'?'loginButton':'sendReset')}<ArrowRight size={18}/></button>
         </form>
         {mode==='signup'&&pendingEmail&&<div style={{textAlign:'center',margin:'12px 0 4px'}}>
-          <p style={{fontSize:13,margin:'0 0 8px',color:'#6c6482'}}>{lang==='en'?'Already registered? Do not sign up repeatedly. If confirmation is pending, resend here.':'已提交注册？请勿反复注册。尚未收到确认邮件，可在这里重新发送。'}</p>
+          <p style={{fontSize:13,margin:'0 0 8px',color:'#6c6482'}}>{isEnglishLocale(lang)?'Already registered? Do not sign up repeatedly. If confirmation is pending, resend here.':'已提交注册？请勿反复注册。尚未收到确认邮件，可在这里重新发送。'}</p>
           <button type="button" onClick={()=>void resendSignupEmail()}
             disabled={busy||resendSeconds>0||Boolean(siteKey&&!captchaToken)}
             style={{border:'none',background:'none',fontWeight:700,color:'#8a42b9',cursor:'pointer',padding:'8px 12px'}}>
             {resendSeconds>0
-              ? (lang==='en'?`Resend in ${resendSeconds}s`:`${resendSeconds} 秒后可重新发送`)
-              : (lang==='en'?'Resend confirmation email':'重新发送注册验证邮件')}
+              ? (isEnglishLocale(lang)?`Resend in ${resendSeconds}s`:`${resendSeconds} 秒后可重新发送`)
+              : (isEnglishLocale(lang)?'Resend confirmation email':'重新发送注册验证邮件')}
           </button>
         </div>}
         <div className="auth-switch">{mode==='signup'?<>{t('haveAccount')} <button disabled={busy} onClick={()=>change('login')}>{t('signIn')}</button></>:mode==='login'?<>{t('newAccount')} <button disabled={busy} onClick={()=>change('signup')}>{t('signUp')}</button></>:<>{t('rememberPassword')} <button disabled={busy} onClick={()=>change('login')}>{t('backLogin')}</button></>}

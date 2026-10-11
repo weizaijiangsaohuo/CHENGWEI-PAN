@@ -5,6 +5,8 @@ import Link from 'next/link';
 import {ArrowRight,BookOpen,Globe2,LockKeyhole,MessageCircle,ShieldCheck,Sparkles,Users,ChevronRight,X,Send} from 'lucide-react';
 import {SocialApp} from '@/components/SocialApp';
 import {LanguageSwitch,useLanguage} from '@/components/LanguageProvider';
+import {isEnglishLocale} from '@/lib/i18n';
+import {siteText} from '@/lib/site-language';
 import {db,hasConfig} from '@/lib/supabase';
 import styles from './landing.module.css';
 import { StarflowAiWidget } from '@/components/StarflowAiWidget';
@@ -153,76 +155,77 @@ export default function Home(){
   <small className="sf-boot-status">{en?'Connecting to Starflow…':'正在连接星流…'}</small>
  </main>;
   const enter=()=>setScreen('auth');
+  const l=(english:string,chinese:string)=>siteText(lang,english,chinese);
   return <>
     {screen==='member'||screen==='auth'?<SocialApp view="home"/>:<div className={styles.page+' sf-public-landing'}>
     <header className={styles.nav}>
-      <Link href="/" className={styles.brand} aria-label={en?'Refresh Starflow home':'刷新星流首页'} onClick={event=>{
+      <Link href="/" className={styles.brand} aria-label={l("Refresh Starflow home","刷新星流首页")} onClick={event=>{
         if(window.location.pathname==='/'){event.preventDefault();window.location.reload();}
       }}><span className={styles.logoSymbol}><img src="/starflow-official-mark.webp" width="40" height="40" alt="星流正式 Logo"/></span><span className={styles.brandName}><b>星流</b><small>STARFLOW</small></span></Link>
-      <nav className={styles.navLinks} aria-label={en?'Main navigation':'主导航'}>
-        <a href="#discover">{en?'Discover':'探索星流'}</a>
-        <a href="#resources">{en?'Resources':'指南与资源'}</a>
-        <button type="button" className={styles.navSignin} onClick={enter}>{en?'Sign in':'登录'}</button>
+      <nav className={styles.navLinks} aria-label={l("Main navigation","主导航")}>
+        <a href="#discover">{l("Discover","探索星流")}</a>
+        <a href="#resources">{l("Resources","指南与资源")}</a>
+        <button type="button" className={styles.navSignin} onClick={enter}>{l("Sign in","登录")}</button>
       </nav>
-      <div className={styles.navRight} aria-label={en?'Language and account actions':'语言与注册入口'}>
-        <LanguageSwitch/><button type="button" className={styles.navJoin} onClick={enter}>{en?'Join':'加入星流'} <ArrowRight size={15}/>
+      <div className={styles.navRight} aria-label={l("Language and account actions","语言与注册入口")}>
+        <LanguageSwitch/><button type="button" className={styles.navJoin} onClick={enter}>{l("Join","加入星流")} <ArrowRight size={15}/>
         </button></div>
     </header>
 
     <main>
       <section className={styles.hero}>
         <div className={styles.heroText}>
-          <span className={styles.eyebrow}><span className={styles.liveDot}/>{en?'A space for real connection':'连接每一种可能'}</span>
-          <h1><span>{en?'Your world,':'你关心的世界，'}</span><br/><em>{en?'in the moment.':'此刻正在发生。'}</em></h1>
-          <p className={styles.heroDescription}>{en?'Share your thoughts, discover new voices, and connect through the moments that matter.':'分享真实想法，遇见有趣的人，让每一次连接，都值得期待。'}</p>
+          <span className={styles.eyebrow}><span className={styles.liveDot}/>{l("A space for real connection","连接每一种可能")}</span>
+          <h1><span>{l("Your world,","你关心的世界，")}</span><br/><em>{l("in the moment.","此刻正在发生。")}</em></h1>
+          <p className={styles.heroDescription}>{l("Share your thoughts, discover new voices, and connect through the moments that matter.","分享真实想法，遇见有趣的人，让每一次连接，都值得期待。")}</p>
           <div className={styles.heroActions}>
-            <button type="button" onClick={enter} className={styles.primaryAction}>{en?'Get started':'立即加入'} <ArrowRight size={18}/></button>
-            <a className={styles.outlineAction} href="#showcase">{en?'Explore Starflow':'了解星流'} <ChevronRight size={17}/></a>
+            <button type="button" onClick={enter} className={styles.primaryAction}>{l("Get started","立即加入")} <ArrowRight size={18}/></button>
+            <a className={styles.outlineAction} href="#showcase">{l("Explore Starflow","了解星流")} <ChevronRight size={17}/></a>
           </div>
           <div className={styles.heroDiscover}>
             <span className={styles.heroDiscoverSparkle} aria-hidden="true">✦</span>
-            <span>{en?'Every story has a universe.':'让每一个故事，都有自己的星光。'}</span>
-            <a href="#showcase">{en?'Scroll to discover':'向下发现精彩'} <ArrowRight size={14}/></a>
+            <span>{l("Every story has a universe.","让每一个故事，都有自己的星光。")}</span>
+            <a href="#showcase">{l("Scroll to discover","向下发现精彩")} <ArrowRight size={14}/></a>
           </div>
 
         </div>
-        <StarflowAssemblyHero english={en}/>
+        <StarflowAssemblyHero english={en} locale={lang}/>
       </section>
 
-      <StarflowMotionShowcase english={en} onJoin={enter}/>
+      <StarflowMotionShowcase english={en} locale={lang} onJoin={enter}/>
 
       <section id="discover" className={styles.introSection} data-sf-reveal="discover">
         <div className={styles.sectionHeading}>
-          <span className={styles.sectionKicker}><Sparkles size={15} strokeWidth={1.7}/>{en?'DISCOVER STARFLOW / 01':'发现星流 / 01'}</span>
-          <h2>{en?'Share. Discover. Connect.':'分享、发现、连接。'}</h2>
-          <p>{en?'Everything begins with a thought worth sharing.':'从一句话开始，让交流自然发生。'}</p>
+          <span className={styles.sectionKicker}><Sparkles size={15} strokeWidth={1.7}/>{l("DISCOVER STARFLOW / 01","发现星流 / 01")}</span>
+          <h2>{l("Share. Discover. Connect.","分享、发现、连接。")}</h2>
+          <p>{l("Everything begins with a thought worth sharing.","从一句话开始，让交流自然发生。")}</p>
         </div>
         <div className={styles.features}>
-          <article className={styles.feature}><span className={styles.featureIndex}>01 / MOMENTS</span><div className={styles.featureIcon}><MessageCircle size={22} strokeWidth={1.75}/></div><h3>{en?'Share your moments':'分享此刻'}</h3><p>{en?'Post thoughts and images, and join conversations.':'发布想法和图片，参与真诚的交流。'}</p></article>
-          <article className={styles.feature}><span className={styles.featureIndex}>02 / DISCOVER</span><div className={styles.featureIcon}><Users size={22} strokeWidth={1.75}/></div><h3>{en?'Find your people':'发现同好'}</h3><p>{en?'Follow people and discover perspectives that matter to you.':'关注感兴趣的人，发现不同视角。'}</p></article>
-          <article className={styles.feature}><span className={styles.featureIndex}>03 / TRUST</span><div className={styles.featureIcon}><ShieldCheck size={22} strokeWidth={1.75}/></div><h3>{en?'Build with care':'尊重与安全'}</h3><p>{en?'A community shaped by clear rules and respect.':'以明确的社区规则推动友善交流。'}</p></article>
+          <article className={styles.feature}><span className={styles.featureIndex}>01 / MOMENTS</span><div className={styles.featureIcon}><MessageCircle size={22} strokeWidth={1.75}/></div><h3>{l("Share your moments","分享此刻")}</h3><p>{l("Post thoughts and images, and join conversations.","发布想法和图片，参与真诚的交流。")}</p></article>
+          <article className={styles.feature}><span className={styles.featureIndex}>02 / DISCOVER</span><div className={styles.featureIcon}><Users size={22} strokeWidth={1.75}/></div><h3>{l("Find your people","发现同好")}</h3><p>{l("Follow people and discover perspectives that matter to you.","关注感兴趣的人，发现不同视角。")}</p></article>
+          <article className={styles.feature}><span className={styles.featureIndex}>03 / TRUST</span><div className={styles.featureIcon}><ShieldCheck size={22} strokeWidth={1.75}/></div><h3>{l("Build with care","尊重与安全")}</h3><p>{l("A community shaped by clear rules and respect.","以明确的社区规则推动友善交流。")}</p></article>
         </div>
       </section>
 
       <section id="resources" className={styles.resourcesSection} data-sf-reveal="resources">
         <div className={styles.sectionHeading}>
-         <span className={styles.sectionKicker}><ShieldCheck size={15}/>{en?'HELP & RESOURCES / 02':'帮助与资源 / 02'}</span>
-         <h2>{en?'Explore confidently.':'了解星流，安心使用。'}</h2>
-         <p>{en?'Clear community standards. More confident connections.':'规则透明，隐私有度，让每一次交流都有安心的边界。'}</p>
+         <span className={styles.sectionKicker}><ShieldCheck size={15}/>{l("HELP & RESOURCES / 02","帮助与资源 / 02")}</span>
+         <h2>{l("Explore confidently.","了解星流，安心使用。")}</h2>
+         <p>{l("Clear community standards. More confident connections.","规则透明，隐私有度，让每一次交流都有安心的边界。")}</p>
         </div>
         <div className={styles.resourceGrid}>
-          <Link href="/terms" className={styles.resource}><div className={styles.resourceIcon}><BookOpen size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>01 / POLICY</span><h3>{en?'Terms of Service':'服务条款'}</h3><p>{en?'Your account, rights, responsibilities and service rules.':'了解账号规则、用户权利与服务条件。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
-          <Link href="/privacy" className={styles.resource}><div className={styles.resourceIcon}><LockKeyhole size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>02 / DATA</span><h3>{en?'Privacy & Data':'隐私与数据使用'}</h3><p>{en?'How data may be collected, used and protected.':'了解个人信息处理方式和隐私权利。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
-          <Link href="/guidelines" className={styles.resource}><div className={styles.resourceIcon}><ShieldCheck size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>03 / COMMUNITY</span><h3>{en?'Community Guidelines':'社区规范'}</h3><p>{en?'What is welcome, and what is not allowed.':'了解内容边界、举报与申诉原则。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
-          <Link href="/privacy#section-13" className={styles.resource}><div className={styles.resourceIcon}><Globe2 size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>04 / RIGHTS</span><h3>{en?'Your Privacy Rights':'用户隐私权利'}</h3><p>{en?'Learn about access, correction and deletion requests.':'查看访问、更正、删除等权利说明。'}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/terms" className={styles.resource}><div className={styles.resourceIcon}><BookOpen size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>01 / POLICY</span><h3>{l("Terms of Service","服务条款")}</h3><p>{l("Your account, rights, responsibilities and service rules.","了解账号规则、用户权利与服务条件。")}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/privacy" className={styles.resource}><div className={styles.resourceIcon}><LockKeyhole size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>02 / DATA</span><h3>{l("Privacy & Data","隐私与数据使用")}</h3><p>{l("How data may be collected, used and protected.","了解个人信息处理方式和隐私权利。")}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/guidelines" className={styles.resource}><div className={styles.resourceIcon}><ShieldCheck size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>03 / COMMUNITY</span><h3>{l("Community Guidelines","社区规范")}</h3><p>{l("What is welcome, and what is not allowed.","了解内容边界、举报与申诉原则。")}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
+          <Link href="/privacy#section-13" className={styles.resource}><div className={styles.resourceIcon}><Globe2 size={22} strokeWidth={1.75}/></div><div className={styles.resourceContent}><span className={styles.resourceIndex}>04 / RIGHTS</span><h3>{l("Your Privacy Rights","用户隐私权利")}</h3><p>{l("Learn about access, correction and deletion requests.","查看访问、更正、删除等权利说明。")}</p></div><ChevronRight className={styles.cardArrow} size={20}/></Link>
         </div>
       </section>
 
-      <section className={styles.cta} data-sf-reveal="join"><span className={styles.ctaOrbit} aria-hidden="true"/><span className={styles.ctaSparkle} aria-hidden="true">✦</span><Sparkles size={25}/><h2>{en?'A new connection starts here.':'下一次相遇，从星流开始。'}</h2><p>{en?'Join the conversation and share what matters.':'用真实想法，连接更广阔的世界。'}</p><button onClick={enter} type="button">{en?'Join Starflow':'加入 Starflow'} <ArrowRight size={18}/></button></section>
+      <section className={styles.cta} data-sf-reveal="join"><span className={styles.ctaOrbit} aria-hidden="true"/><span className={styles.ctaSparkle} aria-hidden="true">✦</span><Sparkles size={25}/><h2>{l("A new connection starts here.","下一次相遇，从星流开始。")}</h2><p>{l("Join the conversation and share what matters.","用真实想法，连接更广阔的世界。")}</p><button onClick={enter} type="button">{l("Join Starflow","加入 Starflow")} <ArrowRight size={18}/></button></section>
     </main>
-    <footer className={styles.footer}><div className={styles.footerTop}><div><b className="sf-footer-brand"><img src="/starflow-official-mark.webp" width="30" height="30" alt=""/> 星流 <span>STARFLOW</span></b><p>{en?'An independent space for authentic connections.':'一个为真实交流而构建的独立社区。'}</p></div><div className={styles.footerLinks}><Link href="/terms">{en?'Terms':'服务条款'}</Link><Link href="/privacy">{en?'Privacy':'隐私政策'}</Link><Link href="/guidelines">{en?'Guidelines':'社区规范'}</Link></div></div><div className={styles.footerBottom}><span>© 2026 Starflow · WEIZAI</span><span>{en?'Web platform · International community':'面向全球的网络社区'}</span></div>
-     <div className={styles.footerHelp}><div><Sparkles size={18}/><span><strong>{en?'Need help?':'遇到问题？'}</strong><small>{en?'Our AI help center is open without sign-in.':'星流 AI 帮助中心，无需登录即可使用。'}</small></span></div>
-       <Link href="/support">{en?'Open AI help center':'前往 AI 客服中心'} <ArrowRight size={17}/></Link>
+    <footer className={styles.footer}><div className={styles.footerTop}><div><b className="sf-footer-brand"><img src="/starflow-official-mark.webp" width="30" height="30" alt=""/> 星流 <span>STARFLOW</span></b><p>{l("An independent space for authentic connections.","一个为真实交流而构建的独立社区。")}</p></div><div className={styles.footerLinks}><Link href="/terms">{l("Terms","服务条款")}</Link><Link href="/privacy">{l("Privacy","隐私政策")}</Link><Link href="/guidelines">{l("Guidelines","社区规范")}</Link></div></div><div className={styles.footerBottom}><span>© 2026 Starflow · WEIZAI</span><span>{l("Web platform · International community","面向全球的网络社区")}</span></div>
+     <div className={styles.footerHelp}><div><Sparkles size={18}/><span><strong>{l("Need help?","遇到问题？")}</strong><small>{l("Our AI help center is open without sign-in.","星流 AI 帮助中心，无需登录即可使用。")}</small></span></div>
+       <Link href="/support">{l("Open AI help center","前往 AI 客服中心")} <ArrowRight size={17}/></Link>
      </div></footer>
   </div>}
     {screen==='member'&&<StarflowAiWidget signedIn onSignIn={enter} en={en}/>}
