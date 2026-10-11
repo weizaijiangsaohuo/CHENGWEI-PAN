@@ -30,7 +30,7 @@ test('mobile five-tab navigation has an actual working publish action',()=>{
  const nav=readFileSync(new URL('../components/StarflowMobileNavigation.tsx',import.meta.url),'utf8');
  const globalCss=readFileSync(new URL('../app/globals.css',import.meta.url),'utf8');
  assert.match(nav,/sf-mobile-five-nav/);
- for(const label of ['首页','探索','消息','我'])assert.ok(nav.includes("label:'"+label+"'"));
+ for(const key of ['home','explore','notifications','profile'])assert.ok(nav.includes("label:t('"+key+"')"));
  assert.match(nav,/onClick=\{onPublish\}/);
  assert.match(social,/sf-open-home-composer/);
  assert.match(social,/router\.push\('\/\?compose=1'\)/);
