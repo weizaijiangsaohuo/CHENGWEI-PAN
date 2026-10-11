@@ -194,6 +194,82 @@ export function StarflowMessages() {
     return () => window.clearInterval(refresh);
   }, [user?.id, loadInbox, loadThread]);
 
+  // Realtime listens only to the current user's conversations. Subscriptions are
+  // removed on logout/unmount; polling remains a fallback for mobile Safari.
+  useEffect(() => {
+    if (!user) return;
+    const client = db();
+    let timer: number | null = null;
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        void loadInbox();
+      }, 130);
+    };
+    const inboxChannel = client.channel('sf-dm-inbox-' + user.id)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'dm_conversations',
+        filter: 'user_low=eq.' + user.id,
+      }, refresh)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'dm_conversations',
+        filter: 'user_high=eq.' + user.id,
+      }, refresh)
+      .subscribe(status => { if (status === 'SUBSCRIBED') refresh(); });
+    const resume = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+      void client.removeChannel(inboxChannel);
+    };
+  }, [user?.id, loadInbox]);
+
+  // Open-thread events are filtered by conversation_id. RLS ensures only the
+  // two participants can receive or fetch their private message contents.
+  useEffect(() => {
+    if (!user || !activeId) return;
+    const client = db();
+    let timer: number | null = null;
+    const refreshThread = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        void loadThread(activeId);
+        void loadInbox();
+      }, 120);
+    };
+    const refreshReceipts = () => { if (document.visibilityState !== 'hidden') void loadInbox(); };
+    const threadChannel = client.channel('sf-dm-thread-' + activeId + '-' + user.id)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'dm_messages',
+        filter: 'conversation_id=eq.' + activeId,
+      }, refreshThread)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'dm_read_state',
+        filter: 'conversation_id=eq.' + activeId,
+      }, refreshReceipts)
+      .subscribe(status => { if (status === 'SUBSCRIBED') refreshThread(); });
+    const resume = () => { if (document.visibilityState === 'visible') refreshThread(); };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+      void client.removeChannel(threadChannel);
+    };
+  }, [user?.id, activeId, loadThread, loadInbox]);
+
   useEffect(() => {
     if (!user || autoOpen.current) return;
     autoOpen.current = true;
