@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { FormEvent } from 'react';
 import { Clock3, History, MessageCirclePlus, Send, Sparkles, Trash2, X } from 'lucide-react';
 import { db } from '@/lib/supabase';
@@ -25,6 +26,38 @@ export function StarflowAiWidget({ signedIn, onSignIn, en }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [visualWindow,setVisualWindow] = useState<{width:number;height:number;bottom:number}|null>(null);
+  const [typing,setTyping] = useState(false);
+  // Safari's visual viewport becomes shorter/offset when the iPhone keyboard opens.
+  // Track its real geometry rather than letting a fixed-height panel cover the viewport.
+  useEffect(()=>{
+    if(!open){setVisualWindow(null);setTyping(false);return;}
+    let frame=0;
+    const measure=()=>{
+      cancelAnimationFrame(frame);
+      frame=requestAnimationFrame(()=>{
+        const vv=window.visualViewport;
+        const height=vv?.height??window.innerHeight;
+        const bottom=Math.max(7,window.innerHeight-((vv?.offsetTop??0)+height)+7);
+        setVisualWindow({width:window.innerWidth,height,bottom});
+      });
+    };
+    measure();
+    window.visualViewport?.addEventListener('resize',measure);
+    window.visualViewport?.addEventListener('scroll',measure);
+    window.addEventListener('resize',measure);
+    return()=>{
+      cancelAnimationFrame(frame);
+      window.visualViewport?.removeEventListener('resize',measure);
+      window.visualViewport?.removeEventListener('scroll',measure);
+      window.removeEventListener('resize',measure);
+    };
+  },[open]);
+  const mobilePanelStyle:CSSProperties|undefined=visualWindow&&visualWindow.width<=650
+    ? {height:Math.max(175,Math.min(560,visualWindow.height-18)),
+       maxHeight:Math.max(175,visualWindow.height-18),
+       bottom:visualWindow.bottom,
+       transition:'none'} : undefined;
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadId = useRef(0);
 
@@ -35,7 +68,7 @@ export function StarflowAiWidget({ signedIn, onSignIn, en }: Props) {
     return () => document.removeEventListener('keydown', onEscape);
   }, [open]);
 
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [lines, busy, open]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: typing?'auto':'smooth' }); }, [lines, busy, open, typing]);
 
   useEffect(() => {
     if (signedIn) return;
@@ -159,11 +192,15 @@ export function StarflowAiWidget({ signedIn, onSignIn, en }: Props) {
 
   return <>
     <style>{`
-      .sfai-launcher{position:fixed;z-index:90;right:max(12px,env(safe-area-inset-right));bottom:calc(76px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px);border:1px solid rgba(255,255,255,.76);border-radius:999px;padding:12px 16px;display:flex;align-items:center;gap:8px;background:linear-gradient(117deg,#477eea,#8263e3 60%,#a86fdc);color:white;font-size:13px;font-weight:750;box-shadow:0 12px 30px rgba(72,79,185,.29);cursor:pointer;white-space:nowrap}
-      .sfai-panel{position:fixed;z-index:91;right:max(12px,env(safe-area-inset-right));bottom:calc(138px + env(safe-area-inset-bottom));width:392px;max-width:calc(100vw - 24px);height:min(580px,calc(100dvh - 165px));box-sizing:border-box;min-width:0;display:flex;flex-direction:column;border:1px solid #e1e6f5;border-radius:24px;overflow:hidden;color:#202843;background:rgba(255,255,255,.97);box-shadow:0 22px 68px rgba(49,66,135,.23)}
+      .sfai-launcher{position:fixed;z-index:190;right:max(12px,env(safe-area-inset-right));bottom:calc(76px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px);border:1px solid rgba(255,255,255,.76);border-radius:999px;padding:12px 16px;display:flex;align-items:center;gap:8px;background:linear-gradient(117deg,#477eea,#8263e3 60%,#a86fdc);color:white;font-size:13px;font-weight:750;box-shadow:0 12px 30px rgba(72,79,185,.29);cursor:pointer;white-space:nowrap}
+      .sfai-panel{position:fixed;z-index:191;right:max(12px,env(safe-area-inset-right));bottom:calc(138px + env(safe-area-inset-bottom));width:392px;max-width:calc(100vw - 24px);height:min(580px,calc(100dvh - 165px));box-sizing:border-box;min-width:0;display:flex;flex-direction:column;border:1px solid #e1e6f5;border-radius:24px;overflow:hidden;color:#202843;background:rgba(255,255,255,.97);box-shadow:0 22px 68px rgba(49,66,135,.23)}
       .sfai-panel *{box-sizing:border-box;min-width:0}
+      .sfai-panel:focus-within{overscroll-behavior:contain}
+      body:has(.sfai-panel .sfai-inputrow input:focus) .sf-mobile-five-nav,
+      body:has(.sfai-panel .sfai-inputrow input:focus) .sf-mobile-compose-fab{visibility:hidden;pointer-events:none}
+      .sfai-inputrow input:focus{font-size:16px!important;transform:none!important}
       .sfai-header{flex:none;display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid #e6eaf4;background:#fff}
-      .sfai-mark{height:36px;width:36px;flex:none;border-radius:12px;background:linear-gradient(140deg,#63cced,#6782eb,#a777e7);color:white;display:grid;place-items:center;font-size:21px}
+      .sfai-mark{height:36px;width:36px;flex:none;border-radius:12px;overflow:hidden;background:#19162d;display:grid;place-items:center}.sfai-mark img{display:block;height:100%;width:100%;object-fit:cover}
       .sfai-headtitle{flex:1;min-width:0}.sfai-headtitle strong{font-size:14px}.sfai-headtitle small{display:block;color:#7e88a8;font-size:10px;margin-top:3px}
       .sfai-iconbtn{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#f3f5fc;color:#586482;cursor:pointer}
       .sfai-iconbtn:hover{background:#e8edff}.sfai-iconbtn:disabled{opacity:.4}
@@ -189,9 +226,9 @@ export function StarflowAiWidget({ signedIn, onSignIn, en }: Props) {
       @media(max-width:650px){html,body{max-width:100%;overflow-x:clip}.app-frame,.app-layout,.feed-panel{min-width:0;max-width:100%}.sfai-panel{left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));width:auto;max-width:none;bottom:calc(74px + env(safe-area-inset-bottom));height:min(650px,calc(100dvh - 105px));border-radius:20px}.sfai-launcher{right:12px;bottom:calc(72px + env(safe-area-inset-bottom));font-size:12px;padding:11px 13px}}
       @media(prefers-reduced-motion:reduce){.sfai-panel,.sfai-launcher{scroll-behavior:auto}}
     `}</style>
-    {open && <section className="sfai-panel" role="dialog" aria-modal="false" aria-label="Starflow AI">
+    {open && <section className="sfai-panel" style={mobilePanelStyle} role="dialog" aria-modal="false" aria-label="Starflow AI">
       <header className="sfai-header">
-        <span className="sfai-mark" aria-hidden="true">✦</span>
+        <span className="sfai-mark"><img src="/starflow-official-mark.webp" alt="星流 Logo" width="36" height="36"/></span>
         <div className="sfai-headtitle"><strong>Starflow AI</strong><small>{en ? 'AI assistant · Chat history' : '星流智能助手 · 历史对话'}</small></div>
         {signedIn && <>
           <button type="button" className="sfai-iconbtn" onClick={newConversation} title={en ? 'New chat' : '新对话'} disabled={busy || loading}><MessageCirclePlus size={18}/></button>
@@ -221,12 +258,12 @@ export function StarflowAiWidget({ signedIn, onSignIn, en }: Props) {
         {error && <p className="sfai-alert error" role="alert">{error}</p>}
         {notice && <p className="sfai-alert notice" role="status">{notice}</p>}
         <form className="sfai-inputrow" onSubmit={send}>
-          <input value={input} onChange={event => setInput(event.target.value)} maxLength={600}
+          <input value={input} onChange={event => setInput(event.target.value)} onFocus={()=>setTyping(true)} onBlur={()=>setTyping(false)} enterKeyHint="send" autoComplete="off" maxLength={600}
             placeholder={en ? 'Ask anything…' : '输入你的问题…'} aria-label={en ? 'Your message' : '你的问题'}/>
           <button type="submit" disabled={busy || loading || !input.trim()} aria-label={en ? 'Send' : '发送'}><Send size={18}/></button>
         </form>
       </>}
     </section>}
-    <button type="button" className="sfai-launcher" onClick={() => setOpen(value => !value)} aria-label={en ? 'Open Starflow AI' : '打开星流 AI'}><Sparkles size={18}/> ✦ Starflow AI</button>
+    {!open && <button type="button" className="sfai-launcher" onClick={() => setOpen(true)} aria-label={en ? 'Open Starflow AI' : '打开星流 AI'}><Sparkles size={18}/> 星流 AI</button>}
   </>;
 }

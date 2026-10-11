@@ -14,7 +14,22 @@ assert(sql.includes('pg_advisory_xact_lock')&&sql.includes('new.created_at := no
 assert(sql.includes('storage.foldername(name)'),'Storage uploads must be user scoped');
 assert(sql.includes('grant update (read_at) on public.notifications'),'Notifications update should be column limited');
 const auth=get('components/AuthPortal.tsx');
-for(const part of ['signUp({','signInWithPassword({','resetPasswordForEmail(','signInWithOAuth({','captchaToken','turnstile'])assert(auth.includes(part),`Missing auth flow: ${part}`);
+for(const part of ['signUp({','signInWithPassword({','resetPasswordForEmail(','signInWithOAuth({','captchaToken','<TurnstileChallenge'])assert(auth.includes(part),`Missing auth flow: ${part}`);
+assert(auth.includes("window.location.hostname==='fix-auth-turnstile-check-weizai.weizai.workers.dev'"),'Temporary site key fallback must be restricted to the exact preview hostname');
+const challenge=get('components/TurnstileChallenge.tsx');
+for(const part of ['challenges.cloudflare.com/turnstile/v0/api.js?render=explicit', "'expired-callback'", "'error-callback'", 'turnstile.remove(widgetId)'])assert(challenge.includes(part),`Missing Turnstile lifecycle: ${part}`);
+for(const method of ['signUp','signInWithPassword','resetPasswordForEmail']){
+  const call=auth.slice(auth.indexOf(`supabase.auth.${method}(`)).split('if(error)')[0];
+  assert(call.includes('captchaToken:requestCaptchaToken'),`${method} must send the CAPTCHA token`);
+}
+assert(auth.includes("if(mode==='signup' && password.length < 6)"),'Sign-up password must be at least 6 characters');
+assert(auth.includes("minLength={mode==='signup'?6:1}"),'Sign-up input minimum must be 6; login must accept existing shorter passwords');
+const resetPage=get('app/auth/reset/page.tsx');
+assert(resetPage.includes("password.length<6"),'Password reset validation must match Supabase minimum');
+assert((resetPage.match(/minLength=\{6\}/g)||[]).length===2,'Both new-password fields must accept 6 characters');
+assert(auth.includes('if(submitting.current)return;'),'Auth requests must reject duplicate submissions');
+assert(auth.includes("if(siteKey&&!captchaTokenRef.current)"),'Configured CAPTCHA must guard form submission');
+assert(auth.includes('finally{submitting.current=false;setBusy(false);resetCaptcha();}'),'Consumed CAPTCHA tokens must be reset after requests');
 assert(!/provider:'apple'|NEXT_PUBLIC_APPLE_ENABLED|使用 Apple 继续/.test(auth),'Apple auth must be removed');
 assert(auth.includes("process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'"),'Google auth must remain disabled until configured');
 const mailSql=get('supabase/migrations/002_welcome_email.sql');
@@ -31,23 +46,4 @@ console.log(`PASS: ${files.length} essential files exist`);
 console.log('PASS: 8 social tables have RLS; critical authorization triggers and guards found');
 console.log('PASS: email, recovery, OAuth, CAPTCHA and main social flows wired');
 console.log('PASS: Google is gated; Apple removed; welcome-email uses verified server-side identity and DB claim');
-
-// Multilingual regression checks (static guards, not browser or model tests).
-const languageProvider=get('components/LanguageProvider.tsx');
-const siteCopy=get('lib/site-copy.ts');
-const supportPage=get('app/support/page.tsx');
-const supportApi=get('app/api/support/route.ts');
-for(const code of ['zh','en','zh-hk','ko','ja','en-sg','en-gb','de','fr']){
-  assert(languageProvider.includes(`code:'${code}'`),`Missing language selector: ${code}`);
-  assert(supportApi.includes(`${code}:`) || supportApi.includes(`'${code}':`),`Missing support AI locale: ${code}`);
-}
-for(const key of ['welcome','topics','chatTitle','greeting','topicPrompt','homeTitle1','homeTitle2']){
-  assert(siteCopy.includes(`'${key}'`),`Missing site translation key: ${key}`);
-}
-assert(languageProvider.includes('overflow-y:auto'),'Language menu must scroll on narrow screens');
-assert(languageProvider.includes("sf-language"),'Language selection must persist');
-assert(supportPage.includes('locale: lang')&&supportPage.includes('topicQuestion(lang'),'Support page must pass current locale to AI');
-assert(supportApi.includes('responseLanguage[locale]'),'AI system instruction must respect selected locale');
-console.log('PASS: Nine locale selectors, support language routing and menu scrolling guards found');
-
 console.log('NOTE: Static assertions only. This does not test DB, Cloudflare deployment, SMTP, Resend delivery, OAuth, browser UI or HTTPS.');

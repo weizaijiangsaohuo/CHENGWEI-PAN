@@ -1,6 +1,6 @@
-
-import { redirect } from 'next/navigation';
+import { StarflowMessages } from '@/components/StarflowMessages';
+import './messages.css';
 
 export default function MessagesPage() {
-  redirect('/support');
+  return <StarflowMessages />;
 }

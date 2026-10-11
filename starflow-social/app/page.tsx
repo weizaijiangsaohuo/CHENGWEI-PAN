@@ -5,11 +5,14 @@ import Link from 'next/link';
 import {ArrowRight,BookOpen,Globe2,LockKeyhole,MessageCircle,ShieldCheck,Sparkles,Users,ChevronRight,X,Send} from 'lucide-react';
 import {SocialApp} from '@/components/SocialApp';
 import {LanguageSwitch,useLanguage} from '@/components/LanguageProvider';
+import {isEnglishLocale} from '@/lib/i18n';
+import {siteText} from '@/lib/site-language';
 import {db,hasConfig} from '@/lib/supabase';
 import styles from './landing.module.css';
-import {siteText,type SiteKey} from '@/lib/site-copy';
 import { StarflowAiWidget } from '@/components/StarflowAiWidget';
 import { StarflowLandingExperience } from '@/components/StarflowLandingExperience';
+import { StarflowMotionShowcase } from '@/components/StarflowMotionShowcase';
+import { StarflowAssemblyHero } from '@/components/StarflowAssemblyHero';
 type Screen='checking'|'landing'|'auth'|'member';
 type AiLine={role:'user'|'assistant';content:string};
 const glass:CSSProperties={background:'rgba(255,255,255,.83)',backdropFilter:'blur(28px) saturate(160%)',WebkitBackdropFilter:'blur(28px) saturate(160%)',border:'1px solid rgba(255,255,255,.82)',boxShadow:'0 16px 54px rgba(49,66,135,.19),inset 0 1px 0 rgba(255,255,255,.98)'};
@@ -103,9 +106,36 @@ function LegacyStarflowAiWidget({signedIn,onSignIn,en}:{signedIn:boolean;onSignI
 
 export default function Home(){
   const [screen,setScreen]=useState<Screen>('checking');
+  const [showInitialLogo,setShowInitialLogo]=useState(false);
   const {lang}=useLanguage();
-  const en=lang!=='zh'&&lang!=='zh-hk';
-  const home=(key:SiteKey)=>siteText(lang,key);
+  const en=isEnglishLocale(lang);
+  useEffect(()=>{
+    // One true branded startup per browser tab. Returning from inner routes
+    // must never replay the intro or interrupt the active navigation.
+    try {
+      const first=!sessionStorage.getItem('sf-entry-logo-seen');
+      setShowInitialLogo(first);
+      sessionStorage.setItem('sf-entry-logo-seen','1');
+    }catch{setShowInitialLogo(false);}
+  },[]);
+  useEffect(()=>{
+    const node=document.querySelector('.sf-public-landing');
+    if(!node||window.matchMedia('(prefers-reduced-motion: reduce)').matches||!('IntersectionObserver'in window))return;
+    const targets=node.querySelectorAll<HTMLElement>('[data-sf-reveal]');
+    const observer=new IntersectionObserver(entries=>{
+      for(const entry of entries)if(entry.isIntersecting){
+        (entry.target as HTMLElement).classList.remove('sf-reveal-pending');
+        observer.unobserve(entry.target);
+      }
+    },{threshold:0.08,rootMargin:'0px 0px -35px 0px'});
+    targets.forEach(element=>{
+      if(element.getBoundingClientRect().top>window.innerHeight-30){
+        element.classList.add('sf-reveal-pending');
+        observer.observe(element);
+      }
+    });
+    return()=>observer.disconnect();
+  },[screen]);
   useEffect(()=>{
     if(!hasConfig()){setScreen('landing');return;}
     let active=true;
@@ -118,10 +148,12 @@ export default function Home(){
     }).catch(()=>{if(active)setScreen('landing')});
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
-  if(screen==='checking')return <main className={styles.loading} role="status" aria-live="polite"><span style={{width:26,height:26,border:'3px solid #efe2f4',borderTopColor:'#a56aca',borderRadius:'50%',animation:'spin .8s linear infinite'}} aria-hidden="true"/><span style={{fontSize:13}}>{en?'Loading…':'加载中…'}</span></main>;
+  if(screen==='checking'&&!showInitialLogo)return <main className="sf-section-loading sf-root-auth-loading" role="status"><span className="sf-section-loading-dot"/> 正在进入星流…</main>;
+  if(screen==='checking')return <main className={styles.loading} role="status" aria-live="polite"><span className="spinner" aria-hidden="true"/><small>{en?'Loading…':'正在加载…'}</small></main>;
   const enter=()=>setScreen('auth');
   return <>
     {screen==='member'||screen==='auth'?<SocialApp view="home"/>:<StarflowLandingExperience onJoin={enter}/>}
-    <StarflowAiWidget signedIn={screen==='member'} onSignIn={enter} en={en}/>
+    {screen==='member'&&<StarflowAiWidget signedIn onSignIn={enter} en={en}/>}
+
   </>;
 }

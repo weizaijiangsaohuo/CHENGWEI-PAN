@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Hash, Search, Sparkles, UserPlus } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
+import { StarflowAISearch } from './StarflowAISearch';
 
 type Account = {
   id: string;
@@ -100,11 +100,13 @@ export function StarflowDiscovery() {
     return () => { active = false; };
   }, [host]);
 
-  function searchTopic(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const cleaned = term.trim().replace(/^#+/, '').slice(0, 32);
-    if (!cleaned) return;
-    router.push(`/explore?tag=${encodeURIComponent(cleaned)}`);
+  function searchTopic(keyword: string) {
+    const cleaned=keyword.trim().slice(0,48);
+    if(!cleaned)return;
+    if(pathname==='/explore') {
+      window.dispatchEvent(new CustomEvent<string>('sf-ai-search',{detail:cleaned}));
+      window.history.replaceState(window.history.state,'','/explore?q='+encodeURIComponent(cleaned));
+    }else router.push('/explore?q='+encodeURIComponent(cleaned));
   }
 
   async function follow(id: string) {
@@ -127,12 +129,9 @@ export function StarflowDiscovery() {
   const candidates = accounts.filter(account => !following.includes(account.id)).slice(0, 3);
   return createPortal(
     <div className="sf-discovery" aria-label="Starflow 发现更多">
-      <form className="sf-discovery-search" role="search" onSubmit={searchTopic}>
-        <Search size={19} aria-hidden="true" />
-        <input aria-label="搜索话题" placeholder="搜索话题" value={term}
-          onChange={event => setTerm(event.target.value)} maxLength={32} />
-        <button type="submit" aria-label="提交话题搜索" disabled={!term.trim()}><Search size={17}/></button>
-      </form>
+      <div className="sf-discovery-ai-search">
+        <StarflowAISearch compact value={term} onChange={setTerm} onSearch={searchTopic}/>
+      </div>
       <section className="sf-discovery-card" aria-label="近期公开话题">
         <div className="sf-discovery-title"><Hash size={18}/><h3>近期公开话题</h3></div>
         <p className="sf-discovery-explainer">基于最近最多 150 条公开帖子统计，并非全站热搜。</p>
