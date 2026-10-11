@@ -18,7 +18,7 @@ test('Tapping a feed post opens a dedicated immersive details page',()=>{
 test('Details include complete media, photos, comments and a reply composer',()=>{
  assert.match(detail,/post\.video_url&&<div className="sf-detail-media sf-detail-video"/);
  assert.match(detail,/controls playsInline preload="metadata"/);
- assert.match(detail,/post\.has_gallery\?client\.from\('post_media'\)/);
+ assert.match(detail,/result\.has_gallery\?client\.from\('post_media'\)/);
  assert.match(detail,/onTouchStart=\{onTouchStart\} onTouchEnd=\{onTouchEnd\}/);
  assert.match(detail,/post\.content\|\|'分享了一段精彩瞬间'/);
  assert.match(detail,/\.eq\('parent_id',id\)\.order\('created_at'/);
