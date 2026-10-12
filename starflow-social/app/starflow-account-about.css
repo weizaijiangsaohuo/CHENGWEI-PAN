@@ -57,3 +57,22 @@
 .sf-about-name-org{display:inline-grid;place-items:center;vertical-align:middle;flex:none;width:23px;height:23px;background:#f5f5f7;border:1px solid #dedee6;border-radius:6px;overflow:hidden;text-decoration:none;color:#342938;font-size:13px;font-weight:800;line-height:1}
 .sf-about-name-org>img{display:block;width:100%;height:100%;object-fit:cover}
 .sf-about-name-org:focus-visible{outline:2px solid #9662b8;outline-offset:2px}
+
+/* Account region: one concise status alongside the value instead of repeated warnings. */
+.sf-about-country-value{display:inline-flex!important;align-items:center;flex-wrap:wrap;gap:8px}
+.sf-about-line .sf-about-preview-tag{
+  display:inline-flex;align-items:center;
+  font-size:10px!important;line-height:1.35!important;font-weight:800;
+  letter-spacing:.02em;color:#75519a!important;
+  padding:4px 8px;border:1px solid #e5d6f1;border-radius:999px;
+  background:#f7f0fc;white-space:nowrap
+}
+.sf-about-privacy-content .sf-about-region-warning{
+  color:#654a7d;line-height:1.7;
+  background:#f1e9f8;border:1px solid #e7d8f2;
+  padding:11px 12px;margin-top:11px;border-radius:11px
+}
+@media(max-width:400px){
+ .sf-about-country-value{gap:6px}
+ .sf-about-line .sf-about-preview-tag{font-size:10px!important;padding:3px 7px}
+}
