@@ -23,7 +23,7 @@ test('real home menu uses a native modal and preserves existing routes',()=>{
  assert.match(source,/\/settings\/security/);
  assert.match(source,/\/messages/);
  assert.match(source,/\/bookmarks/);
- assert.match(social,/<StarflowHomeMenu\/>/);
+ assert.match(social,/<StarflowHomeMenu isAdmin=\{isAdmin\}\/>/);
 });
 
 test('mobile five-tab navigation has an actual working publish action',()=>{
