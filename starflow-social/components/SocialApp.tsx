@@ -32,7 +32,7 @@ const postFields='id,author_id,content,image_url,video_url,has_poll,has_gallery,
 // Every new page still calls getUser() to revalidate; Supabase RLS remains authoritative.
 const VERIFIED_ROUTE_USER_TTL = 90_000;
 let verifiedRouteUser: {user: User; checkedAt: number}|null = null;
-function readVerifiedRouteUser(): User|null {
+export function readVerifiedRouteUser(): User|null {
   const entry = verifiedRouteUser;
   return entry && Date.now()-entry.checkedAt < VERIFIED_ROUTE_USER_TTL ? entry.user : null;
 }
