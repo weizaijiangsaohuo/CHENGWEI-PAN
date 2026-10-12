@@ -9,7 +9,7 @@ const location=read('app/api/account/location/route.ts');
 
 test('Country preview is labeled distinctly and cannot masquerade as a saved public region',()=>{
  assert.match(about,/className="sf-about-preview-tag">本次预览，未保存/);
- assert.match(about,/countryPreview&&!country\?\.country_code&&isOwner/);
+ assert.match(about,/showCountry&&!country\?\.country_code&&countryPreview&&isOwner/);
  assert.match(about,/country\?\.country_code \? regionName\(country.country_code\)/);
  assert.match(about,/只有开启公开并成功保存后，其他用户才会看到国家／地区/);
  assert.match(about,/服务器安全写入功能需要管理员配置/);
