@@ -53,7 +53,7 @@ test('generates genuine PNG and motion video on phone when browser encoder suppo
 
 test('user reference media remains on-device and unsupported models are labeled correctly',()=>{
  assert.equal(pageExists,false,'retired studio route must be removed');
- assert.match(legacyTests,/StarflowZeroStudio/);
+ assert.match(legacyTests,/pageExists=existsSync/); // The old UI route has been retired.
  assert.match(ui,/\/api\/creative\/zero/);
  assert.match(ui,/createObjectURL/);
  assert.match(ui,/renderZeroArtifact\(body\.plan/);
