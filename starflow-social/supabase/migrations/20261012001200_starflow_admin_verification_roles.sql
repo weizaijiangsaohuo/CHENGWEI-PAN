@@ -22,7 +22,7 @@ BEGIN
  INSERT INTO public.verification_audit(application_id,reviewer_id,user_id,old_status,new_status,note)
  VALUES(item.id,auth.uid(),item.user_id,item.status,p_decision,left(coalesce(p_note,''),1000));
  RETURN true;
-END $function$
+END $function$;
 
 CREATE OR REPLACE FUNCTION public.revoke_account_verification(p_profile_id uuid, p_reason text DEFAULT ''::text)
  RETURNS boolean
@@ -44,7 +44,7 @@ BEGIN
  INSERT INTO public.verification_audit(application_id,reviewer_id,user_id,old_status,new_status,note)
  VALUES(app_id,auth.uid(),p_profile_id,'approved','revoked',left(coalesce(p_reason,''),1000));
  RETURN true;
-END $function$
+END $function$;
 
 
 DROP POLICY IF EXISTS sf_reviewer_read_applications ON public.verification_applications;
