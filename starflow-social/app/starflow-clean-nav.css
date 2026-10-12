@@ -75,3 +75,15 @@ html[data-sf2-theme="dark"] .app-frame .sf-top-utility{
 html[data-sf2-theme="dark"] .sf-home-quiet-mark{
  border-color:var(--sf2-line,#4c3b65);background:var(--sf2-soft,#342843);
 }
+
+/* Account settings → on-device compatibility diagnostics. */
+.sf-diagnostics-entry{padding:4px 0 15px}
+.sf-diagnostics-entry>a{display:grid;grid-template-columns:1fr auto;gap:3px 13px;align-items:center;
+ min-height:65px;border:1px solid var(--sf2-line,#e5ddf0);border-radius:17px;
+ background:var(--sf2-surface,#fff);padding:13px 17px;text-decoration:none;
+ box-shadow:0 4px 19px rgba(84,48,127,.035)}
+.sf-diagnostics-entry span{font-weight:800;font-size:14px;color:var(--sf2-ink,#362a48)}
+.sf-diagnostics-entry small{font-size:12px;grid-column:1;line-height:1.6;color:var(--sf2-muted,#91839d)}
+.sf-diagnostics-entry svg{grid-column:2;grid-row:1/3;color:var(--sf2-brand,#865bbb)}
+.sf-diagnostics-entry>a:hover,.sf-diagnostics-entry>a:focus-visible{background:var(--sf2-soft,#f7f1fc)}
+.sf-diagnostics-entry>a:focus-visible{outline:3px solid #a789d3;outline-offset:2px}
