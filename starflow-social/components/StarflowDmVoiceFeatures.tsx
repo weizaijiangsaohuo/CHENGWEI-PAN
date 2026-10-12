@@ -90,6 +90,8 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
  const [clipUrl,setClipUrl]=useState('');
  const [busy,setBusy]=useState(false);
  const [recognizing,setRecognizing]=useState(false);
+ const [speechBusy,setSpeechBusy]=useState(false);
+ const recordMode=useRef<'voice'|'dictation'>('voice');
  const recorder=useRef<MediaRecorder|null>(null);
  const tracks=useRef<MediaStream|null>(null);
  const fragments=useRef<Blob[]>([]);
@@ -114,7 +116,8 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
  },[recording]);
  useEffect(()=>{if(recording&&elapsed>=120)stopRecording()},[recording,elapsed]);
  function clearClip(){setClip(null);setClipFormat(null);setClipUrl('');if(clipUrlRef.current)URL.revokeObjectURL(clipUrlRef.current);clipUrlRef.current='';}
- async function startRecording(){
+ async function startRecording(mode:'voice'|'dictation'='voice'){
+  recordMode.current=mode;
   if(disabled||busy||recording)return;
   if(!window.isSecureContext){onError('录音要求 HTTPS 安全连接。');return;}
   if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'){
@@ -128,22 +131,23 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
    recorder.current=mr;clearClip();setElapsed(0);
    const startedAt=Date.now();
    mr.ondataavailable=e=>{if(e.data.size)fragments.current.push(e.data)};
-   mr.onerror=()=>{onError('语音录制中断');setRecording(false);stream.getTracks().forEach(t=>t.stop())};
+   mr.onerror=()=>{onError('语音录制中断');setRecording(false);setRecognizing(false);stream.getTracks().forEach(t=>t.stop())};
    mr.onstop=()=>{
     setRecording(false);stream.getTracks().forEach(t=>t.stop());tracks.current=null;
     if(cancelOnStop.current)return;
     const seconds=Math.round((Date.now()-startedAt)/1000);
     const resultType=mr.mimeType?.split(';')[0]||mime?.split(';')[0]||fragments.current[0]?.type?.split(';')[0]||'';
     const format=normalizeVoice(new File([], 'recording.'+(resultType.includes('mp4')?'mp4':resultType.includes('webm')?'webm':resultType.includes('ogg')?'ogg':'bin'),{type:resultType}));
-    if(!format){onError('当前设备录音编码尚不支持发送，请使用“选择音频”上传已录制的音频文件。');return;}
+    if(!format){setRecognizing(false);onError('当前设备录音编码尚不支持，请使用系统键盘听写。');return;}
     const blob=new Blob(fragments.current,{type:format.type});
-    if(seconds<1||blob.size===0){onError('录音太短，请重新录制。');return;}
-    if(blob.size>8*1024*1024){onError('语音文件超过8MB，请重新录制。');return;}
+    if(seconds<1||blob.size===0){setRecognizing(false);onError('录音太短，请重新录制。');return;}
+    if(blob.size>8*1024*1024){setRecognizing(false);onError('语音文件超过8MB，请重新录制。');return;}
+    if(recordMode.current==='dictation'){void transcribeAudio(blob);return;}
     const objectUrl=URL.createObjectURL(blob);clipUrlRef.current=objectUrl;setClipFormat(format);setClip(blob);setClipUrl(objectUrl);
     setElapsed(Math.max(1,Math.min(120,seconds)));
    };
    mr.start(250);setRecording(true);
-  }catch(e){tracks.current?.getTracks().forEach(t=>t.stop());tracks.current=null;onError(messageOf(e))}
+  }catch(e){tracks.current?.getTracks().forEach(t=>t.stop());tracks.current=null;setRecognizing(false);onError(messageOf(e))}
  }
  function stopRecording(){if(recorder.current?.state==='recording')recorder.current.stop()}
  async function chooseFile(event:React.ChangeEvent<HTMLInputElement>){
@@ -203,8 +207,34 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   },e=>{onError(e.code===1?'你拒绝了定位权限，未发送任何位置信息。':'无法取得当前位置，请检查定位服务。');setBusy(false)},
   {enableHighAccuracy:false,timeout:12000,maximumAge:0});
  }
+ async function transcribeAudio(blob:Blob){
+  setSpeechBusy(true);
+  try{
+   if(blob.size>6*1024*1024)throw Error('录音文件超过语音识别限制（6MB），请缩短录音。');
+   const {data:{session}}=await db().auth.getSession();
+   if(!session?.access_token)throw Error('登录状态已失效，请重新登录星流。');
+   const result=await fetch('/api/voice/transcribe',{
+    method:'POST',cache:'no-store',
+    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':blob.type||'audio/webm',
+     'x-sf-speech-language':lang.startsWith('en')?'en':'zh'},
+    body:blob
+   });
+   const parsed=await result.json() as {text?:string;error?:string};
+   if(!result.ok||!parsed.text)throw Error(parsed.error||'语音识别服务暂时不可用');
+   setDraft(prev=>((prev?prev+(prev.endsWith(' ')?'':' '):'')+parsed.text).slice(0,2000));
+   document.getElementById('sf-dm-input')?.focus();
+  }catch(e){onError(messageOf(e))}
+  finally{setSpeechBusy(false);setRecognizing(false)}
+ }
  function startSpeech(){
-  if(disabled||busy||recognizing)return;
+  if(disabled||busy||recognizing||recording||speechBusy)return;
+  // Prefer recorded audio + authenticated Cloudflare Whisper over fragile iOS WebSpeech.
+  if(navigator.mediaDevices?.getUserMedia && typeof MediaRecorder!=='undefined'){
+   if(!window.confirm('是否录音并将本次语音发送至星流的 Cloudflare AI 识别文字？只填写输入框，不会自动发送消息。'))return;
+   setRecognizing(true);
+   void startRecording('dictation');
+   return;
+  }
   const w=window as typeof window&{SpeechRecognition?:RecognitionConstructor;webkitSpeechRecognition?:RecognitionConstructor};
   const Ctor=w.SpeechRecognition||w.webkitSpeechRecognition;
   if(!Ctor){document.getElementById('sf-dm-input')?.focus();onError('当前浏览器没有网页语音识别接口。可在弹出的手机键盘或电脑输入法中使用系统语音输入。');return;}
@@ -214,7 +244,7 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
    for(let i=event.resultIndex;i<event.results.length;i++){if(event.results[i].isFinal)text+=event.results[i][0].transcript;}
    const next=text.trim();if(next)setDraft(prev=> ((prev?(prev.endsWith(' ')?prev:prev+' '):'')+next).slice(0,2000));
   };
-  r.onerror=event=>{setRecognizing(false);onError('语音识别失败：'+event.error)};
+  r.onerror=event=>{setRecognizing(false);if(event.error==='aborted')onError('浏览器中止了语音识别，请尝试系统键盘的麦克风听写。');else onError('语音识别失败：'+event.error)};
   r.onend=()=>{setRecognizing(false);recognition.current=null};
   try{recognition.current=r;r.start();setRecognizing(true);}catch(e){onError(messageOf(e));setRecognizing(false);}
  }
@@ -223,8 +253,8 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
    <button type="button" onClick={()=>recording?stopRecording():void startRecording()} disabled={disabled||busy} aria-label={recording?'结束录音':'录制语音消息'} title="录制语音消息">
     {recording?<Square size={18}/>:<Mic size={19}/>}<span>{recording?'结束录音 '+elapsed+'s':'语音消息'}</span>
    </button>
-   <button type="button" onClick={()=>recognizing?(recognition.current?.stop(),setRecognizing(false)):startSpeech()} disabled={disabled||busy} aria-label={recognizing?'停止语音识别':'语音识别转文字'} title="语音转文字">
-    {recognizing?<MicOff size={18}/>:<Speech size={19}/>}<span>{recognizing?'停止听写':'语音转文字'}</span>
+   <button type="button" onClick={()=>recognizing?(recordMode.current==='dictation'?stopRecording():recognition.current?.stop()):startSpeech()} disabled={disabled||busy||speechBusy} aria-label={recognizing?'结束录音并转文字':'语音识别转文字'} title="语音转文字">
+    {recognizing?<MicOff size={18}/>:<Speech size={19}/>}<span>{speechBusy?'正在识别…':recognizing?'结束并转文字':'语音转文字'}</span>
    </button>
    <input ref={fileInput} className="sf-dm-sr-only" type="file" accept="audio/*,.m4a,.mp3,.wav,.webm,.ogg,.aac" aria-label="选择已录制的音频文件" onChange={e=>void chooseFile(e)}/>
    <button type="button" onClick={()=>fileInput.current?.click()} disabled={disabled||busy} aria-label="选择音频文件" title="适配 iOS、Android、Windows 和 macOS 的已有录音"><FileAudio size={19}/><span>选择音频</span></button>
@@ -238,7 +268,8 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
     <button type="button" onClick={clearClip} disabled={busy} aria-label="删除录音"><X size={17}/></button>
    </div>}
   {recording&&<p className="sf-dm-recording">● 正在录音，最长120秒；点击结束后可以试听，再决定是否发送。</p>}
-  {recognizing&&<p className="sf-dm-recording">正在识别语音，识别结果只会填入输入框，不会自动发送。</p>}
+  {recognizing&&<p className="sf-dm-recording">正在录音，点击“结束并转文字”后由 AI 识别，结果只填入输入框，不会自动发送。</p>}
+  {speechBusy&&<p className="sf-dm-recording">正在处理录音，请稍候…</p>}
   <StarflowMediaCapability/>
  </div>;
 }
