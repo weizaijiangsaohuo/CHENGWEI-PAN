@@ -78,3 +78,30 @@
 @media(max-width:600px){.sf-creative-wrap{padding:0 12px 55px}.sf-creative-topbar{height:63px;gap:9px}.sf-creative-topbar>a:last-child{font-size:11px}.sf-creative-wordmark{font-size:12px;letter-spacing:.04em}.sf-creative-wordmark strong{font-size:8px;padding:4px}.sf-creative-hero{padding:25px 5px 24px;gap:12px}.sf-creative-hero-spark{height:52px;width:52px;border-radius:16px}.sf-creative-hero h1{font-size:25px}.sf-creative-hero p:last-child{font-size:12px}.sf-creative-panel,.sf-creative-results{border-radius:18px;padding:17px}.sf-creative-modes button{min-height:112px;padding:12px}.sf-creative-modes button strong{font-size:12px}.sf-creative-upload>label{flex-wrap:wrap}.sf-creative-upload>label input{max-width:100%;margin-left:0}}
 @media(prefers-reduced-motion:reduce){.sf-creative-spin{animation:none}.sf-creative-modes button{transition:none}}
 html.sf-user-motion-off .sf-creative-spin{animation:none}
+
+
+/* Zero-budget native engine: design extensions, readable on iPhone. */
+.sf-zero-honest{display:flex;align-items:flex-start;gap:12px;
+ background:var(--sf2-soft,#f5f2fc);color:var(--sf2-ink,#24202e);
+ border:1px solid var(--sf2-line,#e5dfed);border-radius:16px;
+ padding:16px 17px;margin:0 0 19px;font-size:13px;line-height:1.8}
+.sf-zero-honest svg{flex:none;margin-top:3px;color:var(--sf2-brand,#7549bd)}
+.sf-zero-honest b{font-weight:800}
+.sf-zero-upcoming{margin:16px 0;padding:13px 15px;
+ border:1px dashed var(--sf2-line,#dcd4eb);border-radius:14px;
+ background:var(--sf2-soft,#f8f6fb);color:var(--sf2-muted,#777184);
+ font-size:12px;line-height:1.8}
+.sf-zero-upcoming strong{color:var(--sf2-ink,#292431)}
+.sf-zero-architecture{padding:16px 5px 5px;color:var(--sf2-muted,#777184);
+ font-size:12px;line-height:1.8}
+.sf-zero-architecture h3{color:var(--sf2-ink,#292431);font-size:14px;margin-bottom:8px}
+.sf-zero-output>a{min-height:44px;display:flex;align-items:center;gap:8px}
+.sf-zero-output>video,.sf-zero-output>img{background:#1a1423}
+.sf-zero-page .sf-creative-panel-title button:focus-visible,
+.sf-zero-page button:focus-visible,
+.sf-zero-page input:focus-visible,
+.sf-zero-page select:focus-visible{outline:2px solid var(--sf2-brand,#7549bd);outline-offset:2px}
+@media(max-width:600px){
+ .sf-zero-honest{padding:13px 12px;font-size:12px}
+ .sf-zero-page .sf-creative-modes button{min-height:119px}
+}
