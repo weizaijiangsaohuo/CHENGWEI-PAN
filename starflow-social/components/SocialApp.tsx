@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Share2, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
@@ -69,6 +69,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const searchPending=view==='explore'&&search.trim()!==settledSearch.trim();
   const [homeComposerOpen,setHomeComposerOpen]=useState(false);
   const pendingToggles=useRef<Set<string>>(new Set());
+  const pendingFollows=useRef<Set<string>>(new Set());
+  const [followBusyTarget,setFollowBusyTarget]=useState<string|null>(null);
   const loadEpoch=useRef(0);
   useEffect(()=>{
     if(view!=='home')return;
@@ -470,11 +472,45 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     finally{setSending(false);}
   }
   async function follow(id:string){
-    if(!user||id===user.id)return;
-    const exists=following.includes(id);const {error}=exists?
-      await db().from('follows').delete().eq('follower_id',user.id).eq('following_id',id):
-      await db().from('follows').insert({follower_id:user.id,following_id:id});
-    if(error)showMessage(error.message);else setFollowing(s=>exists?s.filter(i=>i!==id):[...s,id]);
+    if(!user||id===user.id||pendingFollows.current.has(id))return;
+    pendingFollows.current.add(id);
+    setFollowBusyTarget(id);
+    const exists=following.includes(id);
+    // Show prompt feedback immediately, then reconcile against the database.
+    setFollowing(current=>exists?current.filter(item=>item!==id):
+      [...new Set([...current,id])]);
+    try{
+      const {error}=exists?
+        await db().from('follows').delete().eq('follower_id',user.id).eq('following_id',id):
+        await db().from('follows').insert({follower_id:user.id,following_id:id});
+      if(error)throw error;
+      window.dispatchEvent(new CustomEvent('sf-profile-follow-changed',{detail:{profileId:id}}));
+    }catch(error){
+      setFollowing(current=>exists?[...new Set([...current,id])]:current.filter(item=>item!==id));
+      showMessage(error instanceof Error?error.message:'关注操作失败，请重试');
+    }finally{
+      pendingFollows.current.delete(id);
+      setFollowBusyTarget(previous=>previous===id?null:previous);
+    }
+  }
+  async function sharePost(post:Post){
+    const address=new URL('/post/'+encodeURIComponent(post.id),window.location.origin).toString();
+    try{
+      if(typeof navigator.share==='function'){
+        await navigator.share({title:'星流 Starflow',url:address});
+        return;
+      }
+      if(navigator.clipboard?.writeText){
+        await navigator.clipboard.writeText(address);
+        showMessage(isEnglishLocale(lang)?'Post link copied.':'动态链接已复制。');
+      }else{
+        // Unsupported/non-secure browser: let users copy the actual URL manually.
+        window.prompt(isEnglishLocale(lang)?'Copy this post link:':'复制动态链接：',address);
+      }
+    }catch(error){
+      if(error instanceof DOMException&&error.name==='AbortError')return;
+      showMessage(isEnglishLocale(lang)?'Share failed. Open the post to copy its URL.':'分享失败，请打开帖子详情后复制链接。');
+    }
   }
   async function deletePost(post:Post){
     if(!user||post.author_id!==user.id||!confirm(t('deletedConfirm')))return;
@@ -533,10 +569,11 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       {post.has_poll&&<PollCard postId={post.id}/>}
       {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={isEnglishLocale(lang)?'Post video':'帖子视频'}/></div>}
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
-      <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
-      <button className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} onClick={()=>toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
+      <button type="button" className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} aria-pressed={m.reposted} onClick={()=>void toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
+      <button type="button" className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} aria-pressed={m.liked} onClick={()=>void toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
       <span className="sf-post-unique-views" title="打开帖子详情的不同登录用户数"><Eye size={17}/><span>{m.views} 浏览</span></span>
-      <button className={m.saved?'action-green':''} title={t('saveBookmark')} aria-label={m.saved?t('undoBookmark'):t('saveBookmark')} onClick={()=>toggle('bookmarks',post)}><Bookmark size={18} fill={m.saved?'currentColor':'none'}/></button>
+      <button type="button" className={m.saved?'action-green':''} title={t('saveBookmark')} aria-label={m.saved?t('undoBookmark'):t('saveBookmark')} aria-pressed={m.saved} onClick={()=>void toggle('bookmarks',post)}><Bookmark size={18} fill={m.saved?'currentColor':'none'}/></button>
+      <button type="button" className="sf2-post-share" title={isEnglishLocale(lang)?'Share post':'分享动态'} aria-label={isEnglishLocale(lang)?'Share post':'分享动态'} onClick={()=>void sharePost(post)}><Share2 size={18}/></button>
       </div></div></article>;
   };
   const renderContent=()=>{
@@ -588,7 +625,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={isEnglishLocale(lang)?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(isEnglishLocale(lang)?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
-      {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button><Link className="btn btn-outline" href={'/messages?to='+encodeURIComponent(profile.handle)}><MessageCircle size={16}/> 私信</Link></div>}</div>
+      {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button type="button" className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} disabled={followBusyTarget===profile.id} aria-busy={followBusyTarget===profile.id} aria-pressed={following.includes(profile.id)} onClick={()=>void follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button><Link className="btn btn-outline" href={'/messages?to='+encodeURIComponent(profile.handle)}><MessageCircle size={16}/> 私信</Link></div>}</div>
       <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(LANGUAGE_OPTIONS.find(option=>option.code===lang)?.htmlLang??'zh-CN')} {t('joined')}</p>
       {profile.id===user?.id&&<div className="sf-own-profile-quicklinks" aria-label="我的主页快捷入口">
        <Link href="/bookmarks"><Bookmark size={19}/><strong>我的收藏</strong><small>查看保存的动态</small></Link>

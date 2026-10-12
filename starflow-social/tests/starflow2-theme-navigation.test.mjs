@@ -14,10 +14,13 @@ function renderBootstrap(preference,systemDark=false){
  const match=layout.match(/const bootstrapAppearance = \x60([\s\S]*?)\x60;/);
  assert.ok(match,'pre-hydration appearance bootstrap present');
  let result;
- const document={documentElement:{setAttribute:(name,value)=>{
-  assert.equal(name,'data-sf2-theme');result=value;
- }}};
- const localStorage={getItem:()=>preference};
+ const document={documentElement:{
+  classList:{toggle:(name,value)=>{assert.equal(name,'sf-user-lite-glass');assert.equal(value,false);}},
+  setAttribute:(name,value)=>{
+   assert.equal(name,'data-sf2-theme');result=value;
+  }
+ }};
+ const localStorage={getItem:key=>key==='sf2-theme'?preference:null};
  const window={matchMedia:()=>({matches:systemDark})};
  runInNewContext(match[1],{document,localStorage,window});
  return result;

@@ -55,19 +55,43 @@ export function StarflowProfileEnhancements() {
 
   useEffect(() => {
     if (!handle) { setSlots({ info: null, tabs: null, posts: null }); return; }
-    const update = () => {
+    let pendingFrame = 0;
+    // Previous code observed the entire document for every DOM mutation,
+    // including each new post, image and animation. Only observe until the
+    // actual profile mounting targets appear, then disconnect completely.
+    const observer = new MutationObserver(() => {
+      if (pendingFrame) return;
+      pendingFrame = window.requestAnimationFrame(() => {
+        pendingFrame = 0;
+        update();
+      });
+    });
+    function update() {
       const next: Slots = {
         info: document.querySelector('.app-frame .profile-info'),
         tabs: document.querySelector('.app-frame .tab-line'),
         posts: document.querySelector('.app-frame .posts-list'),
       };
       setSlots(previous => previous.info === next.info && previous.tabs === next.tabs && previous.posts === next.posts ? previous : next);
-    };
-    const observer = new MutationObserver(update);
+      if (next.info && next.tabs && next.posts) observer.disconnect();
+    }
     observer.observe(document.body, { childList: true, subtree: true });
     update();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (pendingFrame) window.cancelAnimationFrame(pendingFrame);
+    };
   }, [handle]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    const onChange = (event:Event) => {
+      const detail = (event as CustomEvent<{profileId?:string}>).detail;
+      if (detail?.profileId === profile.id) setRefresh(previous => previous + 1);
+    };
+    window.addEventListener('sf-profile-follow-changed', onChange);
+    return () => window.removeEventListener('sf-profile-follow-changed', onChange);
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!hasConfig()) return;

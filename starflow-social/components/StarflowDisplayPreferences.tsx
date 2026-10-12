@@ -1,12 +1,13 @@
 'use client';
 import {useEffect,useState} from 'react';
-import {MonitorSmartphone,MoveHorizontal} from 'lucide-react';
+import {MonitorSmartphone,MoveHorizontal,Sparkles} from 'lucide-react';
 import './StarflowDisplayPreferences.css';
 import {GlassSegmentedControl} from './StarflowGlass';
 
 const REDUCE_KEY='sf-user-reduce-motion';
 const COMPACT_KEY='sf-user-compact-layout';
 const THEME_KEY='sf2-theme';
+const LITE_GLASS_KEY='sf-user-lite-glass';
 type Appearance='system'|'light'|'dark';
 function applyTheme(value:Appearance){
  const resolved=value==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):value;
@@ -14,10 +15,12 @@ function applyTheme(value:Appearance){
 }
 const clsMotion='sf-user-motion-off';
 const clsCompact='sf-user-compact';
+const clsLiteGlass='sf-user-lite-glass';
 function applySettings(){
   try{
     document.documentElement.classList.toggle(clsMotion,localStorage.getItem(REDUCE_KEY)==='true');
     document.documentElement.classList.toggle(clsCompact,localStorage.getItem(COMPACT_KEY)==='true');
+    document.documentElement.classList.toggle(clsLiteGlass,localStorage.getItem(LITE_GLASS_KEY)==='true');
     const stored=localStorage.getItem(THEME_KEY);
     applyTheme(stored==='light'||stored==='dark'?stored:'system');
   }catch{applyTheme('system');/* Browser storage may be blocked. */}
@@ -36,11 +39,13 @@ export function StarflowExperienceBootstrap(){
 export function StarflowDisplayPreferences(){
   const [reduced,setReduced]=useState(false);
   const [compact,setCompact]=useState(false);
+  const [liteGlass,setLiteGlass]=useState(false);
   const [appearance,setAppearance]=useState<Appearance>('system');
   useEffect(()=>{
     try{
       setReduced(localStorage.getItem(REDUCE_KEY)==='true');
       setCompact(localStorage.getItem(COMPACT_KEY)==='true');
+      setLiteGlass(localStorage.getItem(LITE_GLASS_KEY)==='true');
       const saved=localStorage.getItem(THEME_KEY);
       setAppearance(saved==='light'||saved==='dark'?saved:'system');
     }catch{/* Storage denied; defaults continue. */}
@@ -49,7 +54,8 @@ export function StarflowDisplayPreferences(){
   const update=(key:string,value:boolean,apply:(value:boolean)=>void)=>{
     apply(value);
     try{localStorage.setItem(key,String(value));}catch{/* Site continues without saving. */}
-    document.documentElement.classList.toggle(key===REDUCE_KEY?clsMotion:clsCompact,value);
+    const cls=key===REDUCE_KEY?clsMotion:key===COMPACT_KEY?clsCompact:clsLiteGlass;
+    document.documentElement.classList.toggle(cls,value);
   };
   const updateTheme=(value:Appearance)=>{
     setAppearance(value);applyTheme(value);
@@ -69,6 +75,13 @@ export function StarflowDisplayPreferences(){
     <input type="checkbox" role="switch" checked={reduced}
       onChange={e=>update(REDUCE_KEY,e.target.checked,setReduced)}
       aria-label="减少界面动画"/>
+   </label>
+   <label className="sf-display-item">
+    <span className="sf-display-item-icon"><Sparkles size={20}/></span>
+    <span><strong>轻量玻璃模式</strong><small>降低玻璃模糊和折射层，适合旧款手机或希望节省电量的设备</small></span>
+    <input type="checkbox" role="switch" checked={liteGlass}
+      onChange={event=>update(LITE_GLASS_KEY,event.target.checked,setLiteGlass)}
+      aria-label="轻量玻璃模式"/>
    </label>
    <label className="sf-display-item">
     <span className="sf-display-item-icon"><MonitorSmartphone size={20}/></span>
