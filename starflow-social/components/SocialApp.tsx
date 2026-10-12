@@ -69,6 +69,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const searchPending=view==='explore'&&search.trim()!==settledSearch.trim();
   const [homeComposerOpen,setHomeComposerOpen]=useState(false);
   const pendingToggles=useRef<Set<string>>(new Set());
+  const loadEpoch=useRef(0);
   useEffect(()=>{
     if(view!=='home')return;
     const focusComposer=()=>{
@@ -266,12 +267,15 @@ export function SocialApp({view,target}:{view:View;target?:string}){
 
   const load=useCallback(async()=>{
     if(!user)return;
+    const epoch=++loadEpoch.current;
     const client=db();setLoading(true);
     try{
       const {data:fs}=await client.from('follows').select('following_id').eq('follower_id',user.id);
+      if(epoch!==loadEpoch.current)return;
       const followIds=(fs||[]).map((row:{following_id:string})=>row.following_id);
       setFollowing(followIds);
       const {count}=await client.from('notifications').select('id',{head:true,count:'exact'}).eq('recipient_id',user.id).is('read_at',null);
+      if(epoch!==loadEpoch.current)return;
       setUnread(count??0);
       let query=client.from('posts').select(postFields);
       let currentProfile:Profile|null=null;
@@ -289,6 +293,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       else if(view==='profile'){
         const {data:p,error:pe}=await client.from('profiles').select('*').eq('handle',target||'').maybeSingle();
         if(pe)throw pe;
+        if(epoch!==loadEpoch.current)return;
         currentProfile=p as Profile|null;setProfileLookup({handle:target||'',status:currentProfile?'found':'missing',data:currentProfile});
         if(currentProfile)query=query.eq('author_id',currentProfile.id).is('parent_id',null).order('created_at',{ascending:false}).limit(80);
         else {setPosts([]);setLoading(false);return;}
@@ -301,11 +306,13 @@ export function SocialApp({view,target}:{view:View;target?:string}){
         query=query.in('id',ids).order('created_at',{ascending:false}).limit(80);
       } else if(view==='notifications'){
         const {data:n,error:ne}=await client.from('notifications').select('id,recipient_id,actor_id,kind,post_id,read_at,created_at,profiles!notifications_actor_id_fkey(id,handle,display_name,bio,avatar_url,created_at)').eq('recipient_id',user.id).order('created_at',{ascending:false}).limit(60);
+        if(epoch!==loadEpoch.current)return;
         if(ne)throw ne;setNotifs((n||[]) as unknown as Notif[]);
         await loadBadges((n||[]).map(x=>x.actor_id));
         setLoading(false);return;
       } else {setLoading(false);return;}
       const {data:rows,error}=await query;
+      if(epoch!==loadEpoch.current)return;
       if(error)throw error;
       const result=(rows||[]) as unknown as Post[];
       setPosts(result);
@@ -324,6 +331,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           client.from('posts').select('parent_id').in('parent_id',ids),
           client.rpc('sf_post_view_counts',{p_post_ids:ids}),
         ]);
+        if(epoch!==loadEpoch.current)return;
         const collectedViews = new Map<string, number>(((v.data||[]) as {post_id:string;views:number|string}[]).map((row)=>[row.post_id,Number(row.views)||0]));
         const collect:Metrics={};
         for(const id of ids){const ls=(l.data||[]).filter(x=>x.post_id===id),rs=(r.data||[]).filter(x=>x.post_id===id),bs=(b.data||[]).filter(x=>x.post_id===id);
@@ -334,12 +342,13 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       if(view==='explore'){
         const needle=settledSearch.trim().replace(/^[@#]/,'').slice(0,50);
         if(needle){const {data:u}=await client.from('profiles').select('*').or(`handle.ilike.%${needle.replace(/[^\p{L}\p{N}._\- ]/gu,'')}%,display_name.ilike.%${needle.replace(/[%_,()]/g,'')}%`).limit(8);
+          if(epoch!==loadEpoch.current)return;
           setAccounts((u||[]) as Profile[]);
           await loadBadges((u||[]).map(x=>x.id));}
         else setAccounts([]);
       }
-    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
-    finally{setLoading(false)}
+    }catch(e){if(epoch!==loadEpoch.current)return;if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
+    finally{if(epoch===loadEpoch.current)setLoading(false)}
   },[user,view,target,settledSearch,tab,loadBadges]);
   useEffect(()=>{if(user)void load();},[load,user]);
 
@@ -610,7 +619,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       {(searchPending||loading)&&<p className="sf2-explore-search-status" role="status">
        {isEnglishLocale(lang)?'Searching…':'正在搜索…'}
       </p>}
-      {settledSearch.trim()&&searchFilter!=='posts'&&!searchPending&&(
+      {settledSearch.trim()&&searchFilter!=='posts'&&!searchPending&&!loading&&(
        accounts.length>0?<div className="search-people"><strong>{t('people')} · {accounts.length}</strong>
         {accounts.map(a=><Link key={a.id} href={`/profile/${encodeURIComponent(a.handle)}`}>
          <Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span>
@@ -691,13 +700,13 @@ export function SocialApp({view,target}:{view:View;target?:string}){
            </div>):
          view==='explore'&&searchFilter==='people'?null:
          <div className="posts-list" aria-busy={loading||searchPending}>
-          {loading&&ordered.length===0&&<div className="sf2-feed-skeleton" role="status" aria-label={t('loading')}>
+          {loading&&(view==='explore'||ordered.length===0)&&<div className="sf2-feed-skeleton" role="status" aria-label={t('loading')}>
            {Array.from({length:3},(_,index)=><div key={index} className="sf2-feed-skeleton-post"><i/><span><b/><b/><b/></span></div>)}
           </div>}
           {!loading&&!searchPending&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty
            text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')}
            detail={view==='explore'?(isEnglishLocale(lang)?'Try a different search term.':'试试其他搜索关键词。'):t('emptyHint')}/>}
-          {!searchPending&&ordered.map(card)}
+          {!searchPending&&(!loading||view!=='explore')&&ordered.map(card)}
          </div>
       )}
       <div className="feed-end">© 2026 Starflow · {t('independent')}</div>
