@@ -11,12 +11,17 @@ async function readIceServers():Promise<RTCIceServer[]>{
  try{
   const {data:{session}}=await db().auth.getSession();
   if(!session?.access_token)return DEFAULT_ICE;
-  const response=await fetch('/api/rtc/ice',{
-   headers:{Authorization:'Bearer '+session.access_token},
-   cache:'no-store'
-  });
-  if(!response.ok)return DEFAULT_ICE;
-  const info=await response.json() as {iceServers?:RTCIceServer[]};
+  const controller=new AbortController();
+  const timeout=window.setTimeout(()=>controller.abort(),8000);
+  let info:{iceServers?:RTCIceServer[]};
+  try{
+   const response=await fetch('/api/rtc/ice',{
+    headers:{Authorization:'Bearer '+session.access_token},
+    cache:'no-store',signal:controller.signal
+   });
+   if(!response.ok)return DEFAULT_ICE;
+   info=await response.json() as {iceServers?:RTCIceServer[]};
+  }finally{window.clearTimeout(timeout);}
   if(!Array.isArray(info.iceServers))return DEFAULT_ICE;
   // TURN URLs and temporary credentials originate only from the authenticated server.
   return [...DEFAULT_ICE,...info.iceServers];
@@ -50,7 +55,15 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
   closedRef.current=false;callRef.current=null;
   setCall(null);setConnecting(false);setRemoteReady(false);setStatus('');setMuted(false);
  },[]);
- useEffect(()=>()=>{pcRef.current?.close();streamRef.current?.getTracks().forEach(t=>t.stop());},[]);
+ useEffect(()=>()=>{// Leaving the call screen releases the mic immediately.
+  const activeCall=callRef.current;
+  pcRef.current?.close();
+  streamRef.current?.getTracks().forEach(t=>t.stop());
+  // Best effort only on navigation: browsers may cancel in-flight requests.
+  if(activeCall)void Promise.resolve(db().rpc('sf_dm_call_action',{
+   p_call:activeCall.id,p_action:'end'
+  })).catch(()=>{});
+ },[]);
  async function push(callId:string,kind:'offer'|'answer'|'ice',payload:Record<string,unknown>){
   const {error}=await db().from('sf_dm_call_signals').insert({call_id:callId,sender_id:userId,kind,payload});
   if(error)throw error;
@@ -282,6 +295,9 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
       <><button type="button" onClick={toggleMute} disabled={!streamRef.current}>{muted?<MicOff size={18}/>:<Mic size={18}/>} {muted?'取消静音':'静音'}</button>
       <button type="button" className="sf-dm-decline" onClick={()=>void finish()}><PhoneOff size={18}/>挂断</button></>}
     </div>
+    <button type="button" className="sf-dm-play-remote"
+      onClick={()=>{pollNow.current?.();void syncSignals();}}
+      aria-label="手动同步通话状态">刷新通话状态</button>
     {remoteReady&&<button type="button" className="sf-dm-play-remote" onClick={()=>void played.current?.play().catch(()=>onError('请在系统中允许播放音频'))}><Volume2 size={17}/>播放对方声音</button>}
     <p className="sf-dm-call-caveat">系统会优先尝试直连；配置临时 TURN 凭据后可改善跨运营商连接。如果未配置 TURN，部分网络仍会失败。来电提醒仅在私信网页前台提供。</p>
    </div>
