@@ -19,6 +19,7 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
    {to:'/?compose=1',label:'发布新动态',icon:PenLine},
    {to:'/creator',label:'创作者中心',icon:Sparkles},
    {to:'/ai-studio',label:'星流 AI 图片与视频创作',icon:Sparkles},
+   {to:'/starflow-video-editor.html',label:'免费本地视频剪辑与动态成片',icon:Sparkles},
    {to:'/bookmarks',label:'我的收藏',icon:Bookmark},
    {to:'/notifications',label:'通知中心',icon:Bell},
    {to:'/messages',label:'私信消息',icon:MessageCircle},

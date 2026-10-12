@@ -185,6 +185,10 @@ export function StarflowCreativeStudio(){
      <p>AI 图片、电影感视频、参考动作复刻、智能视频重塑。使用真实生成模型，尊重你的创作意图。</p>
     </div>
    </section>
+   <div className="sf-creative-notice" role="status">
+    免费本地创作已开放：<Link href="/starflow-video-editor.html">进入本地视频工作台</Link>，
+    在浏览器里制作图片动画、剪辑视频、添加字幕和滤镜。它不需要模型 API，也不等于真人级 AI 视频生成。
+   </div>
    {authenticated===false&&<div className="sf-creative-notice" role="alert">
     创作工作室需要登录星流。<Link href="/">返回登录</Link></div>}
    {authenticated===true&&engineReady===false&&<div className="sf-creative-notice" role="status">
