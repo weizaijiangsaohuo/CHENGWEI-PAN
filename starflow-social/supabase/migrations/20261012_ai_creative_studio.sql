@@ -94,7 +94,7 @@ BEGIN
  VALUES(uid,p_mode,btrim(p_prompt),p_image_path,p_video_path,p_aspect_ratio,p_duration,p_model_id)
  RETURNING id INTO created;
  RETURN created;
-END $fn$;
+END; $fn$;
 REVOKE ALL ON FUNCTION public.sf_creative_claim(text,text,text,text,text,smallint,text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.sf_creative_claim(text,text,text,text,text,smallint,text) TO authenticated;
 
