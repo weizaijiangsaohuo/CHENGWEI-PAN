@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AtSign, BadgeCheck, CalendarDays, ChevronLeft, ChevronRight, Info, Link2, MapPin, RefreshCcw, Settings2 } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
+import {coarseRegionName,type CoarseRegion} from '@/lib/ip-region';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 
 type Person = { id: string; handle: string; display_name: string; avatar_url: string | null; created_at: string };
 type Verification = { verification_type: VerificationKind; status: string; reviewed_at: string | null };
 type Region = { country_code: string | null; last_seen_at: string | null; is_public: boolean };
-type AccountData = { user: Person; verification: Verification | null; derived: { verification_type: 'gold' | 'gray'; started_at: string | null } | null; org: Person | null; region: Region | null; history: { total_changes: number; last_changed_at: string | null } | null };
+type AccountData = { user: Person; verification: Verification | null; derived: { verification_type: 'gold' | 'gray'; started_at: string | null } | null; org: Person | null; region: Region | null; publicRegion:CoarseRegion|null; forcedRegion:boolean; history: { total_changes: number; last_changed_at: string | null } | null };
 const date = (value:string) => new Date(value).toLocaleDateString('zh-CN', {year:'numeric',month:'long'});
 const regionName = (code:string|null|undefined) => {
   if (!code || code==='XX' || code==='ZZ' || code==='T1') return '未知';
@@ -34,12 +35,14 @@ export function StarflowAccountAbout({handle}:{handle:string}){
       const {data:profile,error}=await client.from('profiles').select('id,handle,display_name,avatar_url,created_at').eq('handle',handle).maybeSingle();
       if(error)throw error;
       if(!profile){setInfo(null);setNotice('找不到此账号，用户名可能已经修改。');return}
-      const [verified,relation,where,history,auth] = await Promise.all([
+      const [verified,relation,where,history,auth,regionRow,geoPolicy] = await Promise.all([
         client.from('account_verifications').select('verification_type,status,reviewed_at').eq('profile_id',profile.id).eq('status','approved').maybeSingle(),
         client.from('organization_affiliations').select('org_id,affiliate_kind,responded_at').eq('affiliate_id',profile.id).eq('status','active').limit(1).maybeSingle(),
         client.from('account_ip_country').select('country_code,last_seen_at,is_public').eq('user_id',profile.id).maybeSingle(),
         client.rpc('sf_account_handle_history',{p_account_id:profile.id}),
         client.auth.getUser(),
+        client.from('sf_public_ip_region').select('country_code,subdivision_code,source,updated_at').eq('user_id',profile.id).maybeSingle(),
+        client.from('sf_ip_region_policy').select('enabled').eq('id',true).maybeSingle(),
       ]);
       if(verified.error)throw verified.error;
       if(relation.error && auth.data.user)throw relation.error;
@@ -62,6 +65,8 @@ export function StarflowAccountAbout({handle}:{handle:string}){
       }
       const summary=Array.isArray(history.data) ? history.data[0] : history.data;
       setInfo({user:profile as Person,verification:verified.data as Verification|null,derived,org,region:where.data as Region|null,
+        publicRegion:geoPolicy.data?.enabled&&!regionRow.error?(regionRow.data as CoarseRegion|null):null,
+        forcedRegion:geoPolicy.data?.enabled===true,
         history:history.error?null:summary?{total_changes:Number(summary.total_changes)||0,last_changed_at:summary.last_changed_at}:null});
       setIsOwner(auth.data.user?.id===profile.id);
     }catch(e){setNotice(e instanceof Error?e.message:'账号资料暂时无法读取。')}
@@ -105,7 +110,7 @@ export function StarflowAccountAbout({handle}:{handle:string}){
   const derived=info?.derived;
   const effectiveBadge=v?.verification_type ?? derived?.verification_type;
   const country=info?.region;
-  const showCountry=!!(country?.is_public || isOwner);
+  const showCountry=!!(info?.forcedRegion||country?.is_public||isOwner);
   const verificationNames: Record<VerificationKind,string> = {gold:'金色认证',blue:'蓝色认证',gray:'灰色认证'};
   const verificationExplanations: Record<VerificationKind,string> = {
     gold: '由 Starflow 审核通过的企业、品牌或组织账号。仅代表 Starflow 平台内的认证，不代表 X 或其他机构认证。',
@@ -135,12 +140,18 @@ export function StarflowAccountAbout({handle}:{handle:string}){
       <section className="sf-about-lines" aria-label="账号资料">
         <div className="sf-about-line"><CalendarDays aria-hidden="true"/><div><strong>加入日期</strong><span>{date(info.user.created_at)}</span></div></div>
         <div className="sf-about-line"><MapPin aria-hidden="true"/><div><strong>账号所在国家／地区</strong>
-          <span className="sf-about-country-value">{showCountry ? (country?.country_code ? regionName(country.country_code) : countryPreview ? regionName(countryPreview) : '未知') : '未公开'}
-            {showCountry&&!country?.country_code&&countryPreview&&isOwner&&<small className="sf-about-preview-tag">本次预览，未保存</small>}
+          <span className="sf-about-country-value">
+            {info.forcedRegion
+             ? coarseRegionName(info.publicRegion?.country_code,info.publicRegion?.subdivision_code)
+             : showCountry ? (country?.country_code ? regionName(country.country_code) : countryPreview ? regionName(countryPreview) : '未知') : '未公开'}
+            {info.forcedRegion&&info.publicRegion?.source==='reviewed'&&<small className="sf-about-preview-tag">平台人工更正</small>}
+            {!info.forcedRegion&&showCountry&&!country?.country_code&&countryPreview&&isOwner&&<small className="sf-about-preview-tag">本次预览，未保存</small>}
           </span>
-          {showCountry&&country?.last_seen_at&&<small>上次识别：{new Date(country.last_seen_at).toLocaleDateString('zh-CN')}</small>}
+          {showCountry&&(info.forcedRegion?info.publicRegion?.updated_at:country?.last_seen_at)&&<small>记录更新：{new Date((info.forcedRegion?info.publicRegion?.updated_at:country?.last_seen_at)!).toLocaleDateString('zh-CN')}</small>}
         </div><button type="button" className="sf-about-info-button" onClick={()=>setLocationExplain(v=>!v)} aria-expanded={locationExplain} aria-label="查看账号位置说明"><Info size={21}/></button></div>
-        {locationExplain&&<p className="sf-about-inline-note">这里显示访问 IP 推断的大致国家／地区，不是 GPS 定位。VPN、旅行和移动网络可能影响结果；只有成功保存且选择公开后，其他人才能看到。</p>}
+        {locationExplain&&<p className="sf-about-inline-note">{info.forcedRegion
+         ? 'IP 属地显示来自账号近期网络访问，仅包含国内省级或境外国家／地区。不展示具体 IP；VPN 或移动网络可能影响结果。平台人工更正会单独标记，无法识别时显示未知。'
+         : '这里显示访问 IP 推断的大致国家／地区，不是 GPS 定位。VPN、旅行和移动网络可能影响结果；只有成功保存且选择公开后，其他人才能看到。'}</p>}
         {(v||derived)&&<>
           <button type="button" className="sf-about-line sf-about-line-action" onClick={()=>setVerificationExplain(open=>!open)} aria-expanded={verificationExplain} aria-label="查看账号认证详情">
             <BadgeCheck aria-hidden="true"/>
@@ -159,7 +170,7 @@ export function StarflowAccountAbout({handle}:{handle:string}){
           <small>仅统计启用记录后的更改，之前的历史无法追溯</small>
         </div></div>
       </section>
-      {isOwner&&<section className="sf-about-privacy">
+      {isOwner&&!info.forcedRegion&&<section className="sf-about-privacy">
         <button className="sf-about-privacy-trigger" type="button" onClick={()=>setPrivacyOpen(o=>!o)} aria-expanded={privacyOpen}>
           <Settings2 size={19}/><span>国家／地区隐私设置</span><ChevronRight className={privacyOpen?'sf-about-rotated':''} size={20}/>
         </button>
@@ -171,6 +182,7 @@ export function StarflowAccountAbout({handle}:{handle:string}){
           {country?.is_public&&!country?.country_code&&!countryPreview&&<p className="sf-about-region-warning">已允许公开，但尚无已保存的国家／地区。点击上方按钮识别并尝试保存。</p>}
         </div>}
       </section>}
+      {isOwner&&info.forcedRegion&&<p className="sf-about-policy-note">按照平台已公告的属地展示规则，公开显示粗略 IP 属地（国内省级／境外国家或地区）。不包含完整 IP 地址。如显示异常，可联系平台申请复核。</p>}
       {notice&&<p role="status" className="sf-about-notice">{notice}</p>}
     </div>}
   </main>;
