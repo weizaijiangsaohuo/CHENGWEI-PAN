@@ -103,6 +103,7 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
   for(const s of (result.data||[]) as Signal[]){
    if(signalSeen.current.has(s.id))continue;
    signalSeen.current.add(s.id);
+   try{
    if(s.kind==='offer' && callRef.current?.callee_id===userId && !pc.remoteDescription){
     const description=s.payload as unknown as RTCSessionDescriptionInit;
     if(description.type!=='offer'||typeof description.sdp!=='string')continue;
@@ -118,6 +119,12 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
     const candidate=s.payload as RTCIceCandidateInit;
     if(pc.remoteDescription){try{await pc.addIceCandidate(candidate)}catch{}}
     else iceQueue.current.push(candidate);
+   }
+   }catch(error){
+    // Failed SDP processing must be retried after reconnect; do not mark an
+    // unsuccessful offer/answer as permanently delivered.
+    signalSeen.current.delete(s.id);
+    throw error;
    }
   }
  },[userId]);
