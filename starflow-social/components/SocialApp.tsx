@@ -621,6 +621,13 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       
 <StarflowServicesPanel isAdmin={isAdmin}/>
       <StarflowDisplayPreferences/>
+      <div className="sf-diagnostics-entry">
+        <Link href="/diagnostics" aria-label="打开设备与网站服务自检中心">
+          <span>设备与服务自检</span>
+          <small>检查网络、通知、音视频与浏览器兼容能力</small>
+          <ChevronRight size={19} aria-hidden="true"/>
+        </Link>
+      </div>
       <div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={isEnglishLocale(lang)?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(isEnglishLocale(lang)?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
