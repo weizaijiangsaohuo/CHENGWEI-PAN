@@ -545,7 +545,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     </aside>
     <main className="feed-panel">
       <div className="sf-top-utility">
-        <StarflowHomeMenu/>
+        <StarflowHomeMenu isAdmin={isAdmin}/>
         <Brand/><div className="sf-home-toolbar"><LanguageSwitch/></div>
       </div>
       {renderContent()}
