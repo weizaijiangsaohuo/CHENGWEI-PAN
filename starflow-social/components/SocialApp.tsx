@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Share2, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
@@ -69,6 +69,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const searchPending=view==='explore'&&search.trim()!==settledSearch.trim();
   const [homeComposerOpen,setHomeComposerOpen]=useState(false);
   const pendingToggles=useRef<Set<string>>(new Set());
+  const pendingFollows=useRef<Set<string>>(new Set());
+  const [followBusyTarget,setFollowBusyTarget]=useState<string|null>(null);
   const loadEpoch=useRef(0);
   useEffect(()=>{
     if(view!=='home')return;
@@ -470,11 +472,26 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     finally{setSending(false);}
   }
   async function follow(id:string){
-    if(!user||id===user.id)return;
-    const exists=following.includes(id);const {error}=exists?
-      await db().from('follows').delete().eq('follower_id',user.id).eq('following_id',id):
-      await db().from('follows').insert({follower_id:user.id,following_id:id});
-    if(error)showMessage(error.message);else setFollowing(s=>exists?s.filter(i=>i!==id):[...s,id]);
+    if(!user||id===user.id||pendingFollows.current.has(id))return;
+    pendingFollows.current.add(id);
+    setFollowBusyTarget(id);
+    const exists=following.includes(id);
+    // Show prompt feedback immediately, then reconcile against the database.
+    setFollowing(current=>exists?current.filter(item=>item!==id):
+      [...new Set([...current,id])]);
+    try{
+      const {error}=exists?
+        await db().from('follows').delete().eq('follower_id',user.id).eq('following_id',id):
+        await db().from('follows').insert({follower_id:user.id,following_id:id});
+      if(error)throw error;
+      window.dispatchEvent(new CustomEvent('sf-profile-follow-changed',{detail:{profileId:id}}));
+    }catch(error){
+      setFollowing(current=>exists?[...new Set([...current,id])]:current.filter(item=>item!==id));
+      showMessage(error instanceof Error?error.message:'关注操作失败，请重试');
+    }finally{
+      pendingFollows.current.delete(id);
+      setFollowBusyTarget(previous=>previous===id?null:previous);
+    }
   }
   async function deletePost(post:Post){
     if(!user||post.author_id!==user.id||!confirm(t('deletedConfirm')))return;
@@ -588,7 +605,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={isEnglishLocale(lang)?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(isEnglishLocale(lang)?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
-      {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} onClick={()=>follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button><Link className="btn btn-outline" href={'/messages?to='+encodeURIComponent(profile.handle)}><MessageCircle size={16}/> 私信</Link></div>}</div>
+      {profile.id===user?.id?<button className="btn btn-outline" onClick={()=>router.push('/settings')}>{t('edit')}</button>:<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button type="button" className={`btn ${following.includes(profile.id)?'btn-outline':'btn-primary'}`} disabled={followBusyTarget===profile.id} aria-busy={followBusyTarget===profile.id} aria-pressed={following.includes(profile.id)} onClick={()=>void follow(profile.id)}>{following.includes(profile.id)?t('unfollow'):<><UserPlus size={16}/> {t('follow')}</>}</button><Link className="btn btn-outline" href={'/messages?to='+encodeURIComponent(profile.handle)}><MessageCircle size={16}/> 私信</Link></div>}</div>
       <div style={{display:'flex',alignItems:'center',gap:6}}><h2>{profile.display_name}</h2><VerificationBadge kind={verified[profile.id]} size={24}/></div><div className="muted">@{profile.handle}</div><p>{profile.bio||t('missingBio')}</p><p className="muted small">{new Date(profile.created_at).toLocaleDateString(LANGUAGE_OPTIONS.find(option=>option.code===lang)?.htmlLang??'zh-CN')} {t('joined')}</p>
       {profile.id===user?.id&&<div className="sf-own-profile-quicklinks" aria-label="我的主页快捷入口">
        <Link href="/bookmarks"><Bookmark size={19}/><strong>我的收藏</strong><small>查看保存的动态</small></Link>
