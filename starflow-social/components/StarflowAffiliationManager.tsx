@@ -44,14 +44,18 @@ export function StarflowAffiliationManager(){
  const [connections,setConnections]=useState<Rel[]>([]);
  const [profiles,setProfiles]=useState<Record<string,P>>({});
  const [loading,setLoading]=useState(true);
+ const [refreshing,setRefreshing]=useState(false);
  const [busy,setBusy]=useState('');
  const [error,setError]=useState('');
  const [hint,setHint]=useState('');
  const [handle,setHandle]=useState('');
  const [kind,setKind]=useState<'individual'|'organization'>('individual');
- const load=useCallback(async()=>{
-  if(!hasConfig()){setError('数据库配置不可用。');setLoading(false);return}
-  setLoading(true);setError('');
+ const load=useCallback(async(silent=false)=>{
+  if(!hasConfig()){setError('数据库配置不可用。');setLoading(false);setRefreshing(false);return}
+  // Keep the current organization view visible while reloading after an action.
+  if(silent)setRefreshing(true);
+  else setLoading(true);
+  setError('');
   try{
    const client=db();
    const {data:auth,error:authError}=await client.auth.getUser();
@@ -74,7 +78,7 @@ export function StarflowAffiliationManager(){
    setViewer(who.data as P);
    setCanManage(ver.data?.status==='approved'&&['gold','gray'].includes(ver.data.verification_type));
    setConnections(all);setProfiles(Object.fromEntries((participants??[]).map(x=>[x.id,x as P])));
-  }catch(e){setError(explain(e))}finally{setLoading(false)}
+  }catch(e){setError(explain(e))}finally{if(!silent)setLoading(false);setRefreshing(false)}
  },[]);
  useEffect(()=>{void load()},[load]);
  async function sendInvite(event:FormEvent){
@@ -88,21 +92,21 @@ export function StarflowAffiliationManager(){
    const {error:rpcError}=await db().rpc('sf_invite_organization_affiliate',{p_handle:target,p_type:kind});
    if(rpcError)throw rpcError;
    setHandle('');
-   await load();
+   await load(true);
    setHint('邀请已发送，对方接受后才会显示官方关联徽章。');
   }catch(e){setError(explain(e))}finally{setBusy('')}
  }
  async function respond(id:string,accept:boolean){
   if(busy)return;setBusy(id);setError('');setHint('');
   try{const {error}=await db().rpc('sf_respond_organization_affiliation',{p_affiliation:id,p_accept:accept});if(error)throw error;
-   setHint(accept?'已接受邀请，官方关联徽章现已生效。':'已拒绝邀请。');await load();
+   setHint(accept?'已接受邀请，官方关联徽章现已生效。':'已拒绝邀请。');await load(true);
   }catch(e){setError(explain(e))}finally{setBusy('')}
  }
  async function remove(id:string){
   if(busy||!window.confirm('确认解除此官方账号关联？解除后徽章将立即消失。'))return;
   setBusy(id);setError('');setHint('');
   try{const {error}=await db().rpc('sf_remove_organization_affiliation',{p_affiliation:id});if(error)throw error;
-   setHint('关联已解除。');await load();
+   setHint('关联已解除。');await load(true);
   }catch(e){setError(explain(e))}finally{setBusy('')}
  }
  const owner=viewer?connections.filter(r=>r.org_id===viewer.id&&['pending','active'].includes(r.status)):[];
@@ -127,8 +131,14 @@ export function StarflowAffiliationManager(){
  return <main className="sf-aff-page"><div className="sf-aff-wrap">
    <Link className="sf-aff-back" href="/settings">← 返回设置</Link>
    <div className="sf-aff-page-head"><div className="sf-aff-icon"><Building2 size={25}/></div><h1>官方附属账号</h1><p>把官方组织与旗下品牌、成员或团队账号关联起来。附属标志是官方账号的头像，不是额外注册的账号。</p></div>
-   {loading?<div className="sf-aff-card">正在读取账户关系…</div>:<>
-    {error&&<p className="sf-aff-error" role="alert">{error}</p>}{hint&&<p className="sf-aff-hint" role="status">{hint}</p>}
+   {loading?<div className="sf-aff-loading" role="status" aria-live="polite" aria-label="正在读取官方账户关联数据">
+     <p>正在读取账户关系…</p>
+     <div className="sf-aff-card sf-aff-skeleton-card" aria-hidden="true"><span/><i/><i/></div>
+     <div className="sf-aff-card sf-aff-skeleton-card" aria-hidden="true"><span/><i/></div>
+     <div className="sf-aff-card sf-aff-skeleton-card" aria-hidden="true"><span/><i/></div>
+    </div>:<>
+    {refreshing&&<p className="sf-aff-refresh" role="status">正在更新账户关系，当前内容可继续浏览…</p>}
+    {error&&<div className="sf-aff-error" role="alert">{error} <button type="button" className="sf-aff-outline" disabled={loading||refreshing||!!busy} onClick={()=>void load(true)}>重试读取</button></div>}{hint&&<p className="sf-aff-hint" role="status">{hint}</p>}
     {canManage?<section className="sf-aff-card"><div className="sf-aff-title"><UserPlus size={21}/><h2>邀请附属账号</h2></div><p>你的组织已具备金色或灰色有效认证资格。请邀请<b>另一个已注册的 Starflow 账号</b>，不能邀请自己；被邀请者接受后才会显示附属徽章。</p>
       <form className="sf-aff-invite" onSubmit={sendInvite}>
         <label>被邀请账号的用户名（@）<input autoComplete="off" maxLength={32} placeholder="例如 @starflow_support" value={handle}
