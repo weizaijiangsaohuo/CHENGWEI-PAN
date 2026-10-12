@@ -1,10 +1,13 @@
 import type {ZeroPlan} from './starflow-zero-engine';
+import {normalizeZeroTimeline,zeroShotAt,zeroSubtitleVisible} from './starflow-zero-timeline';
+import type {ZeroTimelineOptions} from './starflow-zero-timeline';
 
 /** This is on-device procedural rendering, NOT AI diffusion/generative video.
  * Sources remain on the user's phone; no paid API, network or uploaded media.
  */
 export type ZeroArtifact={blob:Blob;mime:string;extension:'png'|'mp4'|'webm'};
-type Asset={image?:File|null;video?:File|null;signal?:AbortSignal;
+type Asset={image?:File|null;images?:File[];video?:File|null;
+ timeline?:Partial<ZeroTimelineOptions>;signal?:AbortSignal;
  onProgress?:(value:number)=>void};
 function assertNotAborted(signal?:AbortSignal){
  if(signal?.aborted)throw new DOMException('已取消本地渲染','AbortError');
@@ -46,7 +49,8 @@ function titleLines(ctx:CanvasRenderingContext2D,text:string,maxWidth:number):st
  return lines.slice(0,4);
 }
 export function paintZeroFrame(ctx:CanvasRenderingContext2D,plan:ZeroPlan,
- frame:number,image?:HTMLImageElement,video?:HTMLVideoElement){
+ frame:number,image?:HTMLImageElement,video?:HTMLVideoElement,
+ timeline?:ZeroTimelineOptions,slides?:HTMLImageElement[]){
  const {width:w,height:h,palette,seed}=plan;
  const t=Math.max(0,Math.min(1,frame));
  const grad=ctx.createLinearGradient(0,0,w,h);
@@ -63,7 +67,7 @@ export function paintZeroFrame(ctx:CanvasRenderingContext2D,plan:ZeroPlan,
   glow.addColorStop(1,palette[0]+'00');
   ctx.fillStyle=glow;ctx.fillRect(x+movement-r,y-r,r*2,r*2);
  }
- if(image||video){
+ if(image||video||slides?.length){
   ctx.save();
   ctx.globalAlpha=.98;
   if(video){
@@ -72,6 +76,17 @@ export function paintZeroFrame(ctx:CanvasRenderingContext2D,plan:ZeroPlan,
     plan.style==='neon'?'saturate(1.5) contrast(1.15)':'contrast(1.06) saturate(1.06)';
    if(video.videoWidth&&video.videoHeight)
     cover(ctx,video,video.videoWidth,video.videoHeight,w,h,1.025);
+  }else if(slides?.length){
+   const shot=zeroShotAt(t,slides.length,timeline?.transition||'crossfade');
+   const first=slides[shot.from];
+   const next=slides[shot.to];
+   const scale=plan.motion==='zoom_out'?1.12-.09*t:1.025+.09*t;
+   const drift=plan.motion==='pan_left'?-w*.055*t:plan.motion==='pan_right'?w*.055*t:0;
+   cover(ctx,first,first.naturalWidth,first.naturalHeight,w,h,scale,drift,0);
+   if(shot.to!==shot.from&&shot.mix>0){
+    ctx.globalAlpha=shot.mix;
+    cover(ctx,next,next.naturalWidth,next.naturalHeight,w,h,scale,drift,0);
+   }
   }else if(image){
    const scale=plan.motion==='zoom_out'?1.16-.11*t:1.04+.12*t;
    const dx=plan.motion==='pan_left'?-w*.075*t:plan.motion==='pan_right'?w*.075*t:
@@ -88,6 +103,7 @@ export function paintZeroFrame(ctx:CanvasRenderingContext2D,plan:ZeroPlan,
   ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
  }
  // Procedural geometry is intentional, never presented as an AI-generated scene.
+ if(timeline?.showTitle===false&&!zeroSubtitleVisible(timeline,t))return;
  ctx.save();
  ctx.strokeStyle=palette[3]+'aa';ctx.lineWidth=Math.max(2,w/300);
  ctx.beginPath();ctx.arc(w*.5,h*.43,w*.23+(Math.sin(t*Math.PI*2)*w*.014),0,Math.PI*1.85);ctx.stroke();
@@ -95,14 +111,28 @@ export function paintZeroFrame(ctx:CanvasRenderingContext2D,plan:ZeroPlan,
  const fs=Math.round(Math.max(23,Math.min(52,w*.063)));
  ctx.font='700 '+fs+'px system-ui, sans-serif';
  ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=14;
- const lines=titleLines(ctx,plan.title,w*.82),start=h*.69-(lines.length-1)*fs*.45;
- lines.forEach((line,i)=>ctx.fillText(line,w/2,start+i*fs*1.25));
+ if(timeline?.showTitle!==false){
+  const lines=titleLines(ctx,plan.title,w*.82),start=h*.69-(lines.length-1)*fs*.45;
+  lines.forEach((line,i)=>ctx.fillText(line,w/2,start+i*fs*1.25));
+ }
+ if(timeline&&zeroSubtitleVisible(timeline,t)){
+  const fontSize=Math.round(Math.max(18,Math.min(38,w*.044)));
+  ctx.font='700 '+fontSize+'px system-ui, sans-serif';
+  const captionLines=titleLines(ctx,timeline.subtitle,w*.86);
+  const lineY=h*.82-(captionLines.length-1)*fontSize*.7;
+  for(let i=0;i<captionLines.length;i++){
+   ctx.lineWidth=Math.max(3,fontSize*.15);
+   ctx.strokeStyle='rgba(0,0,0,.83)';
+   ctx.strokeText(captionLines[i],w*.5,lineY+i*fontSize*1.24);
+   ctx.fillStyle='#fff';ctx.fillText(captionLines[i],w*.5,lineY+i*fontSize*1.24);
+  }
+ }
  ctx.shadowBlur=0;
  ctx.font='600 '+Math.round(Math.max(11,w*.018))+'px system-ui, sans-serif';
  ctx.fillStyle=palette[3];ctx.fillText(plan.subtitle,w/2,h*.93);
  ctx.restore();
 }
-async function localVideo(file:File,signal?:AbortSignal){
+async function localVideo(file:File,signal?:AbortSignal,trimStart=0){
  assertNotAborted(signal);
  const el=document.createElement('video');
  const url=URL.createObjectURL(file);
@@ -119,6 +149,25 @@ async function localVideo(file:File,signal?:AbortSignal){
   });
   if(!Number.isFinite(el.duration)||el.duration<=0||el.duration>60)
    throw Error('本地视频处理暂时支持 1～60 秒的视频素材');
+  // Non-destructive trimming: source bytes are untouched; only local playback
+  // is seeked before capture. Safari needs to finish seeking before play.
+  const bounded=Math.min(Math.max(0,trimStart),Math.max(0,el.duration-.1));
+  if(bounded>.05){
+   await new Promise<void>((resolve,reject)=>{
+    const timeout=window.setTimeout(()=>{cleanup();reject(Error('视频裁剪定位超时'))},10000);
+    const onAbort=()=>{cleanup();reject(new DOMException('已取消','AbortError'))};
+    function cleanup(){window.clearTimeout(timeout);signal?.removeEventListener('abort',onAbort);
+     el.removeEventListener('seeked',onSeek);el.removeEventListener('error',onError);}
+    function onSeek(){cleanup();resolve()}
+    function onError(){cleanup();reject(Error('视频无法跳转到裁剪时间'))}
+    el.addEventListener('seeked',onSeek,{once:true});
+    el.addEventListener('error',onError,{once:true});
+    signal?.addEventListener('abort',onAbort,{once:true});
+    el.currentTime=bounded;
+   });
+  }
+  // A source shorter than five seconds loops locally; never overrun to black.
+  el.loop=el.duration<5;
   await el.play();
   return {element:el,release:()=>{
    el.pause();el.removeAttribute('src');el.load();URL.revokeObjectURL(url);
@@ -141,13 +190,24 @@ export async function renderZeroArtifact(plan:ZeroPlan,assets:Asset={}):Promise<
   throw Error('请先选择用于运镜的视频参考图片');
  if(plan.mode==='video_grade'&&!assets.video)
   throw Error('请先上传需要本地调色的视频');
- let img:HTMLImageElement|undefined;let srcVideo:Awaited<ReturnType<typeof localVideo>>|undefined;
+ const timeline=normalizeZeroTimeline({...assets.timeline,
+  imageCount:assets.images?.length||1});
+ let img:HTMLImageElement|undefined;
+ let slides:HTMLImageElement[]|undefined;
+ let srcVideo:Awaited<ReturnType<typeof localVideo>>|undefined;
  try{
-  if(assets.image&&(plan.mode==='poster'||plan.mode==='image_motion'))
+  if(assets.image&&plan.mode==='poster')
    img=await loadImage(assets.image,assets.signal);
+  if(plan.mode==='image_motion'){
+   const source=assets.images?.length?assets.images.slice(0,3):
+    assets.image?[assets.image]:[];
+   slides=[];
+   for(const file of source)slides.push(await loadImage(file,assets.signal));
+   if(!slides.length)throw Error('至少选择一张运镜图片');
+  }
   if(plan.mode==='video_grade'&&assets.video)
-   srcVideo=await localVideo(assets.video,assets.signal);
-  paintZeroFrame(context,plan,0,img,srcVideo?.element);
+   srcVideo=await localVideo(assets.video,assets.signal,timeline.trimStart);
+  paintZeroFrame(context,plan,0,img,srcVideo?.element,timeline,slides);
   if(plan.mode==='poster'){
    assets.onProgress?.(100);
    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
@@ -178,7 +238,7 @@ export async function renderZeroArtifact(plan:ZeroPlan,assets:Asset={}):Promise<
     function step(now:number){
      if(assets.signal?.aborted){reject(new DOMException('已取消','AbortError'));return;}
      const progress=Math.min(1,(now-startedAt)/time);
-     paintZeroFrame(context,plan,progress,img,srcVideo?.element);
+     paintZeroFrame(context,plan,progress,img,srcVideo?.element,timeline,slides);
      assets.onProgress?.(Math.min(99,Math.floor(progress*100)));
      if(progress>=1)resolve();
      else requestAnimationFrame(step);
