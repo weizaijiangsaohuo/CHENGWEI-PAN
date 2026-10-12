@@ -45,6 +45,7 @@ export function StarflowPostDetail({postId}:{postId:string}){
  const [busy,setBusy]=useState(false);
  const [followBusy,setFollowBusy]=useState(false);
  const composer=useRef<HTMLTextAreaElement|null>(null);
+ const closeGallery=useRef<HTMLButtonElement|null>(null);
  const recorded=useRef<string|null>(null);
  const touchStart=useRef<number|null>(null);
  const noticeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -57,6 +58,32 @@ export function StarflowPostDetail({postId}:{postId:string}){
  const paginateImage=(direction:number)=>setImageIndex(index=>(index+direction+images.length)%images.length);
  const onTouchStart=(event:TouchEvent)=>{touchStart.current=event.changedTouches[0]?.clientX??null;};
  const onTouchEnd=(event:TouchEvent)=>{const from=touchStart.current;const to=event.changedTouches[0]?.clientX;touchStart.current=null;if(from!=null&&to!=null&&Math.abs(to-from)>45)paginateImage(from>to?1:-1);};
+ // Reader accessibility: Escape exits, arrows navigate, focus returns to the photo.
+ useEffect(()=>{
+  if(!lightbox)return;
+  const previouslyFocused=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  const overflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
+  closeGallery.current?.focus();
+  const onKey=(event:KeyboardEvent)=>{
+   if(event.key==='Escape'){event.preventDefault();setLightbox(false);}
+   if(event.key==='ArrowLeft'&&images.length>1){event.preventDefault();setImageIndex(i=>(i-1+images.length)%images.length);}
+   if(event.key==='ArrowRight'&&images.length>1){event.preventDefault();setImageIndex(i=>(i+1)%images.length);}
+   if(event.key==='Tab'){
+    const nodes=Array.from(document.querySelectorAll<HTMLElement>('.sf-detail-lightbox button:not([disabled])'));
+    const first=nodes[0],last=nodes[nodes.length-1];
+    if(!first||!last)return;
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+   }
+  };
+  window.addEventListener('keydown',onKey);
+  return()=>{
+   document.body.style.overflow=overflow;
+   window.removeEventListener('keydown',onKey);
+   previouslyFocused?.focus({preventScroll:true});
+  };
+ },[lightbox,images.length]);
 
  useEffect(()=>{
    if(!hasConfig()){setAuthPending(false);setError('站点暂时无法连接到数据服务。');setLoading(false);return;}
@@ -303,11 +330,11 @@ export function StarflowPostDetail({postId}:{postId:string}){
     <button type="button" onClick={()=>void share()} aria-label="分享动态"><Share2 size={21}/></button>
    </form>}
   {feedback&&<div className="sf-detail-toast" role="status">{feedback}</div>}
-  {lightbox&&images.length>0&&<div className="sf-detail-lightbox" role="dialog" aria-modal="true" aria-label="大图浏览" onClick={()=>setLightbox(false)}>
-   <button type="button" className="sf-detail-lightbox-exit" onClick={()=>setLightbox(false)} aria-label="关闭大图"><X/></button>
+  {lightbox&&images.length>0&&<div className="sf-detail-lightbox" role="dialog" aria-modal="true" aria-label={'大图浏览，第'+(imageIndex+1)+'张，共'+images.length+'张'} onClick={()=>setLightbox(false)} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+   <button type="button" ref={closeGallery} className="sf-detail-lightbox-exit" onClick={()=>setLightbox(false)} aria-label="关闭大图"><X/></button>
    <img src={images[imageIndex]} alt={'大图 '+(imageIndex+1)} onClick={event=>event.stopPropagation()}/>
    {images.length>1&&<div className="sf-detail-lightbox-nav" onClick={event=>event.stopPropagation()}>
-    <button type="button" onClick={()=>paginateImage(-1)} aria-label="上一张"><ChevronLeft/></button><span>{imageIndex+1}/{images.length}</span><button type="button" onClick={()=>paginateImage(1)} aria-label="下一张"><ChevronRight/></button>
+    <button type="button" onClick={()=>paginateImage(-1)} aria-label="上一张"><ChevronLeft/></button><span aria-live="polite">{imageIndex+1}/{images.length}</span><button type="button" onClick={()=>paginateImage(1)} aria-label="下一张"><ChevronRight/></button>
    </div>}
   </div>}
  </main>;
