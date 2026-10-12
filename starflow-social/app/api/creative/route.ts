@@ -140,6 +140,11 @@ export async function GET(request:Request){
   if(error)return response({error:'任务暂时无法读取'},503);
   if(!data)return response({error:'找不到该创作任务'},404);
   const job=data as Job;
+  if(STARFLOW_PAID_INFERENCE_LOCKED)
+   return response({job:{id:job.id,mode:job.mode,status:job.status,
+    result_url:job.status==='completed'?job.result_url:null,
+    error_message:job.error_message},
+    warning:'星流零预算模式已停止所有第三方付费模型同步。'});
   // Release abandoned provider tasks instead of blocking the user's daily
   // single-flight slot indefinitely. Keep the already-incurred quota visible.
   if(['queued','running'].includes(job.status)&&
