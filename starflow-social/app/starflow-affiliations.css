@@ -45,3 +45,38 @@
 /* Invite validation: clear actionable feedback before making a server request. */
 .sf-aff-invite input[aria-invalid="true"]{border-color:#d65f82;box-shadow:0 0 0 2px #fde8f0}
 .sf-aff-invite-field-error{display:block;font-weight:600;font-size:12px;line-height:1.5;color:#b3355c;max-width:100%;overflow-wrap:anywhere}
+
+
+/* Starflow 2: content-first, local skeletons instead of blank purple waiting screens. */
+.sf-aff-page{background:var(--sf2-canvas,#fff)!important;color:var(--sf2-ink,#1d1b24)!important}
+.sf-aff-card{background:var(--sf2-surface,#fff)!important;border:1px solid var(--sf2-line,#eae8f0)!important;
+ box-shadow:none!important;border-radius:16px!important}
+.sf-aff-page-head p,.sf-aff-card p,.sf-aff-note{color:var(--sf2-muted,#696674)!important}
+.sf-aff-page-head h1,.sf-aff-title h2,.sf-aff-unverified strong,
+.sf-aff-person-info a{color:var(--sf2-ink,#1d1b24)!important}
+.sf-aff-back{color:var(--sf2-brand,#7549bd)!important}
+.sf-aff-refresh{display:flex;align-items:center;gap:8px;margin:0 0 13px;padding:10px 14px;
+ border:1px solid var(--sf2-line,#eae8f0);border-radius:12px;
+ background:var(--sf2-soft,#f7f7fa);color:var(--sf2-muted,#696674);
+ font-size:13px;line-height:1.5}
+.sf-aff-refresh::before{content:"";width:7px;height:7px;flex:none;border-radius:50%;
+ background:var(--sf2-brand,#7549bd)}
+.sf-aff-loading>p{font-size:13px;color:var(--sf2-muted,#696674);margin:12px 0 16px}
+.sf-aff-skeleton-card{display:flex;flex-direction:column;gap:15px;min-height:110px;
+ padding:21px!important;justify-content:center;overflow:hidden}
+.sf-aff-skeleton-card span,.sf-aff-skeleton-card i{display:block;height:13px;border-radius:7px;
+ background:var(--sf2-soft,#f7f7fa);max-width:100%}
+.sf-aff-skeleton-card span{width:48%;height:18px}
+.sf-aff-skeleton-card i{width:90%}.sf-aff-skeleton-card i:last-child{width:67%}
+@media(prefers-reduced-motion:no-preference){
+ .sf-aff-skeleton-card :is(span,i){animation:sf2-route-pulse 1.25s ease-in-out infinite alternate}
+}
+.sf-aff-error{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.sf-aff-error button{flex:none;min-height:44px}
+html[data-sf2-theme="dark"] .sf-aff-invite :is(input,select){
+ background:var(--sf2-soft);border-color:var(--sf2-line);color:var(--sf2-ink)}
+html[data-sf2-theme="dark"] .sf-aff-hint{background:var(--sf2-soft);color:var(--sf2-brand);
+ border-color:var(--sf2-line)}
+html[data-sf2-theme="dark"] .sf-aff-settings-link{background:var(--sf2-surface);
+ border-color:var(--sf2-line);color:var(--sf2-brand)}
+html[data-sf2-theme="dark"] .sf-aff-settings-link :is(strong,small){color:var(--sf2-ink)}
