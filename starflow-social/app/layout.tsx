@@ -44,6 +44,7 @@ export const viewport: Viewport = {
 // Runs before React hydration to prevent a bright flash when returning to dark mode.
 // No personal data, network calls or secrets are included in this inline bootstrap.
 const bootstrapAppearance = `(function(){try{
+ document.documentElement.classList.toggle('sf-user-lite-glass',localStorage.getItem('sf-user-lite-glass')==='true');
  var stored=localStorage.getItem('sf2-theme');
  var dark=stored==='dark'||(stored!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
  document.documentElement.setAttribute('data-sf2-theme',dark?'dark':'light');
