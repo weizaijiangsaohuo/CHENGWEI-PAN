@@ -1,9 +1,9 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useLayoutEffect,useState} from 'react';
 import type {CSSProperties,FormEvent} from 'react';
 import Link from 'next/link';
 import {ArrowRight,BookOpen,Globe2,LockKeyhole,MessageCircle,ShieldCheck,Sparkles,Users,ChevronRight,X,Send} from 'lucide-react';
-import {SocialApp} from '@/components/SocialApp';
+import {SocialApp,readVerifiedRouteUser} from '@/components/SocialApp';
 import {LanguageSwitch,useLanguage} from '@/components/LanguageProvider';
 import {isEnglishLocale} from '@/lib/i18n';
 import {siteText} from '@/lib/site-language';
@@ -108,6 +108,12 @@ export default function Home(){
   const [showInitialLogo,setShowInitialLogo]=useState(false);
   const {lang}=useLanguage();
   const en=isEnglishLocale(lang);
+  // This is the same short-lived, server-verified in-memory identity used by
+  // SocialApp. Reuse it before paint when returning to / from another app route.
+  // The independent getUser() request below still validates the active session.
+  useLayoutEffect(()=>{
+    if(readVerifiedRouteUser())setScreen('member');
+  },[]);
   useEffect(()=>{
     // One true branded startup per browser tab. Returning from inner routes
     // must never replay the intro or interrupt the active navigation.
