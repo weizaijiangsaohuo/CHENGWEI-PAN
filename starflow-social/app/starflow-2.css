@@ -185,3 +185,35 @@ html.sf-user-motion-off *,html.sf-user-motion-off *::before,html.sf-user-motion-
 
 .app-frame .sf-mobile-five-nav[data-has-active="false"]::before{opacity:0}
 .app-frame .sf-mobile-five-nav .sf-mobile-publish-button{position:relative;z-index:1}
+
+
+/* Accessible control primitives and intentional glass layers. */
+.sf2-glass-navigation{border-radius:16px}
+.sf2-glass-overlay{border-radius:20px;-webkit-backdrop-filter:blur(22px) saturate(145%);backdrop-filter:blur(22px) saturate(145%)}
+.sf2-glass-panel{border-radius:16px}
+.sf2-glass-segmented{display:flex;gap:3px;align-items:center;max-width:100%;min-height:42px;padding:4px;border:1px solid var(--sf2-line);border-radius:14px;background:var(--sf2-soft);white-space:nowrap}
+.sf2-glass-segmented button{flex:1;min-width:0;min-height:34px;background:transparent;border:0;border-radius:10px;color:var(--sf2-muted);padding:7px 10px;font-size:13px;line-height:1.2;font-weight:650;transition:transform var(--sf2-fast),background var(--sf2-normal),color var(--sf2-fast);touch-action:manipulation}
+.sf2-glass-segmented button.is-selected{color:var(--sf2-ink);background:var(--sf2-surface);box-shadow:0 2px 8px rgba(35,25,53,.08)}
+.sf2-glass-segmented button:active:not(:disabled){transform:scale(.965)}
+.sf2-theme-preference .sf2-glass-segmented{width:min(330px,100%);margin-left:auto}
+.sf2-theme-preference{flex-wrap:wrap}
+.sf2-feed-skeleton{display:flex;flex-direction:column;padding:0}
+.sf2-feed-skeleton-post{display:flex;gap:12px;min-height:152px;padding:18px 16px;border-bottom:1px solid var(--sf2-line)}
+.sf2-feed-skeleton-post>i{width:42px;height:42px;border-radius:50%;flex:none;background:var(--sf2-soft)}
+.sf2-feed-skeleton-post>span{flex:1;display:flex;flex-direction:column;gap:14px}
+.sf2-feed-skeleton-post b{width:75%;height:12px;border-radius:6px;background:var(--sf2-soft)}
+.sf2-feed-skeleton-post b:nth-child(2){width:92%}
+.sf2-feed-skeleton-post b:nth-child(3){width:48%}
+@media(prefers-reduced-motion:no-preference){
+ .sf2-feed-skeleton-post>i,.sf2-feed-skeleton-post b{animation:sf2-skeleton-pulse 1.5s ease-in-out infinite alternate}
+ @keyframes sf2-skeleton-pulse{from{opacity:.42}to{opacity:1}}
+}
+@media(max-width:699px){.sf2-theme-preference .sf2-glass-segmented{width:100%;margin:10px 0 0}}
+/* Authoritative color tokens in the feed override old component-scoped color vars. */
+.app-frame{--ink:var(--sf2-ink)!important;--sub:var(--sf2-muted)!important;--line:var(--sf2-line)!important;--mint:var(--sf2-brand)!important;--mintdark:var(--sf2-brand-pressed)!important;--mintlight:var(--sf2-soft)!important;--card:var(--sf2-surface)!important;--soft:var(--sf2-soft)!important}
+/* Moderate tactile expansion only when directly pressed; no expensive continuous filters. */
+@media(max-width:699px) and (prefers-reduced-motion:no-preference){
+ .app-frame .sf-mobile-five-nav:has(.sf-mobile-tab:active)::before{
+  scale:1.085 .96;
+ }
+}
