@@ -30,7 +30,7 @@ const postFields='id,author_id,content,image_url,video_url,has_poll,has_gallery,
 // A verified user can be reused briefly during same-tab route transitions.
 // No user/token is stored in localStorage or serialized into page HTML.
 // Every new page still calls getUser() to revalidate; Supabase RLS remains authoritative.
-const VERIFIED_ROUTE_USER_TTL = 15_000;
+const VERIFIED_ROUTE_USER_TTL = 90_000;
 let verifiedRouteUser: {user: User; checkedAt: number}|null = null;
 function readVerifiedRouteUser(): User|null {
   const entry = verifiedRouteUser;
