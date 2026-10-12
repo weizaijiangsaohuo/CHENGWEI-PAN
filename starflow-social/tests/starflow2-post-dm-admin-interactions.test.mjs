@@ -19,8 +19,8 @@ test('immersive post image viewer handles keyboard, scroll lock and restores foc
  assert.match(posts,/onTouchEnd=\{onTouchEnd\}/);
 });
 test('private DM preserves reading position and does not jump the entire viewport',()=>{
- assert.match(messages,/scrollRef=useRef<HTMLDivElement>/);
- assert.match(messages,/stickToBottom=useRef\(true\)/);
+ assert.match(messages,/scrollRef\s*=\s*useRef<HTMLDivElement>/);
+ assert.match(messages,/stickToBottom\s*=\s*useRef\(true\)/);
  assert.match(messages,/node\.scrollTop = node\.scrollHeight/);
  assert.match(messages,/newMessageCount > 0/);
  assert.match(messages,/onScroll=\{updateScrollPosition\}/);
