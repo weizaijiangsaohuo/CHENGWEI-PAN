@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { db, hasConfig } from '@/lib/supabase';
 import { Brand } from '@/components/Brand';
-import {useLanguage,LanguageSwitch} from '@/components/LanguageProvider';
+import {useLanguage} from '@/components/LanguageProvider';
 export default function ResetPassword(){
   const {lang}=useLanguage();const en=lang==='en';
   const [password,setPassword]=useState('');const [confirm,setConfirm]=useState('');
@@ -55,7 +55,7 @@ export default function ResetPassword(){
     if(error)setMessage(error.message);
     else{setMessage((en?'Password updated. You can return to the home page.':'密码修改成功，可以返回首页继续使用。'));setReady(false);setFinished(true);setPassword('');setConfirm('');}
   }
-  return <main className="center-screen"><div className="mini-card"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}><Brand/><LanguageSwitch/></div><h1>{en?'Reset password':'重设密码'}</h1><p className="muted">{en?'Set a new, secure password for your account.':'为账户设置新的安全密码。'}</p>
+  return <main className="center-screen"><div className="mini-card"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}><Brand/></div><h1>{en?'Reset password':'重设密码'}</h1><p className="muted">{en?'Set a new, secure password for your account.':'为账户设置新的安全密码。'}</p>
     {ready&&!finished?<form className="stack" onSubmit={submit}>
       <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'New password (6+ characters)':'新密码（至少 6 位）'} minLength={6} value={password} onChange={e=>setPassword(e.target.value)} required/>
       <input className="text-input" type="password" autoComplete="new-password" placeholder={en?'Confirm password':'再次输入新密码'} minLength={6} value={confirm} onChange={e=>setConfirm(e.target.value)} required/>
