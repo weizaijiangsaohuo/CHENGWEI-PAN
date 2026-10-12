@@ -186,7 +186,7 @@ export async function renderZeroArtifact(plan:ZeroPlan,assets:Asset={}):Promise<
  const ctx=canvas.getContext('2d',{alpha:false});
  if(!ctx)throw Error('设备无法创建 Canvas 绘图引擎');
  const context:CanvasRenderingContext2D=ctx;
- if(plan.mode==='image_motion'&&!assets.image)
+ if(plan.mode==='image_motion'&&!assets.image&&!assets.images?.length)
   throw Error('请先选择用于运镜的视频参考图片');
  if(plan.mode==='video_grade'&&!assets.video)
   throw Error('请先上传需要本地调色的视频');
