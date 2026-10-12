@@ -28,6 +28,8 @@ export function StarflowServicesPanel({isAdmin}:{isAdmin:boolean}){
   </section>)}
   {isAdmin&&<section className="sf-service-group sf-purple">
    <header><strong>平台管理</strong><small>仅供授权管理员使用</small></header>
+   <Link href="/admin/console"><span className="sf-service-icon"><ShieldCheck size={20}/></span>
+    <span className="sf-service-copy"><strong>超级管理控制台</strong><small>用户、帖子、举报、公告与人员权限管理</small></span><ChevronRight size={17}/></Link>
    <Link href="/admin/verifications"><span className="sf-service-icon"><ShieldCheck size={20}/></span>
     <span className="sf-service-copy"><strong>认证审核</strong><small>管理提交的认证申请</small></span><ChevronRight size={17}/></Link>
   </section>}
