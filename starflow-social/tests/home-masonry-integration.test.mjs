@@ -59,7 +59,8 @@ test('initial loading uses genuine Starflow brand asset with no artificial waiti
  const home=readFileSync(new URL('../app/page.tsx',import.meta.url),'utf8');
  assert.match(home,/sf-boot-screen/);
  assert.match(home,/starflow-official-mark\.webp/);
- assert.match(social,/if\(checking\)return <main className="sf-section-loading"/);
+ assert.match(social,/if\(checking\)return <main className="sf2-route-loading sf2-auth-route-loading"/);
+ assert.doesNotMatch(social,/正在切换页面/);
  const brand=readFileSync(new URL('../components/Brand.tsx',import.meta.url),'utf8');
  assert.match(brand,/starflow-official-mark\.webp/);
 });

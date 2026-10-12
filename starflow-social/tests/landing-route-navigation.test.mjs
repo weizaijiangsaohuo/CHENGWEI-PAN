@@ -6,7 +6,8 @@ const social=read('components/SocialApp.tsx');
 const home=read('app/page.tsx');
 const style=read('app/landing.module.css');
 test('route navigation never remounts an entire splash logo',()=>{
- assert.match(social,/if\(checking\)return <main className="sf-section-loading"/);
+ assert.match(social,/if\(checking\)return <main className="sf2-route-loading sf2-auth-route-loading"/);
+ assert.doesNotMatch(social,/正在切换页面/);
  assert.doesNotMatch(social,/if\(checking\)return <main className="center-screen sf-boot-screen"/);
 });
 test('initial public home shows brand only once per browser tab',()=>{
