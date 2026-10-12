@@ -12,6 +12,7 @@ import './starflow-affiliations.css';
 import './starflow-official-notifications.css';
 import './starflow-account-about.css';
 import './starflow-mentions.css';
+import './starflow-2.css';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { StarflowDiscovery } from '@/components/StarflowDiscovery';
 import { StarflowProfileEnhancements } from '@/components/StarflowProfileEnhancements';

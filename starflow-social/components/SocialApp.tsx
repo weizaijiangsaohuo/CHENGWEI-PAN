@@ -510,9 +510,9 @@ export function SocialApp({view,target}:{view:View;target?:string}){
         <Link href="/explore"><Sparkles size={15}/> AI 搜索</Link>
       </div>
       <div className="sf-home-channels">
-        <div className="home-tabs">
-          <button type="button" className={tab==='all'?'active':''} onClick={()=>setTab('all')}>发现</button>
-          <button type="button" className={tab==='following'?'active':''} onClick={()=>setTab('following')}>关注</button>
+        <div className="home-tabs" role="group" aria-label="首页内容筛选">
+          <button type="button" aria-pressed={tab==='all'} className={tab==='all'?'active':''} onClick={()=>setTab('all')}>推荐</button>
+          <button type="button" aria-pressed={tab==='following'} className={tab==='following'?'active':''} onClick={()=>setTab('following')}>关注</button>
         </div>
 
       </div>
@@ -551,12 +551,20 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       {renderContent()}
       {!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&(
         view==='home'?
-         <div className="posts-list sf-masonry-feed-wrapper">
-          <StarflowMasonryFeed posts={ordered} metrics={metrics} verified={verified} loading={loading}
-            lang={lang} onLike={post=>void toggle('likes',post)}
-            onBookmark={post=>void toggle('bookmarks',post)}
-            onOpenPost={post=>router.push('/post/'+encodeURIComponent(post.id))}/>
-         </div>:
+         (tab==='all'?
+           <div className="posts-list sf-masonry-feed-wrapper" aria-label="推荐发现信息流">
+            <StarflowMasonryFeed posts={ordered} metrics={metrics} verified={verified} loading={loading}
+              lang={lang} onLike={post=>void toggle('likes',post)}
+              onBookmark={post=>void toggle('bookmarks',post)}
+              onOpenPost={post=>router.push('/post/'+encodeURIComponent(post.id))}/>
+           </div>:
+           <div className="posts-list sf2-following-list" aria-label="关注的用户时间线" aria-busy={loading}>
+            {loading&&ordered.length===0?<div className="sf2-feed-skeleton" aria-label="正在加载关注动态">
+              {Array.from({length:3},(_,i)=><div className="sf2-feed-skeleton-post" key={i}><i/><span><b/><b/><b/></span></div>)}
+            </div>:null}
+            {!loading&&ordered.length===0&&<Empty text="关注的人还没有新动态" detail="关注感兴趣的账号，查看他们最近发布的内容。"/>}
+            {ordered.map(card)}
+           </div>):
          <div className="posts-list">
           {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
           {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')} detail={t('emptyHint')}/>}

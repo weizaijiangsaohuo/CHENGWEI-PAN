@@ -1,0 +1,242 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "name": "Starflow 2.0 — Nebula Glass",
+  "description": "Semantic design tokens for content-first, accessible Starflow UI. Native Apple Liquid Glass visual effects are not available on the open web.",
+  "color": {
+    "brand": {
+      "primary": {
+        "$type": "color",
+        "$value": "#7549BD"
+      },
+      "active": {
+        "$type": "color",
+        "$value": "#603AA3"
+      },
+      "subtle": {
+        "$type": "color",
+        "$value": "#F3EEFB"
+      },
+      "highlight": {
+        "$type": "color",
+        "$value": "#AA83E1"
+      }
+    },
+    "light": {
+      "background": {
+        "$type": "color",
+        "$value": "#FFFFFF"
+      },
+      "surface": {
+        "$type": "color",
+        "$value": "#FFFFFF"
+      },
+      "subtle": {
+        "$type": "color",
+        "$value": "#F7F7FA"
+      },
+      "text": {
+        "$type": "color",
+        "$value": "#1D1B24"
+      },
+      "muted": {
+        "$type": "color",
+        "$value": "#696674"
+      },
+      "border": {
+        "$type": "color",
+        "$value": "#EAE8F0"
+      },
+      "glass": {
+        "$type": "color",
+        "$value": "#FFFFFFDB"
+      }
+    },
+    "dark": {
+      "background": {
+        "$type": "color",
+        "$value": "#0E0D13"
+      },
+      "surface": {
+        "$type": "color",
+        "$value": "#17151D"
+      },
+      "subtle": {
+        "$type": "color",
+        "$value": "#211F29"
+      },
+      "text": {
+        "$type": "color",
+        "$value": "#F4F2F8"
+      },
+      "muted": {
+        "$type": "color",
+        "$value": "#ABA7B6"
+      },
+      "border": {
+        "$type": "color",
+        "$value": "#36323E"
+      },
+      "glass": {
+        "$type": "color",
+        "$value": "#221D2BE8"
+      }
+    },
+    "semantic": {
+      "error": {
+        "$type": "color",
+        "$value": "#C84058"
+      },
+      "success": {
+        "$type": "color",
+        "$value": "#218265"
+      },
+      "warning": {
+        "$type": "color",
+        "$value": "#A16D13"
+      }
+    }
+  },
+  "spacing": {
+    "4": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "8": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "12": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "16": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "20": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "24": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "32": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "40": {
+      "$type": "dimension",
+      "$value": "40px"
+    },
+    "48": {
+      "$type": "dimension",
+      "$value": "48px"
+    }
+  },
+  "radius": {
+    "xs": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "sm": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "glass": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "pill": {
+      "$type": "dimension",
+      "$value": "999px"
+    }
+  },
+  "typography": {
+    "body": {
+      "$type": "fontFamily",
+      "$value": [
+        "Inter",
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "PingFang SC",
+        "Noto Sans SC",
+        "sans-serif"
+      ]
+    },
+    "size": {
+      "caption": {
+        "$type": "dimension",
+        "$value": "12px"
+      },
+      "secondary": {
+        "$type": "dimension",
+        "$value": "13px"
+      },
+      "body": {
+        "$type": "dimension",
+        "$value": "15px"
+      },
+      "subtitle": {
+        "$type": "dimension",
+        "$value": "18px"
+      },
+      "title": {
+        "$type": "dimension",
+        "$value": "22px"
+      },
+      "display": {
+        "$type": "dimension",
+        "$value": "28px"
+      }
+    }
+  },
+  "motion": {
+    "fast": {
+      "$type": "duration",
+      "$value": "140ms"
+    },
+    "normal": {
+      "$type": "duration",
+      "$value": "220ms"
+    },
+    "navigation": {
+      "$type": "duration",
+      "$value": "320ms"
+    },
+    "curve": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.2,
+        0.8,
+        0.2,
+        1
+      ]
+    }
+  },
+  "glass": {
+    "navigation": {
+      "blurPx": 18,
+      "saturationPercent": 132,
+      "alpha": 0.84
+    },
+    "overlay": {
+      "blurPx": 22,
+      "saturationPercent": 145,
+      "alpha": 0.92
+    },
+    "highlight": {
+      "opacity": 0.7,
+      "strokeWidthPx": 1
+    },
+    "maxLargeBlurLayers": 2
+  }
+}
