@@ -44,3 +44,13 @@
 - **4K/120FPS** 是长期输出处理目标，不是本实验具备的能力，也不应误称原生生成。
 - 不上传未授权的人脸/参考视频；不提交令牌、密钥、私人素材到公开 GitHub 仓库。
 - 本研究分支不修改现有生产网站。没有经过代码审查、测试和用户确认，不应合并或部署。
+
+## 进度：AI Lab 001 — 已加入可训练的原创小模型（2026-10-12）
+
+- 笔记本：[`Starflow_AI_Lab_001.ipynb`](./Starflow_AI_Lab_001.ipynb)
+- [在 Google Colab 打开训练笔记本](https://colab.research.google.com/github/weizaijiangsaohuo/CHENGWEI-PAN/blob/research/starflow-ai-lab-zero-budget-20261012/starflow-social/research/starflow-ai/Starflow_AI_Lab_001.ipynb)
+- iPhone 操作：Safari 打开上方链接 → 登录 Google → 选择免费 CPU 运行环境（**不要购买 GPU/计算单元**）→ 从上到下点击代码块左侧运行按钮 → 看到三帧对照图和训练指标后，在文件面板下载 `starflow_tiny_motion_v0.pt`。笔记本最后一格也提供下载操作。
+- 某些手机浏览器/网络可能无法直接使用 Colab，可选择 Safari 的“请求桌面网站”，或在 Colab 的「从 GitHub 打开」界面搜索本文件。免费 Colab 的资源不保证始终可用。
+- 本实验不需要任何私人影像数据；训练样本为随机合成的 24×24 光点运动。模型具有 **9,713 个参数**，在隔离的合成测试集上与“复制最近帧”的 MSE 基线比较。通过误差下降说明**玩具预测任务**可学习，并不等于真正的视频生成质量。
+- 我们已在 CPU 环境进行过模型训练逻辑冒烟测试；**尚未在用户 iPhone / Google Colab 实际运行验证**，不保证当前网络或账号能正常打开。
+- 属于研究分支，请勿在未审查前合并或对外宣传为可商用的视频生成模型。
