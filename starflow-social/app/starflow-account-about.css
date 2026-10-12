@@ -76,3 +76,8 @@
  .sf-about-country-value{gap:6px}
  .sf-about-line .sf-about-preview-tag{font-size:10px!important;padding:3px 7px}
 }
+
+/* Clear, small print for an announced coarse IP-region policy; no raw IP exposed. */
+.sf-about-policy-note{font-size:12px;line-height:1.75;color:#696174;border:1px solid #ece2f3;
+ background:#faf7fd;padding:13px 15px;border-radius:13px;margin-top:19px}
+.sf-about-country-value .sf-about-preview-tag{flex:none}
