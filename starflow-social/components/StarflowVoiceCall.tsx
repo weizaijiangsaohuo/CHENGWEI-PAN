@@ -11,12 +11,17 @@ async function readIceServers():Promise<RTCIceServer[]>{
  try{
   const {data:{session}}=await db().auth.getSession();
   if(!session?.access_token)return DEFAULT_ICE;
-  const response=await fetch('/api/rtc/ice',{
-   headers:{Authorization:'Bearer '+session.access_token},
-   cache:'no-store'
-  });
-  if(!response.ok)return DEFAULT_ICE;
-  const info=await response.json() as {iceServers?:RTCIceServer[]};
+  const controller=new AbortController();
+  const timeout=window.setTimeout(()=>controller.abort(),8000);
+  let info:{iceServers?:RTCIceServer[]};
+  try{
+   const response=await fetch('/api/rtc/ice',{
+    headers:{Authorization:'Bearer '+session.access_token},
+    cache:'no-store',signal:controller.signal
+   });
+   if(!response.ok)return DEFAULT_ICE;
+   info=await response.json() as {iceServers?:RTCIceServer[]};
+  }finally{window.clearTimeout(timeout);}
   if(!Array.isArray(info.iceServers))return DEFAULT_ICE;
   // TURN URLs and temporary credentials originate only from the authenticated server.
   return [...DEFAULT_ICE,...info.iceServers];
@@ -40,6 +45,7 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
  const setupRef=useRef(false);
  const closedRef=useRef(false);
  const lockRef=useRef(false);
+ const pollNow=useRef<(()=>void)|null>(null);
 
  const cleanup=useCallback(()=>{
   pcRef.current?.close();pcRef.current=null;
@@ -49,7 +55,15 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
   closedRef.current=false;callRef.current=null;
   setCall(null);setConnecting(false);setRemoteReady(false);setStatus('');setMuted(false);
  },[]);
- useEffect(()=>()=>{pcRef.current?.close();streamRef.current?.getTracks().forEach(t=>t.stop());},[]);
+ useEffect(()=>()=>{// Leaving the call screen releases the mic immediately.
+  const activeCall=callRef.current;
+  pcRef.current?.close();
+  streamRef.current?.getTracks().forEach(t=>t.stop());
+  // Best effort only on navigation: browsers may cancel in-flight requests.
+  if(activeCall)void Promise.resolve(db().rpc('sf_dm_call_action',{
+   p_call:activeCall.id,p_action:'end'
+  })).catch(()=>{});
+ },[]);
  async function push(callId:string,kind:'offer'|'answer'|'ice',payload:Record<string,unknown>){
   const {error}=await db().from('sf_dm_call_signals').insert({call_id:callId,sender_id:userId,kind,payload});
   if(error)throw error;
@@ -89,6 +103,7 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
   for(const s of (result.data||[]) as Signal[]){
    if(signalSeen.current.has(s.id))continue;
    signalSeen.current.add(s.id);
+   try{
    if(s.kind==='offer' && callRef.current?.callee_id===userId && !pc.remoteDescription){
     const description=s.payload as unknown as RTCSessionDescriptionInit;
     if(description.type!=='offer'||typeof description.sdp!=='string')continue;
@@ -105,8 +120,22 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
     if(pc.remoteDescription){try{await pc.addIceCandidate(candidate)}catch{}}
     else iceQueue.current.push(candidate);
    }
+   }catch(error){
+    // Failed SDP processing must be retried after reconnect; do not mark an
+    // unsuccessful offer/answer as permanently delivered.
+    signalSeen.current.delete(s.id);
+    throw error;
+   }
   }
  },[userId]);
+ const syncSignals=useCallback(async()=>{
+  const current=callRef.current;
+  if(!current||!setupRef.current||startedRef.current)return;
+  startedRef.current=true;
+  try{await consume(current.id);}
+  catch{setStatus('通话信令暂时同步失败，正在重试…');}
+  finally{startedRef.current=false;}
+ },[consume]);
  const getMic=async()=>{
   if(!navigator.mediaDevices?.getUserMedia||typeof RTCPeerConnection==='undefined')
    throw Error('浏览器不支持实时语音通话，请使用 HTTPS 下的最新版 Safari 或 Chrome。');
@@ -143,7 +172,13 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
    const active={...item,status:'active' as const};callRef.current=active;setCall(active);
    await buildPeer(active,stream);setupRef.current=true;setStatus('正在连接…');
    await consume(item.id);
-  }catch(e){onError(errText(e));streamRef.current?.getTracks().forEach(t=>t.stop());streamRef.current=null;}
+  }catch(e){
+   onError(errText(e));
+   // If the accept RPC succeeded but media setup failed, release the
+   // server-side call as well; leaving it "active" prevents future calls.
+   void db().rpc('sf_dm_call_action',{p_call:item.id,p_action:'end'});
+   cleanup();
+  }
   finally{lockRef.current=false;setConnecting(false)}
  }
  async function finish(decline=false){
@@ -154,38 +189,102 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
   catch(e){onError(errText(e))}
   finally{cleanup()}
  }
+
+ // Realtime is the fast path. A lower-frequency, single-flight poll remains
+ // necessary for suspended iOS Safari tabs and unstable WebSocket networks.
  useEffect(()=>{
   let valid=true;
-  // Poll is a fallback when Realtime cannot deliver events (e.g. mobile browsers).
+  let polling=false;
   const poll=async()=>{
-   if(document.visibilityState==='hidden')return;
+   if(!valid||polling||document.visibilityState==='hidden')return;
+   polling=true;
    try{
     const current=callRef.current;
     if(current){
-     const result=await db().from('sf_dm_calls').select('id,conversation_id,caller_id,callee_id,status,created_at').eq('id',current.id).maybeSingle();
+     const result=await db().from('sf_dm_calls')
+      .select('id,conversation_id,caller_id,callee_id,status,created_at')
+      .eq('id',current.id).maybeSingle();
      if(!valid)return;
-     if(result.error||!result.data||['ended','declined'].includes(result.data.status)||
+     // A transient Supabase timeout must NOT be treated as a hang-up.
+     if(result.error){
+      setStatus('通话状态暂时无法更新，正在重新连接…');
+      return;
+     }
+     if(!result.data||['ended','declined'].includes(result.data.status)||
       (result.data.status==='ringing'&&Date.now()-new Date(result.data.created_at).getTime()>180000)){
       cleanup();return;
      }
-     if(current.status!==result.data.status){callRef.current=result.data as Call;setCall(result.data as Call);}
-     if(setupRef.current&&!startedRef.current){startedRef.current=true;try{await consume(current.id)}finally{startedRef.current=false}}
+     if(current.status!==result.data.status){
+      callRef.current=result.data as Call;setCall(result.data as Call);
+     }
+     await syncSignals();
     }else{
      const response=await db().from('sf_dm_calls')
       .select('id,conversation_id,caller_id,callee_id,status,created_at')
-      .eq('callee_id',userId).eq('status','ringing').order('created_at',{ascending:false}).limit(5);
+      .eq('callee_id',userId).eq('status','ringing')
+      .order('created_at',{ascending:false}).limit(5);
      if(!valid||response.error||callRef.current)return;
-     const incoming=(response.data||[]).find(c=>Date.now()-new Date(c.created_at).getTime()<180000);
-     if(incoming){callRef.current=incoming as Call;setCall(incoming as Call);setStatus('收到语音通话邀请');}
+     const incoming=(response.data||[]).find(
+      c=>Date.now()-new Date(c.created_at).getTime()<180000);
+     if(incoming){
+      callRef.current=incoming as Call;
+      setCall(incoming as Call);
+      setStatus('收到语音通话邀请');
+     }
     }
-   }catch{}
+   }catch{
+    if(valid&&callRef.current)setStatus('网络暂时不稳定，正在重新连接…');
+   }finally{polling=false;}
   };
+  pollNow.current=()=>{void poll()};
   void poll();
-  const timer=window.setInterval(()=>{void poll()},1500);
+  const timer=window.setInterval(()=>{void poll()},6000);
   const resume=()=>{if(document.visibilityState==='visible')void poll()};
   document.addEventListener('visibilitychange',resume);
-  return()=>{valid=false;window.clearInterval(timer);document.removeEventListener('visibilitychange',resume)};
- },[userId,cleanup,consume]);
+  window.addEventListener('online',resume);
+  return()=>{
+   valid=false;
+   if(pollNow.current)pollNow.current=null;
+   window.clearInterval(timer);
+   document.removeEventListener('visibilitychange',resume);
+   window.removeEventListener('online',resume);
+  };
+ },[userId,cleanup,syncSignals]);
+
+ // Participant-scoped Realtime subscriptions: Postgres RLS still restricts
+ // who can read calls/signals. All events trigger a fresh authorized read.
+ useEffect(()=>{
+  const client=db();
+  const incoming=client.channel('sf-voice-incoming-'+userId)
+   .on('postgres_changes',{
+    event:'INSERT',schema:'public',table:'sf_dm_calls',
+    filter:'callee_id=eq.'+userId
+   },()=>{pollNow.current?.()})
+   .subscribe();
+  return()=>{void client.removeChannel(incoming)};
+ },[userId]);
+
+ useEffect(()=>{
+  if(!call?.id)return;
+  const callId=call.id;
+  const client=db();
+  const active=client.channel('sf-voice-active-'+userId+'-'+callId)
+   .on('postgres_changes',{
+    event:'UPDATE',schema:'public',table:'sf_dm_calls',
+    filter:'id=eq.'+callId
+   },()=>{pollNow.current?.()})
+   .on('postgres_changes',{
+    event:'INSERT',schema:'public',table:'sf_dm_call_signals',
+    filter:'call_id=eq.'+callId
+   },()=>{void syncSignals()})
+   .subscribe(status=>{
+    if(status==='SUBSCRIBED'){
+     pollNow.current?.();
+     void syncSignals();
+    }
+   });
+  return()=>{void client.removeChannel(active)};
+ },[userId,call?.id,syncSignals]);
  function toggleMute(){streamRef.current?.getAudioTracks().forEach(t=>{t.enabled=!t.enabled});setMuted(s=>!s)}
  const incoming=call?.callee_id===userId&&call.status==='ringing'&&!setupRef.current;
  return <>
@@ -203,6 +302,9 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
       <><button type="button" onClick={toggleMute} disabled={!streamRef.current}>{muted?<MicOff size={18}/>:<Mic size={18}/>} {muted?'取消静音':'静音'}</button>
       <button type="button" className="sf-dm-decline" onClick={()=>void finish()}><PhoneOff size={18}/>挂断</button></>}
     </div>
+    <button type="button" className="sf-dm-play-remote"
+      onClick={()=>{pollNow.current?.();void syncSignals();}}
+      aria-label="手动同步通话状态">刷新通话状态</button>
     {remoteReady&&<button type="button" className="sf-dm-play-remote" onClick={()=>void played.current?.play().catch(()=>onError('请在系统中允许播放音频'))}><Volume2 size={17}/>播放对方声音</button>}
     <p className="sf-dm-call-caveat">系统会优先尝试直连；配置临时 TURN 凭据后可改善跨运营商连接。如果未配置 TURN，部分网络仍会失败。来电提醒仅在私信网页前台提供。</p>
    </div>
