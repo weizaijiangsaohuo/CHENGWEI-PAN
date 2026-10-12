@@ -151,18 +151,6 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
    if(receivedController.current===controller){receivedController.current=null;setTranscribing(false);}
   }
  }
- const extension=path.split('.').at(-1)?.toLowerCase();
-   const mediaType=extension==='wav'?'audio/wav':extension==='mp3'?'audio/mpeg':extension==='aac'?'audio/aac':extension==='ogg'?'audio/ogg':extension==='mp4'?'audio/mp4':blob.type||'audio/webm';
-   const response=await fetch('/api/voice/transcribe',{method:'POST',cache:'no-store',
-    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':mediaType,
-     'x-sf-speech-language':'zh'},
-    body:blob});
-   const result=await response.json() as {text?:string;error?:string};
-   if(!response.ok||!result.text)throw Error(result.error||'无法识别语音');
-   setTranscript(result.text);
-  }catch(e){setError(messageOf(e))}
-  finally{setTranscribing(false)}
- }
  const extension=path.split('.').at(-1)?.toLowerCase()||'bin';
  return <span className="sf-dm-voice-player">
   <Volume2 size={17}/>{url?<>
