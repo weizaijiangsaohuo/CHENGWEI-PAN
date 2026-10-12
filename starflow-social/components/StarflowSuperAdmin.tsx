@@ -117,8 +117,14 @@ export function StarflowSuperAdmin(){
  async function doAction(action:()=>Promise<void>){
   if(loading)return;
   setInfo('');setError('');setLoading(true);
-  try{await action();setInfo('操作成功，已由数据库权限校验并记录审计。');await refresh(allowed);}
-  catch(e){setError(e instanceof Error?e.message:'操作失败，请重试');}
+  try{
+   await action();
+   // A successful mutation must never be reported as failed solely because
+   // the subsequent list refresh was temporarily unavailable.
+   setInfo('后台操作已成功提交。服务端负责权限校验与审计。');
+   try{await refresh(allowed);}
+   catch(e){setError('操作已提交成功，但刷新数据失败。请稍后点击刷新，无需重复执行操作。'+(e instanceof Error?' '+e.message:''));}
+  }catch(e){setError(e instanceof Error?e.message:'操作失败，请重试');}
   finally{setLoading(false);}
  }
  async function invoke(name:string,args:Record<string,unknown>){
