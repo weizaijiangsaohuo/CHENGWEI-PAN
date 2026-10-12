@@ -3,6 +3,7 @@ import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import Link from 'next/link';
 import {db,hasConfig} from '@/lib/supabase';
+import {CN_PROVINCES} from '@/lib/ip-region';
 import './StarflowSuperAdmin.css';
 
 type Tab='overview'|'accounts'|'content'|'verification'|'notices'|'announcements'|'staff'|'settings'|'audit';
@@ -35,6 +36,9 @@ export function StarflowSuperAdmin(){
  const [accounts,setAccounts]=useState<Account[]>([]);
  const [selected,setSelected]=useState<Account|null>(null);
  const [accountAction,setAccountAction]=useState<'warn'|'suspend'|'ban'|'restore'>('warn');
+ const [regionCountry,setRegionCountry]=useState('CN');
+ const [regionSubdivision,setRegionSubdivision]=useState('');
+ const [regionReason,setRegionReason]=useState('');
  const [reason,setReason]=useState('');
  const [suspendDays,setSuspendDays]=useState('7');
  const [postId,setPostId]=useState('');
@@ -141,7 +145,7 @@ export function StarflowSuperAdmin(){
   else{setError('');setAccounts((r.data||[]) as Account[]);setSelected(null);}
  }
  function pick(a:Account){
-  setSelected(a);setRecipient(a.handle);
+  setSelected(a);setRecipient(a.handle);setRegionReason('');setRegionCountry('CN');setRegionSubdivision('');
   setStaffRole(a.staff_role||'moderator');setStaffEnabled(a.staff_enabled!==false);
  }
  function confirmAction(description:string){return window.confirm(description+'？\n此操作将作用于真实星流账号，并留下审计记录。');}
@@ -157,6 +161,34 @@ export function StarflowSuperAdmin(){
   }
   if(!confirmAction('确认对 @'+selected.handle+' 执行 '+accountAction))return;
   void doAction(async()=>{await invoke('sf_admin_restrict_user',{p_user_id:selected.id,p_action:accountAction,p_reason:reason.trim(),p_expires_at:expires});setReason('');});
+ }
+ function submitIPRegionCorrection(event:FormEvent){
+  event.preventDefault();
+  if(!selected||!['founder','super_admin'].includes(role||''))return;
+  if(regionReason.trim().length<10){setError('地区更正理由至少需要10个字符。');return;}
+  const country=regionCountry.trim().toUpperCase();
+  if(!/^[A-Z]{2}$/.test(country)){setError('请输入 ISO 两位国家／地区代码。');return;}
+  if(country==='CN'&&!Object.prototype.hasOwnProperty.call(CN_PROVINCES,regionSubdivision)){
+   setError('国内 IP 属地需要选择省级地区。');return;
+  }
+  if(!confirmAction('更正 @'+selected.handle+' 的显示属地为 '+(country==='CN'?CN_PROVINCES[regionSubdivision]:country)+'（将标记平台人工更正）'))return;
+  void doAction(async()=>{
+   await invoke('sf_admin_correct_ip_region',{
+    p_user_id:selected.id,p_country_code:country,
+    p_subdivision_code:country==='CN'?regionSubdivision:null,p_reason:regionReason.trim()
+   });
+   setRegionReason('');
+  });
+ }
+ function clearIPRegionCorrection(){
+  if(!selected||!['founder','super_admin'].includes(role||'')||regionReason.trim().length<10){
+   setError('请先填写至少10个字符的撤销理由。');return;
+  }
+  if(!confirmAction('撤销 @'+selected.handle+' 的人工更正并清空旧记录（需本人下次登录重新识别）'))return;
+  void doAction(async()=>{
+   await invoke('sf_admin_clear_ip_region_override',{p_user_id:selected.id,p_reason:regionReason.trim()});
+   setRegionReason('');
+  });
  }
  function submitPost(event:FormEvent){
   event.preventDefault();
@@ -231,6 +263,22 @@ export function StarflowSuperAdmin(){
       {accountAction==='suspend'&&<label>暂停天数<input type="number" min="1" max="365" value={suspendDays} onChange={e=>setSuspendDays(e.target.value)}/></label>}
       <label>处理理由（10–1000字）<textarea minLength={10} maxLength={1000} required value={reason} onChange={e=>setReason(e.target.value)} rows={3}/></label><button disabled={loading} type="submit">确认账号处置</button>
      </form>}
+     {['founder','super_admin'].includes(role||'')&&<div className="sac-subcard">
+      <h3>IP 属地记录复核（创始人 / 超级管理员）</h3>
+      <p className="sac-muted">仅修改展示的国家／省级地区，不可修改用户真实 IP。操作留痕，人工更正必须标注来源；功能尚未启用时更正不会公开。</p>
+      <form className="sac-form" onSubmit={submitIPRegionCorrection}>
+       <label>国家／地区代码（ISO 两位）<input value={regionCountry} onChange={e=>setRegionCountry(e.target.value.toUpperCase().slice(0,2))}
+        placeholder="CN / JP / US" maxLength={2} minLength={2} pattern="[A-Z]{2}" required/></label>
+       {regionCountry==='CN'&&<label>中国省级地区<select value={regionSubdivision} required onChange={e=>setRegionSubdivision(e.target.value)}>
+        <option value="">请选择省级地区</option>
+        {Object.entries(CN_PROVINCES).map(([code,name])=><option key={code} value={code}>{name}</option>)}
+       </select></label>}
+       <label>更正理由（10–500字）<textarea required rows={3} minLength={10} maxLength={500}
+        value={regionReason} onChange={e=>setRegionReason(e.target.value)}/></label>
+       <button type="submit" disabled={loading}>保存人工更正并记录审计</button>
+       <button type="button" className="sac-secondary" onClick={clearIPRegionCorrection} disabled={loading}>撤销人工更正，等待重新识别</button>
+      </form>
+     </div>}
     </div>}
    </section>}
    {tab==='content'&&<section className="sac-card"><h2>内容与举报审核</h2>
