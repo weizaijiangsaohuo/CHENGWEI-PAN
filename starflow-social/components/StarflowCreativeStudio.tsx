@@ -29,6 +29,7 @@ const statusLabel:Record<string,string>={
 function authHeaders(token:string){return {Authorization:'Bearer '+token};}
 export function StarflowCreativeStudio(){
  const [authenticated,setAuthenticated]=useState<boolean|null>(null);
+ const [engineReady,setEngineReady]=useState<boolean|null>(null);
  const [mode,setMode]=useState<CreativeMode>('image_video');
  const [style,setStyle]=useState<CreativeStyle>('cinematic');
  const [aspect,setAspect]=useState<CreativeAspect>('9:16');
@@ -50,7 +51,7 @@ export function StarflowCreativeStudio(){
  const needsImage=spec.image;
  const needsVideo=spec.video;
  const canSubmit=!!prompt.trim()&&(!needsImage||!!image)&&(!needsVideo||!!video)&&
-  (!(image||video)||rights)&&!busy&&!hasActive&&authenticated===true;
+  (!(image||video)||rights)&&!busy&&!hasActive&&authenticated===true&&engineReady===true;
  useEffect(()=>{
   if(!image){setImagePreview('');return;}
   const preview=URL.createObjectURL(image);setImagePreview(preview);
@@ -75,6 +76,16 @@ export function StarflowCreativeStudio(){
    setJobs(json.jobs??[]);
   }catch(e){setError(e instanceof Error?e.message:'读取创作记录失败');}
  },[getToken]);
+ const loadCapability=useCallback(async()=>{
+  try{
+   const token=await getToken();
+   const response=await fetch('/api/creative?capability=1',{
+    cache:'no-store',headers:authHeaders(token)});
+   const info=await response.json() as {enabled?:boolean;error?:string};
+   if(!response.ok)throw Error(info.error||'无法读取模型服务状态');
+   setEngineReady(info.enabled===true);
+  }catch{setEngineReady(false);}
+ },[getToken]);
  const checkJob=useCallback(async(id:string)=>{
   const token=await getToken();
   const res=await fetch('/api/creative?id='+encodeURIComponent(id),{
@@ -93,10 +104,10 @@ export function StarflowCreativeStudio(){
   void db().auth.getUser().then(({data,error:e})=>{
    if(!alive)return;
    setAuthenticated(!e&&!!data.user);
-   if(!e&&data.user)void loadJobs();
+   if(!e&&data.user){void loadJobs();void loadCapability();}
   }).catch(()=>{if(alive)setAuthenticated(false)});
   return()=>{alive=false};
- },[loadJobs]);
+ },[loadJobs,loadCapability]);
  useEffect(()=>{
   if(!authenticated||!hasActive)return;
   const id=jobs.find(job=>['preparing','queued','running'].includes(job.status))?.id;
@@ -173,6 +184,10 @@ export function StarflowCreativeStudio(){
    </section>
    {authenticated===false&&<div className="sf-creative-notice" role="alert">
     创作工作室需要登录星流。<Link href="/">返回登录</Link></div>}
+   {authenticated===true&&engineReady===false&&<div className="sf-creative-notice" role="status">
+    AI 推理引擎尚未开通。页面和模型接口已开发，但在管理员配置付费模型和数据库前，
+    不会收取费用，也不会伪造生成结果。
+   </div>}
    <div className="sf-creative-layout">
     <section className="sf-creative-panel" aria-label="AI 创作设置">
      <div className="sf-creative-panel-title"><h2>选择创作方式</h2><span>01 / 模式</span></div>
