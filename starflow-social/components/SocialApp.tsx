@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Share2, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
+import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, ChevronRight, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Share2, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
