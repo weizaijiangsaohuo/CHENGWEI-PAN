@@ -80,7 +80,7 @@ DECLARE result uuid; uid uuid:=auth.uid();
 BEGIN
  IF uid IS NULL OR NOT public.sf_dm_can_send(p_conversation) THEN
   RAISE EXCEPTION 'Conversation unavailable' USING ERRCODE='42501'; END IF;
- IF NOT isfinite(p_lat) OR NOT isfinite(p_lng) OR p_lat NOT BETWEEN -90 AND 90 OR p_lng NOT BETWEEN -180 AND 180
+ IF p_lat IS NULL OR p_lng IS NULL OR p_lat NOT BETWEEN -90 AND 90 OR p_lng NOT BETWEEN -180 AND 180
  THEN RAISE EXCEPTION 'Invalid coordinates'; END IF;
  INSERT INTO public.dm_messages(conversation_id,sender_id,body,message_type,location_lat,location_lng)
  VALUES(p_conversation,uid,'[位置消息]','location',round(p_lat::numeric,5)::double precision,round(p_lng::numeric,5)::double precision)
