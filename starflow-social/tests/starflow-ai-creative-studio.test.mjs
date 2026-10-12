@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const api=read('app/api/creative/route.ts');
 const models=read('lib/creative-models.ts');
@@ -8,7 +8,7 @@ const ui=read('components/StarflowCreativeStudio.tsx');
 const css=read('components/StarflowCreativeStudio.css');
 const sql=read('supabase/migrations/20261012_ai_creative_studio.sql');
 const nav=read('components/StarflowHomeMenu.tsx');
-const page=read('app/ai-studio/page.tsx');
+const pageExists=existsSync(new URL('../app/ai-studio/page.tsx',import.meta.url));
 
 test('all five modes have real, whitelisted model adapters and a live UI',()=>{
  for(const mode of ['image','text_video','image_video','motion','edit_video']){
@@ -23,8 +23,8 @@ test('all five modes have real, whitelisted model adapters and a live UI',()=>{
  assert.match(models,/character_orientation:'video'/);
  assert.match(models,/reference_image_url:imageUrl/);
  assert.match(models,/extractCreativeOutput/);
- assert.match(page,/StarflowZeroStudio/);
- assert.match(nav,/to:'\/ai-studio'/);
+ assert.equal(pageExists,false,'retired studio page must not be publicly available');
+ assert.doesNotMatch(nav,/to:'\/ai-studio'/);
  assert.match(ui,/creativeModeKeys\.map/);
  assert.match(ui,/AI 生成/);
  assert.match(css,/@media\(max-width:600px\)/);

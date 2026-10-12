@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const plan=read('lib/starflow-zero-engine.ts');
 const renderer=read('lib/starflow-zero-renderer.ts');
 const api=read('app/api/creative/zero/route.ts');
 const paid=read('app/api/creative/route.ts');
-const page=read('app/ai-studio/page.tsx');
+const pageExists=existsSync(new URL('../app/ai-studio/page.tsx',import.meta.url));
 const ui=read('components/StarflowZeroStudio.tsx');
 const legacyTests=read('tests/starflow-ai-creative-studio.test.mjs');
 
@@ -52,8 +52,8 @@ test('generates genuine PNG and motion video on phone when browser encoder suppo
 });
 
 test('user reference media remains on-device and unsupported models are labeled correctly',()=>{
- assert.match(page,/StarflowZeroStudio/);
- assert.match(legacyTests,/StarflowZeroStudio/);
+ assert.equal(pageExists,false,'retired studio route must be removed');
+ assert.match(legacyTests,/pageExists=existsSync/); // The old UI route has been retired.
  assert.match(ui,/\/api\/creative\/zero/);
  assert.match(ui,/createObjectURL/);
  assert.match(ui,/renderZeroArtifact\(body\.plan/);

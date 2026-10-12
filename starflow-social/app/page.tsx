@@ -4,7 +4,7 @@ import type {CSSProperties,FormEvent} from 'react';
 import Link from 'next/link';
 import {ArrowRight,BookOpen,Globe2,LockKeyhole,MessageCircle,ShieldCheck,Sparkles,Users,ChevronRight,X,Send} from 'lucide-react';
 import {SocialApp,readVerifiedRouteUser} from '@/components/SocialApp';
-import {LanguageSwitch,useLanguage} from '@/components/LanguageProvider';
+import {useLanguage} from '@/components/LanguageProvider';
 import {isEnglishLocale} from '@/lib/i18n';
 import {siteText} from '@/lib/site-language';
 import {db,hasConfig} from '@/lib/supabase';
@@ -173,8 +173,8 @@ export default function Home(){
         <a href="#resources">{l("Resources","指南与资源")}</a>
         <button type="button" className={styles.navSignin} onClick={enter}>{l("Sign in","登录")}</button>
       </nav>
-      <div className={styles.navRight} aria-label={l("Language and account actions","语言与注册入口")}>
-        <LanguageSwitch/><button type="button" className={styles.navJoin} onClick={enter}>{l("Join","加入星流")} <ArrowRight size={15}/>
+      <div className={styles.navRight} aria-label="注册入口">
+        <button type="button" className={styles.navJoin} onClick={enter}>{l("Join","加入星流")} <ArrowRight size={15}/>
         </button></div>
     </header>
 

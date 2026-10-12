@@ -1,0 +1,77 @@
+/* Starflow Clean Navigation — quieter mobile header and premium, compact menu.
+   Scoped and light-weight; no animations needed to interact. */
+.app-frame .sf-top-utility{
+  background:linear-gradient(110deg,rgba(255,255,255,.96),rgba(248,245,255,.94))!important;
+  border-bottom:1px solid rgba(154,123,208,.15)!important;
+}
+.sf-home-quiet-mark{
+  margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:760;letter-spacing:.06em;
+  color:var(--sf2-brand,#8453c4);
+  border:1px solid rgba(137,101,186,.16);
+  border-radius:999px;padding:7px 12px;
+  background:rgba(145,109,206,.07);
+  white-space:nowrap;pointer-events:none;
+}
+.sf-home-drawer.sf-clean-drawer{
+  border-radius:0 26px 26px 0!important;
+  background:var(--sf2-surface,#fff)!important;
+  box-shadow:0 18px 70px rgba(52,28,79,.19)!important;
+}
+.sf-clean-drawer .sf-home-drawer-head{
+  padding-bottom:16px;
+  border-bottom:1px solid var(--sf2-line,#eae2f4);
+}
+.sf-clean-drawer .sf-home-drawer-links{
+  display:flex;flex-direction:column;gap:12px;padding:16px 12px 8px;
+}
+.sf-clean-drawer .sf-home-drawer-group{
+  margin:0!important;padding:14px 10px!important;
+  border-radius:19px!important;
+  border:1px solid var(--sf2-line,#ece4f3)!important;
+  background:var(--sf2-surface,#fff)!important;
+  box-shadow:0 3px 14px rgba(65,35,109,.025);
+}
+.sf-clean-drawer .sf-home-drawer-group h2{
+  font-size:11px!important;font-weight:800!important;
+  letter-spacing:.06em;color:var(--sf2-muted,#92849f)!important;
+  padding:1px 12px 8px!important;margin:0!important;
+}
+.sf-clean-drawer .sf-home-drawer-group a{
+  display:flex;align-items:center;gap:13px;
+  min-height:48px!important;margin:1px 0!important;
+  padding:10px 11px!important;border-radius:13px!important;
+  font-size:14px;font-weight:730;
+  background:transparent;transition:background .16s ease,transform .16s ease;
+}
+.sf-clean-drawer .sf-home-drawer-group a>svg:first-child{
+  flex:none;color:var(--sf2-brand,#855bc0);
+  border-radius:11px;
+  background:rgba(140,104,204,.09);
+  padding:6px;width:34px;height:34px;
+}
+.sf-clean-drawer .sf-home-drawer-group a>svg:last-child{
+  margin-left:auto;opacity:.5;width:15px;
+}
+.sf-clean-drawer .sf-home-drawer-group a:hover,
+.sf-clean-drawer .sf-home-drawer-group a:focus-visible{
+  background:var(--sf2-soft,#f7f1fd)!important;
+}
+.sf-clean-drawer .sf-home-drawer-note{
+  text-align:center;font-size:11px;letter-spacing:.04em;
+  color:var(--sf2-muted,#8f839d);
+}
+@media(max-width:460px){
+ .sf-home-quiet-mark{font-size:10px;padding:6px 9px}
+ .sf-clean-drawer .sf-home-drawer-links{padding:13px 10px}
+ .sf-clean-drawer .sf-home-drawer-group a{min-height:46px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .sf-clean-drawer .sf-home-drawer-group a{transition:none!important}
+}
+html[data-sf2-theme="dark"] .app-frame .sf-top-utility{
+ background:var(--sf2-surface,#211b2b)!important;
+}
+html[data-sf2-theme="dark"] .sf-home-quiet-mark{
+ border-color:var(--sf2-line,#4c3b65);background:var(--sf2-soft,#342843);
+}

@@ -3,7 +3,7 @@
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {ArrowDown,ArrowRight,BookOpen,Check,ChevronDown,Compass,Globe2,Heart,LockKeyhole,Menu,MessageCircle,Play,Settings2,ShieldCheck,Sparkles,Users,X} from 'lucide-react';
-import {LanguageSwitch,useLanguage} from './LanguageProvider';
+import {useLanguage} from './LanguageProvider';
 import {siteText} from '@/lib/site-copy';
 import type {Lang} from '@/lib/i18n';
 import './StarflowLandingExperience.css';
@@ -226,7 +226,7 @@ export function StarflowLandingExperience({onJoin}:{onJoin:()=>void}){
         <a href="#sf-cinema-resources">{c.navHelp}</a>
       </nav>
       <div className="sf-cinema-actions">
-        <LanguageSwitch/>
+        
         <div className="sf-cinema-menu-anchor" ref={menu}>
           <button type="button" className="sf-cinema-more" aria-label={c.more} aria-haspopup="menu" aria-expanded={more} onClick={()=>setMore(value=>!value)}>
             <Menu size={20}/><span>{c.more}</span><ChevronDown size={14}/>

@@ -7,12 +7,16 @@ const page=read('app/page.tsx');
 const motion=read('components/StarflowMotionShowcase.tsx');
 const assembly=read('components/StarflowAssemblyHero.tsx');
 const provider=read('components/LanguageProvider.tsx');
+const social=read('components/SocialApp.tsx');
+const menu=read('components/StarflowHomeMenu.tsx');
 const ui=read('lib/i18n.ts');
-test('nine language options retain country/region and script',()=>{
+test('language picker removed from UI; shared translations preserved',()=>{
  for(const code of ['zh','en','zh-HK','ko-KR','ja-JP','en-SG','en-GB','de-DE','fr-FR'])assert.ok(ui.includes("code:'"+code+"'"));
- assert.match(provider,/sf-language/);
- assert.match(provider,/role="menuitemradio"/);
- assert.match(provider,/aria-checked/);
+ assert.match(provider,/fixedLanguage:Lang='zh'/);
+ assert.doesNotMatch(provider,/sf-language|role="menuitemradio"/);
+ assert.doesNotMatch(page,/LanguageSwitch/);
+ assert.doesNotMatch(social,/LanguageSwitch|sf-pref-language/);
+ assert.doesNotMatch(menu,/ai-studio|starflow-video-editor/);
 });
 test('marketing text is localized for requested locales and honors region choice',()=>{
  for(const code of ['zh-HK','ko-KR','ja-JP','de-DE','fr-FR'])assert.ok(locale.includes('"'+code+'"'));

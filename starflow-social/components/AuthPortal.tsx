@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import { ArrowRight, Check, Eye, EyeOff, Globe2, Lock, Mail, ShieldCheck, Sparkles, Users, Zap } from 'lucide-react';
 import { Brand } from './Brand';
 import { TurnstileChallenge } from './TurnstileChallenge';
-import { LanguageSwitch, useLanguage } from './LanguageProvider';
+import { useLanguage } from './LanguageProvider';
 import {isEnglishLocale} from '@/lib/i18n';
 import { db, hasConfig } from '@/lib/supabase';
 import { activeLoginProviders } from '@/lib/account-providers';
@@ -167,7 +167,7 @@ export function AuthPortal(){
   return <div className="welcome-page sf-auth-premium">
     <div className="welcome-grid">
       <section className="welcome-story">
-        <div className="sf-auth-brand"><Brand/><LanguageSwitch/></div>
+        <div className="sf-auth-brand"><Brand/></div>
         <div className="welcome-copy">
           <div className="hero-pill"><span className="dot-live"/> {t('heroBadge')}</div>
           <h1>{t('heroLineOne')}<br/><em>{t('heroLineTwo')}</em></h1>

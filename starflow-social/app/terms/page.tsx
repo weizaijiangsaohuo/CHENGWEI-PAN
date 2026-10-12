@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import {useLanguage,LanguageSwitch} from '@/components/LanguageProvider';
+import {useLanguage} from '@/components/LanguageProvider';
 
 const navigation = [{slug:"terms",zh:"服务条款",en:"Terms"},{slug:"privacy",zh:"隐私政策",en:"Privacy"},{slug:"guidelines",zh:"社区规范",en:"Guidelines"}];
 const sections = [
@@ -24,7 +24,7 @@ export default function LegalPage(){
   const {lang}=useLanguage();
   const en=lang==='en';
   return <main className="document sf-legal-page" style={{maxWidth:920, color:'#192c31'}}>
-    <div className="sf-legal-top" style={{marginBottom:20}}><Link href="/">← 星流 Starflow</Link><LanguageSwitch/></div>
+    <div className="sf-legal-top" style={{marginBottom:20}}><Link href="/">← 星流 Starflow</Link></div>
     <nav aria-label={en?'Legal documents':'法律文件'} style={{display:'flex',flexWrap:'wrap',gap:10,margin:'20px 0 35px'}}>
       {navigation.map(item=><Link key={item.slug} href={'/'+item.slug} aria-current={item.slug==="terms"?'page':undefined} style={{padding:'9px 14px',borderRadius:999,border:'1px solid #dce4e4',background:item.slug==="terms"?'#e6f4f1':'white',fontSize:13}}>{en?item.en:item.zh}</Link>)}
     </nav>

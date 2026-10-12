@@ -9,7 +9,7 @@ import { db, hasConfig } from '@/lib/supabase';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
-import { LanguageSwitch, useLanguage } from './LanguageProvider';
+import { useLanguage } from './LanguageProvider';
 import {isEnglishLocale,LANGUAGE_OPTIONS} from '@/lib/i18n';
 import { VerificationBadge, type VerificationKind } from './VerificationBadge';
 import { PollCard } from './PollCard';
@@ -621,7 +621,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       
 <StarflowServicesPanel isAdmin={isAdmin}/>
       <StarflowDisplayPreferences/>
-      <div className="settings-divider"/><h3>{t('language')}</h3><div className="sf-pref-language"><LanguageSwitch/></div><div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
+      <div className="settings-divider"/><h3>{t('security')}</h3><p className="muted">{t('securityDesc')}</p><button className="btn btn-outline" onClick={async()=>{if(!user?.email)return;const {error}=await db().auth.resetPasswordForEmail(user.email,{redirectTo:`${location.origin}/auth/reset`});showMessage(error?error.message:t('resetSent'));}}>{t('resetMail')}</button>
      <button className="btn btn-outline signout" onClick={logout}><LogOut size={16}/> {t('logout')}</button></div></>;
     if(view==='profile')return <><div className="section-heading"><button className="back-button" aria-label={isEnglishLocale(lang)?'Back':'返回'} onClick={()=>router.back()}><ChevronLeft size={21}/></button><h2>{profile?.display_name||(profileStatus==='loading'?t('loading'):profileStatus==='error'?(isEnglishLocale(lang)?'Unable to load profile':'资料加载失败'):t('profileMissing'))}</h2></div>
       {profile?<><div className="profile-cover"/><div className="profile-info"><div className="profile-top"><Avatar name={profile.display_name} size={84} image={profile.avatar_url}/>
@@ -716,7 +716,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <main className="feed-panel">
       <div className="sf-top-utility">
         <StarflowHomeMenu isAdmin={isAdmin}/>
-        <Brand/><div className="sf-home-toolbar"><LanguageSwitch/></div>
+        <Brand/><span className="sf-home-quiet-mark" aria-hidden="true">✦ 发现美好</span>
       </div>
       {renderContent()}
       {!['notifications','settings'].includes(view)&&!(view==='profile'&&profileStatus!=='found')&&(
