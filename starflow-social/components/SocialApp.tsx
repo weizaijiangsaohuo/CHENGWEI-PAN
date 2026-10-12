@@ -531,11 +531,44 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       </div></div></article>;
   };
   const renderContent=()=>{
-    if(view==='notifications')return <><div className="section-heading"><h2>{t('notifications')}</h2>{unread>0&&<button className="text-action" onClick={()=>markRead()}>{t('allRead')}</button>}</div>
-      {notifs.length?notifs.map(n=>{const a=unwrap(n.profiles);const kind:Record<string,string>={like:t('likedYour'),reply:t('repliedYou'),follow:t('followedYou'),repost:t('repostedYou')};
-        return <button key={n.id} className={`notification ${n.read_at?'':'unread'}`} onClick={()=>{void markRead(n.id);router.push(n.post_id?`/post/${n.post_id}`:a?`/profile/${a.handle}`:'/')}}>
-          <Avatar name={a?.display_name||'用户'} image={a?.avatar_url}/><span><strong>{a?.display_name||'星流用户'}</strong> {kind[n.kind]||t('interacted')}<small>{ago(n.created_at,lang)}</small></span>{!n.read_at&&<span className="unread-dot"/>}
-        </button>}) : !loading&&<Empty text={t('emptyNotifications')} detail={t('notificationSub')}/>}</>;
+    if(view==='notifications')return <>
+      <div className="section-heading">
+       <h2>{t('notifications')}</h2>
+       {unread>0&&<button type="button" className="text-action" onClick={()=>void markRead()}>{t('allRead')}</button>}
+      </div>
+      <div className="sf2-notification-tabs" role="group"
+       aria-label={isEnglishLocale(lang)?'Notification categories':'通知分类'}>
+       {(['all','interaction','follow','verification','system'] as NotificationGroup[]).map(group=>
+        <button key={group} type="button" aria-pressed={notificationFilter===group}
+         className={notificationFilter===group?'selected':''} onClick={()=>setNotificationFilter(group)}>
+          {isEnglishLocale(lang)?({
+           all:'All',interaction:'Interactions',follow:'Follows',verification:'Verification',system:'System'
+          }[group]):({
+           all:'全部',interaction:'互动',follow:'关注',verification:'认证',system:'系统'
+          }[group])}
+        </button>)}
+      </div>
+      {visibleNotifications(notifs,notificationFilter).length>0?
+       visibleNotifications(notifs,notificationFilter).map(note=>{
+        const actor=unwrap(note.profiles);
+        const isOfficial=!['like','reply','repost','mention','follow','direct_message'].includes(note.kind);
+        const target=notificationTarget(note,actor);
+        return <button type="button" key={note.id}
+         className={`notification ${note.read_at?'':'unread'}`}
+         onClick={()=>{void markRead(note.id);router.push(target);}}>
+         <Avatar name={isOfficial?'星流官方':actor?.display_name||'星流用户'}
+          image={isOfficial?null:actor?.avatar_url}/>
+         <span><strong>{isOfficial?(isEnglishLocale(lang)?'Starflow':'星流官方'):
+          actor?.display_name||(isEnglishLocale(lang)?'Starflow user':'星流用户')}</strong>
+          {' '}{notificationLabel(note.kind,isEnglishLocale(lang))}
+          <small>{ago(note.created_at,lang)}</small></span>
+         {!note.read_at&&<span className="unread-dot" aria-label={isEnglishLocale(lang)?'Unread':'未读'}/>}
+        </button>;
+       }):
+       !loading&&<Empty text={t('emptyNotifications')}
+        detail={notificationFilter==='all'?t('notificationSub'):
+         (isEnglishLocale(lang)?'No notifications in this category.':'当前分类暂无通知。')}/>}
+    </>;
     if(view==='settings')return <><div className="section-heading"><h2>{t('settingsTitle')}</h2></div><div className="settings-content"><div className="settings-icon"><Shield size={24}/></div><h3>{t('profileEdit')}</h3><p className="muted">{t('settingsIntro')}</p>
       <form onSubmit={saveProfile} className="stack"><label>{t('name')}<input className="text-input" value={display} onChange={e=>setDisplay(e.target.value)} required minLength={1} maxLength={60}/></label><label>{t('handle')}<input className="text-input" value={handle} onChange={e=>setHandle(e.target.value)} pattern="[a-z0-9_]{3,24}" required/></label>
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
