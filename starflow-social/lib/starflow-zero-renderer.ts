@@ -136,6 +136,7 @@ export async function renderZeroArtifact(plan:ZeroPlan,assets:Asset={}):Promise<
  canvas.width=plan.width;canvas.height=plan.height;
  const ctx=canvas.getContext('2d',{alpha:false});
  if(!ctx)throw Error('设备无法创建 Canvas 绘图引擎');
+ const context:CanvasRenderingContext2D=ctx;
  if(plan.mode==='image_motion'&&!assets.image)
   throw Error('请先选择用于运镜的视频参考图片');
  if(plan.mode==='video_grade'&&!assets.video)
@@ -146,7 +147,7 @@ export async function renderZeroArtifact(plan:ZeroPlan,assets:Asset={}):Promise<
    img=await loadImage(assets.image,assets.signal);
   if(plan.mode==='video_grade'&&assets.video)
    srcVideo=await localVideo(assets.video,assets.signal);
-  paintZeroFrame(ctx,plan,0,img,srcVideo?.element);
+  paintZeroFrame(context,plan,0,img,srcVideo?.element);
   if(plan.mode==='poster'){
    assets.onProgress?.(100);
    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
@@ -177,7 +178,7 @@ export async function renderZeroArtifact(plan:ZeroPlan,assets:Asset={}):Promise<
     function step(now:number){
      if(assets.signal?.aborted){reject(new DOMException('已取消','AbortError'));return;}
      const progress=Math.min(1,(now-startedAt)/time);
-     paintZeroFrame(ctx,plan,progress,img,srcVideo?.element);
+     paintZeroFrame(context,plan,progress,img,srcVideo?.element);
      assets.onProgress?.(Math.min(99,Math.floor(progress*100)));
      if(progress>=1)resolve();
      else requestAnimationFrame(step);
