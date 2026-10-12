@@ -217,3 +217,20 @@ html.sf-user-motion-off *,html.sf-user-motion-off *::before,html.sf-user-motion-
   scale:1.085 .96;
  }
 }
+
+
+/* Live responsive design-system laboratory. No simulated social data. */
+.sf2-lab{--sf2-max:1020px;min-height:100dvh;background:var(--sf2-canvas);color:var(--sf2-ink);padding:16px max(16px,env(safe-area-inset-left)) calc(60px + env(safe-area-inset-bottom))}
+.sf2-lab-header{max-width:var(--sf2-max);margin:0 auto 24px;display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:13px;color:var(--sf2-muted)}
+.sf2-lab-header a{display:flex;align-items:center;gap:8px;min-height:44px}.sf2-lab-header b{letter-spacing:2px;font-size:11px}
+.sf2-lab-hero{max-width:var(--sf2-max);margin:0 auto;padding:clamp(24px,5vw,44px);border-radius:24px}
+.sf2-lab-eyebrow{font-size:11px;color:var(--sf2-brand);font-weight:800;letter-spacing:1.8px}
+.sf2-lab-hero h1{font-size:clamp(26px,4vw,42px);line-height:1.16;letter-spacing:-1px;margin:12px 0 14px}
+.sf2-lab-hero p,.sf2-lab-section p{color:var(--sf2-muted);font-size:14px;line-height:1.7;max-width:650px}
+.sf2-lab-controls{max-width:340px;margin-top:24px}.sf2-lab-section{max-width:var(--sf2-max);margin:32px auto}
+.sf2-lab-section h2{font-size:21px;margin:0 0 18px}.sf2-lab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.sf2-lab-route{display:flex;align-items:center;gap:12px;min-height:60px;padding:12px 16px;border:1px solid var(--sf2-line);border-radius:16px;color:var(--sf2-ink);background:var(--sf2-surface);font-weight:650;transition:transform var(--sf2-fast),border-color var(--sf2-fast)}
+.sf2-lab-route:hover{border-color:var(--sf2-brand)}.sf2-lab-route:active{transform:scale(.984)}.sf2-lab-route span:nth-child(2){flex:1}
+.sf2-lab-section>.sf2-glass-segmented{max-width:340px}.sf2-lab-demo{max-width:480px;min-height:110px;margin-top:12px;padding:24px;border-radius:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.sf2-lab-demo p{margin:0}.sf2-lab footer{max-width:var(--sf2-max);margin:auto;color:var(--sf2-brand)}
+@media(max-width:599px){.sf2-lab-header b{display:none}.sf2-lab-grid{grid-template-columns:1fr 1fr;gap:8px}.sf2-lab-route{min-height:70px;flex-direction:column;align-items:flex-start;font-size:12px;gap:5px;padding:12px}.sf2-lab-route span:last-child{display:none}}
