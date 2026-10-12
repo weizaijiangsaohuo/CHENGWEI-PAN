@@ -1,0 +1,47 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const sql=read('supabase/migrations/20261012_dm_voice_calls_location.sql');
+const msg=read('components/StarflowMessages.tsx');
+const tools=read('components/StarflowDmVoiceFeatures.tsx');
+const call=read('components/StarflowVoiceCall.tsx');
+test('Voice storage is private and RLS checks both sides of each DM conversation',()=>{
+ assert.match(sql,/sf-private-dm-voice',false,8388608/);
+ assert.match(sql,/CREATE POLICY sf_dm_voice_upload/);
+ assert.match(sql,/public\.sf_dm_voice_can_access\(name,true\)/);
+ assert.match(sql,/CREATE POLICY sf_dm_voice_read/);
+ assert.match(sql,/owner_id=\(SELECT auth\.uid\(\)\)::text/);
+ assert.match(sql,/public\.sf_dm_can_send\(p_conversation\)/);
+ assert.match(sql,/voice_seconds BETWEEN 1 AND 120/);
+});
+test('Only explicit interaction can request precise location or microphone',()=>{
+ assert.match(tools,/window\.confirm\('是否仅向当前聊天对象发送一次你的精确位置/);
+ assert.match(tools,/navigator\.geolocation\.getCurrentPosition/);
+ assert.match(tools,/navigator\.mediaDevices\.getUserMedia/);
+ assert.match(tools,/setClip\(blob\)/);
+ assert.match(tools,/sf_dm_send_voice/);
+ assert.match(tools,/sf_dm_send_location/);
+ assert.match(tools,/createSignedUrl/);
+ assert.match(tools,/onresult=event/);
+ assert.doesNotMatch(tools,/watchPosition|service_role/);
+ assert.match(msg,/StarflowDmTools/);
+ assert.match(msg,/StarflowVoicePlayer/);
+ assert.match(msg,/StarflowLocationMessage/);
+});
+test('Calls require participant RLS, cannot invite blocked users, and support hangup',()=>{
+ assert.match(sql,/ALTER TABLE public\.sf_dm_calls ENABLE ROW LEVEL SECURITY/);
+ assert.match(sql,/ALTER TABLE public\.sf_dm_call_signals ENABLE ROW LEVEL SECURITY/);
+ assert.match(sql,/CREATE POLICY sf_dm_call_signals_participant_write/);
+ assert.match(sql,/CREATE OR REPLACE FUNCTION public\.sf_dm_start_call/);
+ assert.match(sql,/CREATE OR REPLACE FUNCTION public\.sf_dm_call_action/);
+ assert.match(call,/new RTCPeerConnection/);
+ assert.match(call,/sf_dm_start_call/);
+ assert.match(call,/sf_dm_call_action/);
+ assert.match(call,/createOffer/);
+ assert.match(call,/createAnswer/);
+ assert.match(call,/addIceCandidate/);
+ assert.match(call,/getUserMedia/);
+ assert.match(call,/\.getTracks\(\)\.forEach\(t=>t\.stop\(\)\)/);
+ assert.match(msg,/StarflowVoiceCall userId=\{user\.id\}/);
+});
