@@ -287,3 +287,33 @@ html[data-sf2-theme="dark"] :is(input,textarea,select)::placeholder{color:var(--
 .sf-home-drawer-group>a,.sf-home-drawer-links>a{min-height:44px}
 .sf2-glass-segmented button{min-height:44px!important}
 @media(hover:none){.app-frame .post-actions button:active{background:var(--sf2-soft)!important}}
+
+
+/* Real route-loading fallback, not invented timeline posts. */
+.sf2-route-loading{max-width:630px;margin:0 auto;min-height:100dvh;padding:16px;
+ background:var(--sf2-surface);border-inline:1px solid var(--sf2-line)}
+.sf2-route-loading-header{display:flex;gap:14px;align-items:center;padding:15px;
+ border-bottom:1px solid var(--sf2-line)}
+.sf2-route-loading-header span{height:17px;width:88px;background:var(--sf2-soft);border-radius:7px}
+.sf2-route-loading-header span:nth-child(2){width:65px}
+.sf2-route-loading-header span:nth-child(3){width:40px;margin-left:auto}
+.sf2-route-loading-post{display:flex;gap:13px;padding:22px 10px;border-bottom:1px solid var(--sf2-line)}
+.sf2-route-loading-post>i{flex:none;width:44px;height:44px;border-radius:50%;background:var(--sf2-soft)}
+.sf2-route-loading-post>div{flex:1;display:flex;flex-direction:column;gap:13px}
+.sf2-route-loading-post b,.sf2-route-loading-post span,.sf2-route-loading-post small{
+ display:block;height:14px;background:var(--sf2-soft);border-radius:5px}
+.sf2-route-loading-post b{width:40%}
+.sf2-route-loading-post span{width:90%}
+.sf2-route-loading-post span:nth-of-type(2){width:75%}
+.sf2-route-loading-post small{width:50%}
+@media(prefers-reduced-motion:no-preference){
+ .sf2-route-loading-post :is(i,b,span,small){
+ animation:sf2-route-pulse 1.25s ease-in-out infinite alternate;
+ }
+}
+@keyframes sf2-route-pulse{from{opacity:.62}to{opacity:1}}
+/* Figma design system is a real linked, editable deliverable. */
+.sf2-lab-figma-link{display:inline-flex;align-items:center;min-height:44px;padding:11px 17px;
+ border:1px solid var(--sf2-line);border-radius:12px;
+ color:var(--sf2-brand);background:var(--sf2-surface);font-weight:700}
+.sf2-lab-figma-link:hover{background:var(--sf2-soft);border-color:var(--sf2-brand)}
