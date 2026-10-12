@@ -137,3 +137,28 @@ html.sf-user-motion-off .sf-creative-spin{animation:none}
 @media(max-width:400px){.sf-zero-time-fields{gap:8px}
  .sf-zero-timeline{padding:12px}.sf-zero-time-fields label{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.sf-zero-timeline *{scroll-behavior:auto}}
+
+
+/* Starflow Zero iPhone: explicit codec choice and native share fallback. */
+.sf-zero-export-picker{display:flex;flex-direction:column;gap:9px;
+ margin:12px 0;border:1px solid var(--sf2-line,#e9e3f0);border-radius:14px;
+ padding:14px;background:var(--sf2-soft,#f9f7fc)}
+.sf-zero-export-picker label{font-size:12px;font-weight:750;color:var(--sf2-ink,#272331)}
+.sf-zero-export-picker select{min-height:48px;width:100%;box-sizing:border-box;
+ border:1px solid var(--sf2-line,#e4dfe9);border-radius:11px;
+ padding:9px 11px;background:var(--sf2-surface,#fff);
+ color:var(--sf2-ink,#272331);font:inherit;font-size:13px}
+.sf-zero-export-picker small{font-size:11px;line-height:1.6;
+ color:var(--sf2-muted,#797280)}
+.sf-zero-result-actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:16px}
+.sf-zero-result-actions>a,.sf-zero-result-actions>button{
+ display:inline-flex;justify-content:center;align-items:center;gap:7px;
+ font:inherit;font-size:12px;font-weight:740;min-height:45px;
+ border:1px solid var(--sf2-line,#e5ddec);border-radius:12px;
+ padding:9px 13px;color:var(--sf2-ink,#282431);
+ background:var(--sf2-surface,#fff);cursor:pointer;text-decoration:none;
+ flex:1;min-width:130px;box-sizing:border-box}
+.sf-zero-result-actions>a{color:var(--sf2-brand,#7549bd)}
+.sf-zero-result-actions>button:focus-visible,.sf-zero-result-actions>a:focus-visible{
+ outline:2px solid var(--sf2-brand,#7549bd);outline-offset:3px}
+@media(max-width:390px){.sf-zero-result-actions{flex-direction:column}}
