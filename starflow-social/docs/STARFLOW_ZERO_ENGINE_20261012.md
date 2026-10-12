@@ -1,0 +1,34 @@
+# Starflow Zero — 自研零预算创作引擎 v0.1
+
+## 硬性成本约束
+- 研发目标：0 元新支出，无 GPU 租用、外部推理 API、会员、订阅、付费模型令牌。
+- /api/creative/zero 在星流自己的 Next.js/Cloudflare 应用中，仅解析文字参数为程序化场景规划，不调用任何外部 AI 服务、不存储用户素材、也不产生模型计费任务。
+- /api/creative 原第三方 Fal 推理入口已添加代码级 STARFLOW_PAID_INFERENCE_LOCKED=true 硬锁，Cloudflare 保留的 FAL_KEY 或开关配置也不能开启付费提交。
+- 免费部署平台的网络和执行配额并非无限。如果用量接近免费上限，应限制请求或暂停，而不是自动升级付费。
+- 本次没有数据库迁移，也没有实际付费调用，创作本身不要求 Supabase 账号。
+
+## 当前可以真正运行的功能
+1. **概念海报 PNG**：自研场景规划与 Canvas 程序化图形、排版，可叠加用户选择的图片。
+2. **文字动效短视频**：程序化光效与文字，使用 Canvas.captureStream 和 MediaRecorder，在支持的浏览器上导出 5 秒 MP4/WebM（24FPS）。
+3. **图片运镜视频**：用户上传图片进行推拉摇移与排版叠加，不是 AI 人物真实动作复刻。
+4. **原视频调色**：读取用户设备中 1～60 秒视频，导出前 5 秒基础调色版本，暂不保留声音。
+
+仅文字提示词经 /api/creative/zero 发给星流服务器；图片和视频只在设备本地加载、绘制和编码，不上传第三方或星流素材桶。作品通过浏览器对象链接下载，刷新页面后未必保留。
+
+## 尚未完成的能力
+- 扩散或自回归式写实文生视频、写实图生视频、人物动作一比一复刻、跨镜头保持角色身份一致性、复杂视频时间轴与音轨剪辑。
+- 0 元预算下不保证 4K 或 120FPS，也没有自主训练顶级视频基础模型。当前最高输出尺寸 960×540 或 540×960、5 秒、24FPS。
+- iOS Safari 对 Canvas captureStream 和 MediaRecorder 的支持会随版本变化；缺少本地编码器则视频生成明确报错，PNG 功能可先试用。
+- 自研部分是 API、场景规划和程序化渲染，不是原创生成大模型；不能说画质已经超过即梦、可灵、豆包、小云雀。
+
+## 实现位置
+- 页面：/ai-studio；组件：components/StarflowZeroStudio.tsx
+- API：/api/creative/zero；app/api/creative/zero/route.ts
+- 场景规划：lib/starflow-zero-engine.ts
+- 本地渲染：lib/starflow-zero-renderer.ts
+- 回归测试：tests/starflow-zero-budget-engine.test.mjs
+
+## 下一步（继续保持 0 元）
+- 在用户设备允许时按需研究许可合规的 WebGPU/WASM 开源小模型。
+- 完善本地剪辑时间轴、视频裁剪、转场与字幕；优化 iOS 编码兼容性。
+- 若有稳定的免费 GPU 资源，再考虑开源权重推理验证；不将免费配额误认为永久可用的模型基础设施。
