@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
@@ -26,6 +26,19 @@ import { ago, unwrap } from '@/lib/types';
 type View = 'home' | 'explore' | 'notifications' | 'bookmarks' | 'settings' | 'profile' | 'post';
 type Metrics = Record<string,{likes:number; reposts:number; replies:number; views:number; liked:boolean; reposted:boolean; saved:boolean}>;
 const postFields='id,author_id,content,image_url,video_url,has_poll,has_gallery,parent_id,created_at,profiles!posts_author_id_fkey(id,handle,display_name,bio,avatar_url,created_at)';
+
+// A verified user can be reused briefly during same-tab route transitions.
+// No user/token is stored in localStorage or serialized into page HTML.
+// Every new page still calls getUser() to revalidate; Supabase RLS remains authoritative.
+const VERIFIED_ROUTE_USER_TTL = 15_000;
+let verifiedRouteUser: {user: User; checkedAt: number}|null = null;
+function readVerifiedRouteUser(): User|null {
+  const entry = verifiedRouteUser;
+  return entry && Date.now()-entry.checkedAt < VERIFIED_ROUTE_USER_TTL ? entry.user : null;
+}
+function rememberVerifiedRouteUser(user: User|null) {
+  verifiedRouteUser = user ? {user,checkedAt:Date.now()} : null;
+}
 const nav = [
   {to:'/',name:'home',icon:Home}, {to:'/explore',name:'explore',icon:Compass}, {to:'/notifications',name:'notifications',icon:Bell},
   {to:'/bookmarks',name:'bookmarks',icon:Bookmark}, {to:'/settings',name:'settings',icon:Settings}
@@ -36,6 +49,12 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const {t,lang}=useLanguage();
   const [user,setUser]=useState<User|null>(null);const [self,setSelf]=useState<Profile|null>(null);
   const [checking,setChecking]=useState(true);const [loading,setLoading]=useState(false);
+  // Flush a freshly verified same-tab session before the next paint: no purple
+  // splash between settings, affiliate management and timeline pages.
+  useLayoutEffect(()=>{
+    const cached=readVerifiedRouteUser();
+    if(cached){setUser(cached);setChecking(false)}
+  },[]);
   const [posts,setPosts]=useState<Post[]>([]);const [metrics,setMetrics]=useState<Metrics>({});
   const [verified,setVerified]=useState<Record<string,VerificationKind>>({});
   const [profileLookup,setProfileLookup]=useState<{handle:string;status:'found'|'missing'|'error';data:Profile|null}|null>(null);const [following,setFollowing]=useState<string[]>([]);
@@ -94,14 +113,36 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   },[view]);
 
   useEffect(()=>{
-    if(!hasConfig()){setChecking(false);return;}
+    if(!hasConfig()){rememberVerifiedRouteUser(null);setChecking(false);return;}
     let active=true;
+    let signedOut=false;
     const client=db();
+    // Keep the page shell visible while the cached, *previously verified*
+    // identity is rechecked in the background. Never cache an unverified JWT.
     client.auth.getUser().then(({data:{user},error})=>{
+      if(!active||signedOut)return;
+      const next=error?null:user;
+      rememberVerifiedRouteUser(next);
+      setUser(next);setChecking(false);
+    }).catch(()=>{
+      if(!active||signedOut)return;
+      rememberVerifiedRouteUser(null);
+      setUser(null);setChecking(false);
+    });
+    const {data:{subscription}}=client.auth.onAuthStateChange((event,session)=>{
       if(!active)return;
-      setUser(error?null:user);setChecking(false);
-    }).catch(()=>{if(active)setChecking(false)});
-    const {data:{subscription}}=client.auth.onAuthStateChange((_event,session)=>{if(active)setUser(session?.user??null)});
+      if(event==='SIGNED_OUT'){
+        signedOut=true;rememberVerifiedRouteUser(null);
+        setUser(null);setChecking(false);
+      }else if(event==='SIGNED_IN'&&session?.user){
+        // Account switching invalidates the verified cross-route cache.
+        if(verifiedRouteUser?.user.id!==session.user.id)rememberVerifiedRouteUser(null);
+        setUser(session.user);setChecking(false);
+      }else if(event==='USER_UPDATED'){
+        rememberVerifiedRouteUser(null);
+        setUser(session?.user??null);
+      }
+    });
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
   useEffect(()=>{
@@ -533,9 +574,16 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     </>;
   };
 
-  if(checking)return <main className="sf-section-loading" role="status" aria-live="polite">
-    <div className="sf-section-loading-top"><span className="sf-section-loading-dot"/><span>正在切换页面…</span></div>
-    <div className="sf-section-loading-bar"/><div className="sf-section-loading-bar short"/>
+  // Only initial cold auth verification uses a loading state. Normal in-app
+  // navigation reuses the recently verified user and skips the full-screen
+  // gradient / "switching page" interstitial altogether.
+  if(checking)return <main className="sf2-route-loading sf2-auth-route-loading"
+    role="status" aria-live="polite" aria-busy="true" aria-label="正在验证登录状态">
+    <div className="sf2-route-loading-header"><span/><span/><span/></div>
+    <div className="sf2-route-loading-content">
+      {Array.from({length:3},(_,index)=><div className="sf2-route-loading-post" key={index}
+        aria-hidden="true"><i/><div><b/><span/><span/></div></div>)}
+    </div>
    </main>;
   if(!hasConfig()||!user)return <AuthPortal/>;
   return <div className={'app-frame'+(view==='home'?' sf-xhs-home':'')}><div className="app-layout">
