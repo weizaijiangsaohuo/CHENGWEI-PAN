@@ -12,6 +12,8 @@ import './starflow-affiliations.css';
 import './starflow-official-notifications.css';
 import './starflow-account-about.css';
 import './starflow-mentions.css';
+// Authoritative Starflow 2.0 design system. Import LAST to resolve legacy cascades.
+import './starflow-2.css';
 import './starflow-2.css';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { StarflowDiscovery } from '@/components/StarflowDiscovery';
