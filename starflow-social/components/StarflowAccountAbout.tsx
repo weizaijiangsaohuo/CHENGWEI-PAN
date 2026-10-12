@@ -166,7 +166,7 @@ export function StarflowAccountAbout({handle}:{handle:string}){
         {privacyOpen&&<div className="sf-about-privacy-content">
           <label className="sf-about-toggle"><span>允许其他用户查看 IP 推断的国家／地区</span><input type="checkbox" disabled={busy} checked={!!country?.is_public} onChange={e=>void setVisibility(e.target.checked)}/></label>
           <button type="button" className="sf-about-country-refresh" disabled={busy||!country?.is_public} onClick={()=>void updateCountry()}><RefreshCcw size={16}/>{busy?'处理中…':'识别并更新本次访问的国家／地区'}</button>
-          <p>只有开启公开并成功保存后，其他用户才会看到国家／地区。此功能不保存原始 IP，识别可能受 VPN 影响。</p>
+          <p>只有开启公开并成功保存后，其他用户才会看到国家／地区。此功能不记录原始 IP，识别可能受 VPN 影响。</p>
           {countryPreview&&!country?.country_code&&<p className="sf-about-region-warning" role="status">目前仅有本次访问的预览信息，尚未写入个人资料，因此其他用户看不到这次识别结果。服务器安全写入功能需要管理员配置。</p>}
           {country?.is_public&&!country?.country_code&&!countryPreview&&<p className="sf-about-region-warning">已允许公开，但尚无已保存的国家／地区。点击上方按钮识别并尝试保存。</p>}
         </div>}
