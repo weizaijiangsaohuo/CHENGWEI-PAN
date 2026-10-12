@@ -248,6 +248,8 @@ exportButton.addEventListener('click',async()=>{
  }
  if(outputUrl){URL.revokeObjectURL(outputUrl);outputUrl=null;}
  link.style.display='none';bar.style.width='0';
+ cancelAnimationFrame(raf);
+ source.disabled=true;
  exportButton.disabled=true;cancel.disabled=false;play.disabled=true;snapshot.disabled=true;
  let chunks=[],finished=false;
  const start=Number(trimStart.value),end=Number(trimEnd.value),endTime=performance.now()+(end-start)*1000;
@@ -266,7 +268,7 @@ exportButton.addEventListener('click',async()=>{
  recording.onstop=()=>{
   const aborted=chunks.length===0;
   const blob=aborted?null:new Blob(chunks,{type:mime});
-  recording=null;stopRecording=null;previewSize();wake();
+  recording=null;stopRecording=null;source.disabled=false;previewSize();wake();
   exportButton.disabled=false;cancel.disabled=true;updateButtons();
   if(!blob||!blob.size){message('本次未产生有效视频。请使用较低导出设置，或检查浏览器兼容性。','error');return;}
   outputUrl=URL.createObjectURL(blob);link.href=outputUrl;
