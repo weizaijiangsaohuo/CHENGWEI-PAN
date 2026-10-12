@@ -8,6 +8,8 @@ import { ArrowLeft, CheckCheck, Home, LoaderCircle, MessageCircle, Search, Send,
 import { Brand } from './Brand';
 import { db, hasConfig } from '@/lib/supabase';
 import { useLanguage } from './LanguageProvider';
+import {StarflowDmTools,StarflowVoicePlayer,StarflowLocationMessage} from './StarflowDmVoiceFeatures';
+import {StarflowVoiceCall} from './StarflowVoiceCall';
 
 type Conversation = {
   id: string;
@@ -23,6 +25,11 @@ type DirectMessage = {
   conversation_id: string;
   sender_id: string;
   body: string;
+  message_type?: 'text'|'voice'|'location';
+  voice_path?: string|null;
+  voice_seconds?: number|null;
+  location_lat?: number|null;
+  location_lng?: number|null;
   created_at: string;
 };
 
@@ -133,7 +140,7 @@ export function StarflowMessages() {
     setLoadingThread(true);
     try {
       const { data, error: readError } = await db().from('dm_messages')
-        .select('id,conversation_id,sender_id,body,created_at')
+        .select('id,conversation_id,sender_id,body,message_type,voice_path,voice_seconds,location_lat,location_lng,created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false }).limit(100);
       if (readError) throw readError;
@@ -398,7 +405,9 @@ export function StarflowMessages() {
   </main>;
 
   return <div className="sf-dm-page">
-    <header className="sf-dm-global"><Brand compact/><nav aria-label="星流导航">
+    <header className="sf-dm-global"><Brand compact/>
+      <StarflowVoiceCall userId={user.id} conversationId={activeId} peerId={peerId} canSend={canSend} onError={setError}/>
+      <nav aria-label="星流导航">
       <Link href="/"><Home size={19}/><span>{en ? 'Home' : '首页'}</span></Link>
       <Link href="/explore"><Search size={19}/><span>{en ? 'Explore' : '探索'}</span></Link>
       <Link href="/settings" className="sf-dm-profile-shortcut"><UserRound size={19}/><span>{en ? 'Settings' : '设置'}</span></Link>
@@ -468,7 +477,9 @@ export function StarflowMessages() {
             {!loadingThread && messages.length === 0 && <div className="sf-dm-thread-empty">
               {en ? 'Send the first message.' : '发送第一条私信，开始聊天。'}</div>}
             {messages.map(m => <div key={m.id} className={'sf-dm-message' + (m.sender_id === user.id ? ' sf-dm-own' : '')}>
-              <span className="sf-dm-bubble">{m.body}</span>
+              <span className="sf-dm-bubble">{m.message_type==='voice'&&m.voice_path?<StarflowVoicePlayer path={m.voice_path} seconds={m.voice_seconds||1}/>:
+                m.message_type==='location'&&m.location_lat!=null&&m.location_lng!=null?<StarflowLocationMessage lat={m.location_lat} lng={m.location_lng}/>:
+                m.body}</span>
               <time dateTime={m.created_at}>{new Date(m.created_at).toLocaleTimeString(en ? 'en-US' : 'zh-CN', {hour:'2-digit',minute:'2-digit'})}</time>
               {m.id === lastOwnMessageId && m.sender_id === user.id && peerReadStates[m.conversation_id] &&
                 peerReadStates[m.conversation_id] >= m.created_at &&
@@ -480,6 +491,9 @@ export function StarflowMessages() {
           {!canSend && !loadingThread && <p className="sf-dm-send-restricted">
             {en ? 'You cannot send messages in this conversation at the moment.' : '当前会话暂时无法发送私信。'}
           </p>}
+          <StarflowDmTools userId={user.id} conversationId={activeId} disabled={!canSend||sending}
+            lang={en?'en-US':'zh-CN'} draft={draft} setDraft={setDraft}
+            onSent={async()=>{await Promise.all([loadThread(activeId),loadInbox()])}} onError={setError}/>
           <form onSubmit={send} className="sf-dm-compose">
             <label htmlFor="sf-dm-input" className="sf-dm-sr-only">{en ? 'Message' : '私信内容'}</label>
             <textarea id="sf-dm-input" value={draft} onChange={e => setDraft(e.target.value)}
