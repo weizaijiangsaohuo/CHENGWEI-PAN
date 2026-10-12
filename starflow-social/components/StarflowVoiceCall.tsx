@@ -6,7 +6,22 @@ import {db} from '@/lib/supabase';
 type Call={id:string;conversation_id:string;caller_id:string;callee_id:string;status:'ringing'|'active'|'ended'|'declined';created_at:string};
 type Signal={id:string;sender_id:string;kind:'offer'|'answer'|'ice';payload:Record<string,unknown>};
 function errText(e:unknown){return e instanceof Error?e.message:'语音通话失败';}
-const STUN:RTCConfiguration={iceServers:[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}]};
+const DEFAULT_ICE:RTCIceServer[]=[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}];
+async function readIceServers():Promise<RTCIceServer[]>{
+ try{
+  const {data:{session}}=await db().auth.getSession();
+  if(!session?.access_token)return DEFAULT_ICE;
+  const response=await fetch('/api/rtc/ice',{
+   headers:{Authorization:'Bearer '+session.access_token},
+   cache:'no-store'
+  });
+  if(!response.ok)return DEFAULT_ICE;
+  const info=await response.json() as {iceServers?:RTCIceServer[]};
+  if(!Array.isArray(info.iceServers))return DEFAULT_ICE;
+  // TURN URLs and temporary credentials originate only from the authenticated server.
+  return [...DEFAULT_ICE,...info.iceServers];
+ }catch{return DEFAULT_ICE}
+}
 export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}:{
  userId:string;conversationId:string|null;peerId:string|null;canSend:boolean;onError:(message:string)=>void
 }){
@@ -41,7 +56,7 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
  }
  async function buildPeer(item:Call,stream:MediaStream){
   if(pcRef.current)return pcRef.current;
-  const pc=new RTCPeerConnection(STUN);pcRef.current=pc;
+  const pc=new RTCPeerConnection({iceServers:await readIceServers()});pcRef.current=pc;
   stream.getAudioTracks().forEach(t=>pc.addTrack(t,stream));
   pc.ontrack=event=>{
    if(played.current){played.current.srcObject=event.streams[0]||new MediaStream([event.track]);void played.current.play().catch(()=>{});}
@@ -189,7 +204,7 @@ export function StarflowVoiceCall({userId,conversationId,peerId,canSend,onError}
       <button type="button" className="sf-dm-decline" onClick={()=>void finish()}><PhoneOff size={18}/>挂断</button></>}
     </div>
     {remoteReady&&<button type="button" className="sf-dm-play-remote" onClick={()=>void played.current?.play().catch(()=>onError('请在系统中允许播放音频'))}><Volume2 size={17}/>播放对方声音</button>}
-    <p className="sf-dm-call-caveat">不同运营商、公司网络可能需要 TURN 中继；本版本采用 STUN，不能保证所有网络都能接通。来电提醒仅在私信页面打开时提供。</p>
+    <p className="sf-dm-call-caveat">系统会优先尝试直连；配置临时 TURN 凭据后可改善跨运营商连接。如果未配置 TURN，部分网络仍会失败。来电提醒仅在私信网页前台提供。</p>
    </div>
   </div>}
  </>;

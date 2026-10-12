@@ -112,3 +112,14 @@
  .sf-dm-voice-preview audio{width:190px}
  .sf-dm-call-dialog{padding:22px 18px}
 }
+
+
+/* Voice/call capability details readable on iOS, Android, Windows and macOS. */
+.sf-dm-device-check{margin-top:8px;border-top:1px solid #eee6f1;color:#81728f;font-size:12px}
+.sf-dm-device-check summary{display:flex;align-items:center;gap:7px;padding:9px 0 5px;font-weight:650;cursor:pointer;user-select:none}
+.sf-dm-device-check summary::-webkit-details-marker{display:none}
+.sf-dm-device-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 12px;margin:9px 0}
+.sf-dm-device-list>span{display:flex;align-items:center;flex-wrap:wrap;gap:5px;font-weight:700}
+.sf-dm-device-list small{width:100%;margin-left:20px;font-size:11px;font-weight:400}
+.sf-dm-device-check p{margin:7px 0;line-height:1.65;color:#796c85}
+@media(max-width:700px){.sf-dm-device-list{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-dm-extra-actions button{min-height:40px}}
