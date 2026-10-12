@@ -137,6 +137,10 @@ function settingsValid(){
  const start=Number(trimStart.value),end=Number(trimEnd.value);
  if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end-start>60){message('截取时长必须大于 0 且不超过 60 秒。','error');return false;}
  if(kind==='video'&&end>sourceLength+.05){message('截取终点不能超过素材总时长。','error');return false;}
+ if(kind==='video'&&(end-start)/Number(speed.value)>60){
+  message('当前变速后的实际导出时长超过 60 秒，请缩短区间或提高播放速度。','error');
+  return false;
+ }
  return true;
 }
 function draw(target,progress){
