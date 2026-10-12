@@ -1,0 +1,39 @@
+name: Starflow UI and TypeScript
+
+on:
+  pull_request:
+    paths:
+      - 'starflow-social/**'
+      - '.github/workflows/starflow-ui-check.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'starflow-social/**'
+      - '.github/workflows/starflow-ui-check.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: starflow-ui-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    defaults:
+      run:
+        working-directory: starflow-social
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: starflow-social/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run build

@@ -26,7 +26,9 @@
 | 认证 | /verification | 蓝/金/灰认证状态与真实申请 |
 | 管理 | /admin/console | 权限表、内容审核、公告、可审计操作 |
 
-## 3. Figma 文件结构与帧清单（待 Figma 连接）
+## 3. Figma 文件结构与帧清单（已创建，可编辑）
+
+**设计文件：** https://www.figma.com/design/I4LzIPERJmtZtQMORfietK 。包含基础设计、组件以及八个移动页面和三个桌面页面；已有八段原型点击转场。现有设计是可编辑初版，不表示以下所有规划帧和组件状态已经逐个交付。
 
 - Design Tokens 页面：Color/Light、Color/Dark、Typography、Spacing、Radius、Elevation、Motion、Glass/Levels。值见 design/starflow-2.tokens.json。
 - Components 页面：Glass/Navigation、Glass/Segmented、Glass/Button、Glass/Sheet、Feed/Post、Feed/Composer、Profile/Header、Trust/Badge、DM/Bubble、DM/Voice、DM/Location、DM/Call、Notification/Row、Admin/Table、Admin/Toolbar。
@@ -35,7 +37,7 @@
 - Tablet 768×1024：折叠侧导航、内容区最大约 624px。
 - Desktop 1440×900：左栏约 244px、中心 624px、右栏 260–330px；私信双栏；后台响应式数据表。
 - 所有核心页面分 theme=light/dark、state=default/pressed/focus/disabled/loading/error/empty/success；与源代码真实路由相互链接，拒绝只有漂亮静态图却无法点击的原型。
-- 目前没有在线 Figma 文件；需要你授权连接 Figma 后才可创建并返回共享链接。
+- Figma 已连接，文件已创建。Starter 套餐仅允许 3 个页面且单个变量集合不支持 Light/Dark 双模式，因此基础、组件、页面合并组织在三个分区；明暗颜色变量分为两个集合。
 
 ## 4. 基础设计规则
 
@@ -90,4 +92,5 @@
 
 - 完成：现状审计、IA/PRD、Design Tokens、组件命名与 Figma 帧规划、开发契约、验收矩阵。
 - 本 PR 完成的开发：真实推荐/关注布局分离、轻重材质分级、玻璃底部导航选中层、主题切换、内容优先 CSS、可访问组件基础。
-- 待完成：Figma 在线可编辑文件与真正连接的原型、历史 CSS 清理、所有模块深入交互逐页重构、Cloudflare 最新部署核实、跨设备实测、视频通话/通知推送/文件发送的完整端到端功能闭环和性能预算验收。
+- 已完成：Figma 在线可编辑文件、部分可点击原型、第一轮移动/桌面高层设计。
+- 待完成：其余规划帧与全部状态变体、高保真逐页交互、历史 CSS 清理、Cloudflare 最新部署核实、跨设备实测、视频通话/通知推送/文件发送的完整端到端功能闭环和性能预算验收。

@@ -41,6 +41,17 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+// Runs before React hydration to prevent a bright flash when returning to dark mode.
+// No personal data, network calls or secrets are included in this inline bootstrap.
+const bootstrapAppearance = `(function(){try{
+ var stored=localStorage.getItem('sf2-theme');
+ var dark=stored==='dark'||(stored!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+ document.documentElement.setAttribute('data-sf2-theme',dark?'dark':'light');
+}catch(e){
+ var dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+ document.documentElement.setAttribute('data-sf2-theme',dark?'dark':'light');
+}})();`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="zh-CN"><body><LanguageProvider><StarflowExperienceBootstrap/><StarflowPublicAnnouncements/>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /><StarflowAccountAboutEntry /><StarflowMentions /></LanguageProvider></body></html>;
+  return <html lang="zh-CN" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:bootstrapAppearance}} /></head><body><LanguageProvider><StarflowExperienceBootstrap/><StarflowPublicAnnouncements/>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /><StarflowAccountAboutEntry /><StarflowMentions /></LanguageProvider></body></html>;
 }
