@@ -22,6 +22,8 @@ import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
 import { ago, unwrap } from '@/lib/types';
+import {notificationLabel,notificationTarget,visibleNotifications} from '@/lib/notification-experience';
+import type {NotificationGroup} from '@/lib/notification-experience';
 
 type View = 'home' | 'explore' | 'notifications' | 'bookmarks' | 'settings' | 'profile' | 'post';
 type Metrics = Record<string,{likes:number; reposts:number; replies:number; views:number; liked:boolean; reposted:boolean; saved:boolean}>;
@@ -61,6 +63,10 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
   const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
   const [tab,setTab]=useState<'all'|'following'>('all');const [search,setSearch]=useState('');
+  const [settledSearch,setSettledSearch]=useState('');
+  const [searchFilter,setSearchFilter]=useState<'all'|'posts'|'people'>('all');
+  const [notificationFilter,setNotificationFilter]=useState<NotificationGroup>('all');
+  const searchPending=view==='explore'&&search.trim()!==settledSearch.trim();
   const [homeComposerOpen,setHomeComposerOpen]=useState(false);
   const pendingToggles=useRef<Set<string>>(new Set());
   useEffect(()=>{
@@ -109,8 +115,15 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   useEffect(()=>{
     if(view!=='explore')return;
     const tag=new URLSearchParams(window.location.search).get('tag');
-    if(tag)setSearch('#'+tag.slice(0,50));
+    if(tag){const normalized='#'+tag.slice(0,50);setSearch(normalized);setSettledSearch(normalized);}
   },[view]);
+  // Search requests are debounced; a user typing a 10-character query no
+  // longer triggers 10 separate post + engagement metric fetches.
+  useEffect(()=>{
+    if(view!=='explore')return;
+    const timer=window.setTimeout(()=>setSettledSearch(search.trim()),350);
+    return()=>window.clearTimeout(timer);
+  },[search,view]);
 
   useEffect(()=>{
     if(!hasConfig()){rememberVerifiedRouteUser(null);setChecking(false);return;}
@@ -264,8 +277,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       let currentProfile:Profile|null=null;
       if(view==='home'||view==='explore'){
         query=query.is('parent_id',null).order('created_at',{ascending:false}).limit(80);
-        if(view==='explore'&&search.trim()){
-          const term=search.trim().slice(0,50).replace(/[%_\\]/g,'');
+        if(view==='explore'&&settledSearch.trim()){ 
+          const term=settledSearch.trim().slice(0,50).replace(/[%_\\]/g,'');
           if(term)query=query.ilike('content',`%${term}%`);
         }
         if(view==='home' && tab==='following'){
@@ -319,27 +332,27 @@ export function SocialApp({view,target}:{view:View;target?:string}){
         }setMetrics(collect);
       }else setMetrics({});
       if(view==='explore'){
-        const needle=search.trim().slice(0,50);
-        if(needle){const {data:u}=await client.from('profiles').select('*').or(`handle.ilike.%${needle.replace(/[%_,()]/g,'')}%,display_name.ilike.%${needle.replace(/[%_,()]/g,'')}%`).limit(8);
+        const needle=settledSearch.trim().replace(/^[@#]/,'').slice(0,50);
+        if(needle){const {data:u}=await client.from('profiles').select('*').or(`handle.ilike.%${needle.replace(/[^\p{L}\p{N}._\- ]/gu,'')}%,display_name.ilike.%${needle.replace(/[%_,()]/g,'')}%`).limit(8);
           setAccounts((u||[]) as Profile[]);
           await loadBadges((u||[]).map(x=>x.id));}
         else setAccounts([]);
       }
     }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
     finally{setLoading(false)}
-  },[user,view,target,search,tab,loadBadges]);
+  },[user,view,target,settledSearch,tab,loadBadges]);
   useEffect(()=>{if(user)void load();},[load,user]);
 
   const ordered=useMemo(()=>{
     let list=posts;
     if(view==='home'&&tab==='following')list=list.filter(p=>following.includes(p.author_id)||p.author_id===user?.id);
-    if(view==='explore'&&search.trim()){
-      const needle=search.trim().toLocaleLowerCase();
+    if(view==='explore'&&settledSearch.trim()){ 
+      const needle=settledSearch.trim().toLocaleLowerCase();
       list=list.filter(p=>p.content.toLocaleLowerCase().includes(needle)||unwrap(p.profiles)?.display_name.toLocaleLowerCase().includes(needle));
     }
     if(view==='post')list=[...list].sort((a,b)=>a.id===target?-1:b.id===target?1:new Date(a.created_at).getTime()-new Date(b.created_at).getTime());
     return list;
-  },[posts,view,tab,following,user?.id,search,target]);
+  },[posts,view,tab,following,user?.id,settledSearch,target]);
 
   async function toggle(table:'likes'|'reposts'|'bookmarks',post:Post){
     if(!user)return;
