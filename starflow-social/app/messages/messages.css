@@ -123,3 +123,11 @@
 .sf-dm-device-list small{width:100%;margin-left:20px;font-size:11px;font-weight:400}
 .sf-dm-device-check p{margin:7px 0;line-height:1.65;color:#796c85}
 @media(max-width:700px){.sf-dm-device-list{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-dm-extra-actions button{min-height:40px}}
+
+
+/* iOS Safari voice-note loading errors and on-demand transcription */
+.sf-dm-voice-player .sf-dm-save-voice{font-size:11px;color:inherit;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+.sf-dm-voice-player .sf-dm-transcribe-note{font:inherit;font-size:11px;padding:6px 9px;background:#fff;border:1px solid #dfc8ef;color:#74468f;border-radius:9px;cursor:pointer}
+.sf-dm-own .sf-dm-voice-player .sf-dm-transcribe-note{background:#fff;color:#74468f}
+.sf-dm-voice-player .sf-dm-voice-transcript{display:block;flex-basis:100%;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;max-width:280px}
+.sf-dm-voice-player button:disabled{cursor:wait;opacity:.7}
