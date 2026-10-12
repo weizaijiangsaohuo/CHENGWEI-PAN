@@ -22,7 +22,7 @@ test('Only explicit interaction can request precise location or microphone',()=>
  assert.match(tools,/setClip\(blob\)/);
  assert.match(tools,/sf_dm_send_voice/);
  assert.match(tools,/sf_dm_send_location/);
- assert.match(tools,/createSignedUrl/);
+ assert.match(tools,/storage\.from\(BUCKET\)\.download\(path\)/);
  assert.match(tools,/onresult=event/);
  assert.doesNotMatch(tools,/watchPosition|service_role/);
  assert.match(msg,/StarflowDmTools/);
