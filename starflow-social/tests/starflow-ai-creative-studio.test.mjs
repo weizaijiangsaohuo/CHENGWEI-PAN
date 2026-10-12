@@ -23,7 +23,7 @@ test('all five modes have real, whitelisted model adapters and a live UI',()=>{
  assert.match(models,/character_orientation:'video'/);
  assert.match(models,/reference_image_url:imageUrl/);
  assert.match(models,/extractCreativeOutput/);
- assert.match(page,/StarflowCreativeStudio/);
+ assert.match(page,/StarflowZeroStudio/);
  assert.match(nav,/to:'\/ai-studio'/);
  assert.match(ui,/creativeModeKeys\.map/);
  assert.match(ui,/AI 生成/);

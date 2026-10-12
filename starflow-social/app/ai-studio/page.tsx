@@ -1,7 +1,7 @@
-import {StarflowCreativeStudio} from '@/components/StarflowCreativeStudio';
+import {StarflowZeroStudio} from '@/components/StarflowZeroStudio';
 
 export const metadata={
- title:'星流 AI 创作工作室 · Starflow AI Studio',
- description:'AI 图片生成、文生视频、图生视频、参考动作复刻与 AI 视频重塑。'
+ title:'星流 Zero · 零预算自主创作引擎',
+ description:'自主开发的零预算场景规划 API，设备本地生成概念海报、图片动效与基础视频调色。'
 };
-export default function AIStudioPage(){return <StarflowCreativeStudio/>}
+export default function AIStudioPage(){return <StarflowZeroStudio/>}
