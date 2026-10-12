@@ -132,6 +132,14 @@ export async function GET(request:Request){
   if(error)return response({error:'任务暂时无法读取'},503);
   if(!data)return response({error:'找不到该创作任务'},404);
   const job=data as Job;
+  // Release abandoned provider tasks instead of blocking the user's daily
+  // single-flight slot indefinitely. Keep the already-incurred quota visible.
+  if(['queued','running'].includes(job.status)&&
+     Date.now()-new Date(job.created_at).getTime()>6*60*60*1000){
+   await failJob(auth,job.id,'生成任务超过6小时未完成，请联系平台支持');
+   return response({job:{id:job.id,mode:job.mode,status:'failed',
+    error_message:'生成任务超时，请联系平台支持'}});
+  }
   if(job.status==='completed'||job.status==='failed')
    return response({job:{id:job.id,mode:job.mode,status:job.status,result_url:job.result_url,error_message:job.error_message}});
   if(job.status==='preparing'){
@@ -156,6 +164,11 @@ export async function GET(request:Request){
      .update({status:next,updated_at:new Date().toISOString()})
      .eq('id',job.id).eq('user_id',auth.userId);
     return response({job:{id:job.id,mode:job.mode,status:next}});
+   }
+   if(state==='FAILED'||state==='CANCELLED'){
+    await failJob(auth,job.id,'生成引擎未能完成任务');
+    return response({job:{id:job.id,mode:job.mode,status:'failed',
+     error_message:'生成引擎未能完成任务'}});
    }
    if(state!=='COMPLETED')return response({job:{id:job.id,mode:job.mode,status:job.status}});
    const output=await falFetch(falUrl(job.model_id,job.provider_request_id),'GET');
