@@ -60,5 +60,6 @@ test('existing consent, authentication, RLS and one-time location rules preserve
  assert.match(api,/client\.auth\.getUser/);
  assert.match(api,/SUPPORT_PER_IP/);
  assert.match(api,/SUPPORT_GLOBAL/);
- assert.doesNotMatch(api,/service_role|\\.upsert\\(/);
+ assert.ok(!api.includes('service_role'));
+ assert.ok(!api.includes('.upsert('));
 });
