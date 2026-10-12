@@ -13,7 +13,7 @@ export function VerificationAdmin(){
  const load=async()=>{
   if(!hasConfig()){setReady(true);setNotice('服务尚未配置');return;}
   const {data:{user}}=await db().auth.getUser();if(!user){setReady(true);return;}
-  const {data,isAdminError}=await (async()=>{const r=await db().rpc('is_platform_admin');return {data:r.data,isAdminError:r.error}})();
+  const {data,isAdminError}=await (async()=>{const r=await db().rpc('sf_admin_has_permission',{p_permission:'verifications.manage'});return {data:r.data,isAdminError:r.error}})();
   if(isAdminError||data!==true){setReady(true);return;}
   setAuthorized(true);
   const {data:active}=await db().from('account_verifications').select('profile_id').eq('status','approved');
