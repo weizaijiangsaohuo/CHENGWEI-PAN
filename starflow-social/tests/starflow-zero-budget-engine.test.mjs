@@ -71,4 +71,5 @@ test('legacy paid model endpoint has permanent budget circuit breaker',()=>{
  assert.match(paid,/if\(STARFLOW_PAID_INFERENCE_LOCKED\)\s*return response\(/);
  assert.match(paid,/enabled:!STARFLOW_PAID_INFERENCE_LOCKED&&/);
  assert.match(paid,/请使用 \/api\/creative\/zero/);
+ assert.match(paid,/warning:'星流零预算模式已停止所有第三方付费模型同步。'/);
 });
