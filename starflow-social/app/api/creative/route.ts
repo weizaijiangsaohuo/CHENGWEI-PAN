@@ -118,7 +118,11 @@ export async function GET(request:Request){
  try{
   const auth=await authenticated(request);
   if(auth instanceof Response)return auth;
-  const id=new URL(request.url).searchParams.get('id');
+  const params=new URL(request.url).searchParams;
+  if(params.get('capability')==='1'){
+   return response({enabled:process.env.STARFLOW_CREATIVE_ENABLED==='true'&&!!process.env.FAL_KEY});
+  }
+  const id=params.get('id');
   if(!id){
    const {data,error}=await auth.client.from('sf_creative_jobs')
     .select('id,mode,prompt,status,result_url,error_message,created_at,completed_at')
