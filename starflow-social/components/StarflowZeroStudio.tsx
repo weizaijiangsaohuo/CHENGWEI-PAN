@@ -147,6 +147,12 @@ export function StarflowZeroStudio(){
     <span><strong>完全零付费推理</strong> · 当前版本使用程序化绘图、图片运镜和基础视频调色。
      <b>不是扩散式 AI 生图/文生真人视频模型。</b> 真实人物动作迁移、视频复刻、复杂 AI 剪辑仍在自主研发中。</span>
    </div>
+   <div className="sf-creative-notice" role="note">
+    <strong>更多免费本地剪辑：</strong>{' '}
+    <Link href="/starflow-video-editor.html">打开免费视频工作台</Link>
+    {' '}— 支持自选裁剪时长、变速、滤镜、字幕和设备兼容时的高清导出。
+    这是浏览器传统视频处理，不是文生视频大模型。
+   </div>
    <div className="sf-creative-layout">
     <section className="sf-creative-panel" aria-label="星流本地创作引擎">
      <div className="sf-creative-panel-title"><h2>选择免费创作能力</h2><span>01 / 引擎</span></div>

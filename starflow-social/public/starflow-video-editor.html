@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f19">
+<meta name="description" content="Starflow 免费本地视频工具：图片动态成片、视频裁剪、字幕、滤镜、变速和本地导出，不需要收费 API。">
+<title>Starflow 免费视频创作实验室</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft Yahei",sans-serif;color:#edf2ff;background:#0b0f19}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -180px,#273c66,transparent 70%),#0b0f19}
+header{max-width:1120px;margin:0 auto;padding:22px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2b3446}
+.brand{font-weight:850;letter-spacing:.09em}a{color:#bdccff}header a{text-decoration:none;font-size:13px}
+main{max-width:1120px;padding:30px 16px 80px;margin:auto}
+h1{font-size:clamp(25px,4vw,38px);letter-spacing:-.04em;margin:12px 0 8px}h2{font-size:17px;margin:0 0 15px}
+p{color:#b6c1d9;line-height:1.7}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;color:#aabfff}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:18px;margin-top:22px}
+.panel{background:#131b2b;border:1px solid #2b374f;border-radius:20px;padding:20px;min-width:0}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+label{display:flex;flex-direction:column;gap:6px;color:#ccd5e9;font-size:13px;font-weight:650}
+input,select,button{font:inherit}input[type=file]{border:1px dashed #7584a5;border-radius:12px;padding:14px;background:#0e1523;width:100%;font-size:13px}
+input:not([type=file]),select,textarea{width:100%;min-width:0;border:1px solid #435170;background:#0d1421;color:#f1f5ff;padding:12px 10px;border-radius:11px}
+input[type=range]{padding:0;accent-color:#98b5ff}textarea{resize:vertical;min-height:60px}
+.full{grid-column:1/-1}.hint{font-size:12px;color:#9aa9c2;line-height:1.55}
+.separator{border:0;border-top:1px solid #2b374f;margin:20px 0}
+canvas{background:#05080f;display:block;max-width:100%;max-height:58vh;width:auto;height:auto;margin:auto;border-radius:12px}
+.stage{display:grid;place-items:center;min-height:250px;border-radius:16px;background:repeating-linear-gradient(45deg,#101727,#101727 12px,#172033 12px,#172033 24px);overflow:hidden;padding:12px}
+video{display:block;width:100%;max-height:140px;margin-top:10px;border-radius:8px;background:#03050a}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
+button{cursor:pointer;border:1px solid #536283;border-radius:12px;background:#28344c;color:#eaf0ff;padding:11px 15px;font-size:14px;font-weight:750}
+button.primary{background:#96b8ff;border-color:#96b8ff;color:#081324}
+button:disabled{cursor:not-allowed;opacity:.44}
+.info{margin:14px 0 0;padding:12px;background:#202d43;border-radius:12px;color:#d4dded;font-size:13px}
+.info.error{background:#41232b;color:#ffced6}.info.success{background:#1e4039;color:#c5f8dc}
+#downloadLink{display:none;margin-top:12px;font-weight:750}
+#sourceVideo{display:none}
+.progress{height:7px;border-radius:10px;background:#303d53;margin-top:12px;overflow:hidden}
+.progress div{height:100%;width:0;background:#9fbaff;transition:width .1s linear}
+.foot{font-size:12px;margin-top:16px;color:#aab8cf}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.panel{padding:16px}.stage{min-height:220px}}
+@media(max-width:380px){.controls{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="brand">✦ STARFLOW · LOCAL VIDEO</div><a href="/ai-studio">返回 AI 工作室 ↗</a></header>
+<main>
+<div class="eyebrow">NO API · LOCAL EDITING · NO UPLOADS</div>
+<h1>免费视频创作工作台</h1>
+<p>只用 iPhone 也能开始：上传自己的图片或视频，在浏览器里制作动态画面、剪辑、调色、添加字幕并尝试导出。<strong>这是本地视频处理，不是文生视频大模型，也不提供换脸或动作迁移。</strong></p>
+<div class="layout">
+<section class="panel" aria-label="创作参数">
+<h2>01 / 导入素材</h2>
+<label>选择一张图片或一段视频
+<input id="source" type="file" accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/quicktime,video/webm">
+</label>
+<p class="hint" id="fileDetail">图片可制作镜头推拉动画，视频可裁剪、调速和调整画面。素材不会通过本工具上传到服务器。</p>
+<hr class="separator">
+<h2>02 / 调整画面</h2>
+<div class="controls">
+<label>比例<select id="aspect"><option value="9:16">9:16 竖屏</option><option value="16:9">16:9 横屏</option><option value="1:1">1:1 方形</option></select></label>
+<label>色彩滤镜<select id="filter"><option value="none">原画</option><option value="cinematic">电影对比</option><option value="warm">暖色</option><option value="mono">黑白</option></select></label>
+<label>画面运动<select id="motion"><option value="zoom">慢速推进</option><option value="pan">水平运镜</option><option value="static">固定镜头</option></select></label>
+<label>播放速度<select id="speed"><option value="0.5">0.5× 慢速</option><option value="1" selected>1× 正常</option><option value="1.5">1.5× 快速</option><option value="2">2× 快速</option></select></label>
+<label class="full">叠加字幕 / 标题<input id="caption" type="text" maxlength="80" placeholder="输入要显示在画面上的文字"></label>
+<label>视频截取起点（秒）<input id="trimStart" type="number" min="0" max="600" step="0.1" value="0"></label>
+<label>视频截取终点（秒）<input id="trimEnd" type="number" min="0.5" max="600" step="0.1" value="5"></label>
+</div>
+<p class="hint">图片模式使用起点 0、终点作为动画时长；视频模式可按素材时长裁剪。导出不包含原视频声音。</p>
+<hr class="separator">
+<h2>03 / 选择输出</h2>
+<div class="controls">
+<label>分辨率<select id="resolution"><option value="720">720P · 1280×720</option><option value="1080" selected>1080P · 1920×1080</option><option value="2160">4K UHD · 实验性</option></select></label>
+<label>目标帧率<select id="fps"><option value="24">24 FPS</option><option value="30" selected>30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS · 实验性</option></select></label>
+</div>
+<p class="hint">4K 和 120 FPS 为<strong>设备依赖的导出目标</strong>，浏览器可能不支持或掉帧。4K 是画面重采样输出，120 FPS 是录制目标，均不代表 AI 原生生成或实际编码帧率保证。</p>
+</section>
+<section class="panel" aria-label="实时预览与导出">
+<h2>实时预览</h2>
+<div class="stage"><canvas id="preview" width="270" height="480" aria-label="本地视频预览画布"></canvas></div>
+<video id="sourceVideo" controls playsinline muted preload="metadata" aria-label="原素材播放控制"></video>
+<div class="actions">
+<button id="play" type="button" disabled>▶ 播放 / 暂停</button>
+<button id="snapshot" type="button" disabled>保存当前 PNG 截图</button>
+</div>
+<hr class="separator">
+<h2>本地导出</h2>
+<div class="actions">
+<button id="export" class="primary" type="button" disabled>导出处理后视频</button>
+<button id="cancel" type="button" disabled>停止导出</button>
+</div>
+<div class="progress"><div id="bar"></div></div>
+<p id="status" class="info" role="status" aria-live="polite">请先选择图片或视频。</p>
+<a id="downloadLink" download="starflow-local-video.webm">⬇ 保存成品视频到 iPhone</a>
+<p class="foot">浏览器优先尝试 MP4，若只支持 WebM 则导出 WebM。部分 iOS Safari 版本不支持 Canvas 录制或不允许在后台录制；此时会显示兼容性提示，不会假装生成成功。导出过程中请保持网页在前台。</p>
+</section>
+</div>
+<p class="foot">Starflow AI Lab · 免费离线编辑原型。首次页面加载可能需要网络，但素材处理不需要收费模型或服务器。使用有权处理的素材；请勿将这个页面当作可靠的商业级导出工具。</p>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const preview=$('preview'),ctx=preview.getContext('2d',{alpha:false});
+const source=$('source'),video=$('sourceVideo');
+const aspect=$('aspect'),filter=$('filter'),motion=$('motion'),speed=$('speed'),caption=$('caption');
+const trimStart=$('trimStart'),trimEnd=$('trimEnd'),resolution=$('resolution'),fps=$('fps');
+const play=$('play'),snapshot=$('snapshot'),exportButton=$('export'),cancel=$('cancel');
+const status=$('status'),link=$('downloadLink'),bar=$('bar'),detail=$('fileDetail');
+let image=null,kind=null,sourceUrl=null,outputUrl=null,recording=null,raf=0,startedAt=0,stopRecording=null,sourceLength=5,renderProgress=0;
+function message(text,type=''){status.textContent=text;status.className='info'+(type?' '+type:'');}
+function clearMedia(){
+ if(recording){try{recording.stop()}catch{} recording=null;}
+ if(stopRecording){stopRecording();stopRecording=null;}
+ cancel.disabled=true;exportButton.disabled=true;play.disabled=true;snapshot.disabled=true;
+ video.pause();video.removeAttribute('src');video.load();video.style.display='none';
+ image=null;kind=null;
+ if(sourceUrl){URL.revokeObjectURL(sourceUrl);sourceUrl=null;}
+ if(outputUrl){URL.revokeObjectURL(outputUrl);outputUrl=null;}
+ link.style.display='none';bar.style.width='0';
+}
+function getBounds(){
+ const [a,b]=aspect.value.split(':').map(Number);return [a,b];
+}
+function previewSize(){
+ const [a,b]=getBounds(),scale= a<b?360/b:360/a;
+ preview.width=Math.round(a*scale);preview.height=Math.round(b*scale);
+}
+function outputSize(){
+ const size=Number(resolution.value),[a,b]=getBounds();
+ return a>=b?[Math.round(size*a/b),size]:[size,Math.round(size*b/a)];
+}
+function filterValue(){
+ return {none:'none',cinematic:'contrast(1.2) saturate(1.18)',warm:'sepia(.32) saturate(1.28)',mono:'grayscale(1) contrast(1.12)'}[filter.value]||'none';
+}
+function settingsValid(){
+ const start=Number(trimStart.value),end=Number(trimEnd.value);
+ if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end-start>60){message('截取时长必须大于 0 且不超过 60 秒。','error');return false;}
+ if(kind==='video'&&end>sourceLength+.05){message('截取终点不能超过素材总时长。','error');return false;}
+ if(kind==='video'&&(end-start)/Number(speed.value)>60){
+  message('当前变速后的实际导出时长超过 60 秒，请缩短区间或提高播放速度。','error');
+  return false;
+ }
+ return true;
+}
+function draw(target,progress){
+ const width=target.canvas.width,height=target.canvas.height;
+ target.fillStyle='#080d17';target.fillRect(0,0,width,height);
+ const media=kind==='image'?image:video;
+ const mw=kind==='image'?image?.naturalWidth:video.videoWidth;
+ const mh=kind==='image'?image?.naturalHeight:video.videoHeight;
+ if(!media||!mw||!mh)return;
+ const ratio=width/height;
+ let sw=mw,sh=mh;
+ if(mw/mh>ratio)sw=mh*ratio;else sh=mw/ratio;
+ const t=Math.min(1,Math.max(0,progress));
+ const zoom=motion.value==='zoom'?1+.15*t:1.025;
+ sw/=zoom;sh/=zoom;
+ const slide=motion.value==='pan'?(t-.5)*.65:0;
+ const sx=Math.min(mw-sw,Math.max(0,(mw-sw)*(.5+slide)));
+ const sy=Math.max(0,(mh-sh)/2);
+ target.save();target.filter=filterValue();
+ try{target.drawImage(media,sx,sy,sw,sh,0,0,width,height)}catch{}
+ target.restore();
+ const title=caption.value.trim();
+ if(title){
+  const font=Math.max(17,Math.round(width*.049));
+  target.font='700 '+font+'px -apple-system, sans-serif';
+  target.textAlign='center';target.textBaseline='middle';
+  const fit=title.length>38?title.slice(0,38)+'…':title;
+  target.lineWidth=Math.max(4,font*.14);target.strokeStyle='rgba(4,8,17,.85)';
+  target.strokeText(fit,width/2,height*.84,width*.88);
+  target.fillStyle='#fff';target.fillText(fit,width/2,height*.84,width*.88);
+ }
+}
+function updateButtons(){
+ const ready=!!kind;
+ play.disabled=!ready;snapshot.disabled=!ready;exportButton.disabled=!ready;
+}
+function tick(){
+ if(!kind){ctx.fillStyle='#080e1b';ctx.fillRect(0,0,preview.width,preview.height);return;}
+ const from=Math.max(0,Number(trimStart.value)||0);
+ const to=Math.max(from+.1,Number(trimEnd.value)||5);
+ if(kind==='image'&&(!recording||!startedAt))renderProgress=(Math.sin(performance.now()/1700)+1)/2;
+ if(kind==='video')renderProgress=(video.currentTime-from)/(to-from);
+ draw(ctx,renderProgress);raf=requestAnimationFrame(tick);
+}
+function wake(){cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);}
+source.addEventListener('change',()=>{
+ clearMedia();const file=source.files&&source.files[0];if(!file){message('请先选择文件。');return;}
+ if(file.size>150*1024*1024||file.size===0){message('请选择 150MB 以内的有效文件。','error');return;}
+ kind=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':null;
+ if(!kind){message('不支持这个格式，请使用 JPG / PNG / WebP 或 MP4 / MOV / WebM。','error');return;}
+ sourceUrl=URL.createObjectURL(file);
+ if(kind==='image'){
+  image=new Image();
+  image.onload=()=>{trimStart.value='0';trimEnd.value='5';sourceLength=60;detail.textContent='已加载 '+file.name+' · 图片本地运镜动画';updateButtons();message('图片就绪，可以预览并导出动态视频。','success');wake();};
+  image.onerror=()=>{message('无法解码图片。iPhone 的 HEIC 可能需要先转换为 JPG。','error');clearMedia();};
+  image.src=sourceUrl;
+ }else{
+  video.style.display='block';video.src=sourceUrl;video.load();video.onloadedmetadata=()=>{
+   sourceLength=Math.min(video.duration,600);
+   if(!Number.isFinite(sourceLength)||sourceLength<.4){message('视频时长无效。','error');return;}
+   trimStart.value='0';trimEnd.value=String(Math.min(10,Math.floor(sourceLength*10)/10));
+   video.playbackRate=Number(speed.value);updateButtons();
+   detail.textContent='已加载 '+file.name+' · '+sourceLength.toFixed(1)+' 秒 · 原声音不会包含在导出文件中';
+   message('视频就绪，可以播放检查、裁剪和导出。','success');wake();
+  };
+  video.onerror=()=>message('无法解码视频。请尝试 H.264 编码的 MP4 文件。','error');
+ }
+});
+video.addEventListener('ended',()=>{video.pause();});
+video.addEventListener('timeupdate',()=>{const end=Number(trimEnd.value);if(!recording&&video.currentTime>end)video.pause();});
+for(const node of [aspect,filter,motion,caption,trimStart,trimEnd])node.addEventListener('input',()=>{if(node===aspect)previewSize();wake();});
+speed.addEventListener('change',()=>{video.playbackRate=Number(speed.value);});
+play.addEventListener('click',async()=>{
+ if(!kind)return;
+ if(kind==='image'){message('图片预览正在持续显示镜头效果；点击导出生成一段动画。');return;}
+ try{
+  if(video.paused){const st=Number(trimStart.value)||0;if(video.currentTime<st||video.currentTime>=Number(trimEnd.value))video.currentTime=st;await video.play();}
+  else video.pause();
+ }catch{message('播放失败。请点击下方的原视频播放按钮。','error');}
+});
+snapshot.addEventListener('click',()=>{
+ if(!kind)return;
+ try{
+  const a=document.createElement('a');a.download='starflow-frame.png';a.href=preview.toDataURL('image/png');a.click();
+  message('已生成当前预览帧 PNG。','success');
+ }catch{message('无法保存截图，请检查浏览器的下载权限。','error');}
+});
+async function seekVideo(target){
+ if(Math.abs(video.currentTime-target)<.04)return;
+ await new Promise((resolve,reject)=>{
+  let finished=false;
+  const timer=setTimeout(()=>complete(false),7000);
+  function complete(ok){
+   if(finished)return;finished=true;clearTimeout(timer);
+   video.removeEventListener('seeked',onSeek);video.removeEventListener('error',onError);
+   if(ok)resolve();else reject(Error('视频定位失败，请尝试较短的 MP4 或重新打开素材'));
+  }
+  function onSeek(){complete(true);}
+  function onError(){complete(false);}
+  video.addEventListener('seeked',onSeek,{once:true});
+  video.addEventListener('error',onError,{once:true});
+  try{video.currentTime=target;}catch{complete(false);}
+ });
+}
+function chooseFormat(){
+ if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream)return null;
+ const formats=['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+ for(const mime of formats)if(MediaRecorder.isTypeSupported(mime))return mime;
+ return null;
+}
+exportButton.addEventListener('click',async()=>{
+ if(!kind||recording||!settingsValid())return;
+ const mime=chooseFormat();
+ if(!mime){message('当前浏览器不支持 Canvas 视频录制。可先使用 PNG 截图，或换用支持 MediaRecorder 的浏览器。','error');return;}
+ let width,height,stream;
+ try{
+  [width,height]=outputSize();
+  if(width*height>9_000_000)throw new Error('输出尺寸超过当前实验的安全限制');
+  preview.width=width;preview.height=height;
+  draw(ctx,0);
+  stream=preview.captureStream(Number(fps.value));
+  recording=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:Math.min(22_000_000,Math.max(2_000_000,width*height*Number(fps.value)*.045))});
+ }catch(error){
+  previewSize();wake();
+  message('无法开始录制：'+(error instanceof Error?error.message:'设备不支持')+'。请改用 720P/30FPS。','error');return;
+ }
+ if(outputUrl){URL.revokeObjectURL(outputUrl);outputUrl=null;}
+ link.style.display='none';bar.style.width='0';
+ cancelAnimationFrame(raf);
+ source.disabled=true;
+ exportButton.disabled=true;cancel.disabled=false;play.disabled=true;snapshot.disabled=true;
+ let chunks=[],finished=false,wasCancelled=false;
+ const start=Number(trimStart.value),end=Number(trimEnd.value),endTime=performance.now()+(end-start)*1000;
+ let timer=null,frameId=0;
+ function finish(cancelled=false){
+  if(finished)return;
+  finished=true;
+  wasCancelled=cancelled;
+  cancelAnimationFrame(frameId);clearTimeout(timer);video.pause();
+  if(recording&&recording.state!=='inactive')try{recording.stop()}catch{}
+  stream.getTracks().forEach(t=>t.stop());
+  if(cancelled)chunks=[];
+ }
+ stopRecording=()=>finish(true);
+ recording.ondataavailable=e=>{if(!wasCancelled&&e.data&&e.data.size)chunks.push(e.data);};
+ recording.onerror=()=>{message('浏览器录制失败，尝试降低分辨率或帧率。','error');finish(true);};
+ recording.onstop=()=>{
+  const aborted=wasCancelled||chunks.length===0;
+  const blob=aborted?null:new Blob(chunks,{type:mime});
+  recording=null;stopRecording=null;source.disabled=false;previewSize();wake();
+  exportButton.disabled=false;cancel.disabled=true;updateButtons();
+  if(wasCancelled){message('导出已取消，未生成文件。');return;}
+  if(!blob||!blob.size){message('本次未产生有效视频。请使用较低导出设置，或检查浏览器兼容性。','error');return;}
+  outputUrl=URL.createObjectURL(blob);link.href=outputUrl;
+  const ext=mime.includes('mp4')?'mp4':'webm';
+  link.download='starflow-local-'+Date.now()+'.'+ext;
+  link.style.display='inline-block';
+  message('视频已在浏览器处理完成（'+(blob.size/1024/1024).toFixed(2)+'MB）。点击下方保存到手机。','success');
+ };
+ try{
+  startedAt=performance.now();
+  if(kind==='video'){video.pause();await seekVideo(start);video.playbackRate=Number(speed.value);}
+  if(finished)return;
+  recording.start(250);
+  const frameLoop=()=>{
+   if(finished)return;
+   const elapsed=performance.now()-startedAt;
+   const t=kind==='image'?elapsed/((end-start)*1000):(video.currentTime-start)/(end-start);
+   draw(ctx,t);
+   bar.style.width=Math.round(Math.min(100,Math.max(0,t*100)))+'%';
+   if(elapsed>60000||t>=1||kind==='image'&&performance.now()>=endTime){finish();return;}
+   frameId=requestAnimationFrame(frameLoop);
+  };
+  frameId=requestAnimationFrame(frameLoop);
+  if(kind==='video'){
+   try{await video.play();}catch{throw new Error('Safari 阻止了视频播放，请先手动播放一次素材再导出');}
+  }
+  message('正在本地录制，请保持网页在前台。此过程不调用 AI API。');
+  timer=setTimeout(()=>finish(),Math.min(62000,(end-start)/Number(speed.value)*1000+1800));
+ }catch(error){
+  message('录制未完成：'+(error instanceof Error?error.message:'未知错误'),'error');
+  finish(true);
+  if(recording&&recording.state==='inactive'){
+   recording=null;stopRecording=null;source.disabled=false;previewSize();wake();updateButtons();cancel.disabled=true;
+  }
+ }
+});
+cancel.addEventListener('click',()=>{
+ if(stopRecording){
+  stopRecording();
+  message('已停止导出。');
+  if(recording&&recording.state==='inactive'){
+   recording=null;stopRecording=null;source.disabled=false;previewSize();wake();updateButtons();cancel.disabled=true;
+  }
+ }
+});
+window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);if(stopRecording)stopRecording();if(sourceUrl)URL.revokeObjectURL(sourceUrl);if(outputUrl)URL.revokeObjectURL(outputUrl);});
+previewSize();tick();
+})();
+</script>
+</body>
+</html>
