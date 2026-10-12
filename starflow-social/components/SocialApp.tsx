@@ -22,6 +22,8 @@ import { PostGallery } from './PostGallery';
 import './StarflowExtras.css';
 import type { Notif, Post, Profile } from '@/lib/types';
 import { ago, unwrap } from '@/lib/types';
+import {notificationLabel,notificationTarget,visibleNotifications} from '@/lib/notification-experience';
+import type {NotificationGroup} from '@/lib/notification-experience';
 
 type View = 'home' | 'explore' | 'notifications' | 'bookmarks' | 'settings' | 'profile' | 'post';
 type Metrics = Record<string,{likes:number; reposts:number; replies:number; views:number; liked:boolean; reposted:boolean; saved:boolean}>;
@@ -61,8 +63,13 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
   const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
   const [tab,setTab]=useState<'all'|'following'>('all');const [search,setSearch]=useState('');
+  const [settledSearch,setSettledSearch]=useState('');
+  const [searchFilter,setSearchFilter]=useState<'all'|'posts'|'people'>('all');
+  const [notificationFilter,setNotificationFilter]=useState<NotificationGroup>('all');
+  const searchPending=view==='explore'&&search.trim()!==settledSearch.trim();
   const [homeComposerOpen,setHomeComposerOpen]=useState(false);
   const pendingToggles=useRef<Set<string>>(new Set());
+  const loadEpoch=useRef(0);
   useEffect(()=>{
     if(view!=='home')return;
     const focusComposer=()=>{
@@ -109,8 +116,15 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   useEffect(()=>{
     if(view!=='explore')return;
     const tag=new URLSearchParams(window.location.search).get('tag');
-    if(tag)setSearch('#'+tag.slice(0,50));
+    if(tag){const normalized='#'+tag.slice(0,50);setSearch(normalized);setSettledSearch(normalized);}
   },[view]);
+  // Search requests are debounced; a user typing a 10-character query no
+  // longer triggers 10 separate post + engagement metric fetches.
+  useEffect(()=>{
+    if(view!=='explore')return;
+    const timer=window.setTimeout(()=>setSettledSearch(search.trim()),350);
+    return()=>window.clearTimeout(timer);
+  },[search,view]);
 
   useEffect(()=>{
     if(!hasConfig()){rememberVerifiedRouteUser(null);setChecking(false);return;}
@@ -253,19 +267,22 @@ export function SocialApp({view,target}:{view:View;target?:string}){
 
   const load=useCallback(async()=>{
     if(!user)return;
+    const epoch=++loadEpoch.current;
     const client=db();setLoading(true);
     try{
       const {data:fs}=await client.from('follows').select('following_id').eq('follower_id',user.id);
+      if(epoch!==loadEpoch.current)return;
       const followIds=(fs||[]).map((row:{following_id:string})=>row.following_id);
       setFollowing(followIds);
       const {count}=await client.from('notifications').select('id',{head:true,count:'exact'}).eq('recipient_id',user.id).is('read_at',null);
+      if(epoch!==loadEpoch.current)return;
       setUnread(count??0);
       let query=client.from('posts').select(postFields);
       let currentProfile:Profile|null=null;
       if(view==='home'||view==='explore'){
         query=query.is('parent_id',null).order('created_at',{ascending:false}).limit(80);
-        if(view==='explore'&&search.trim()){
-          const term=search.trim().slice(0,50).replace(/[%_\\]/g,'');
+        if(view==='explore'&&settledSearch.trim()){ 
+          const term=settledSearch.trim().slice(0,50).replace(/[%_\\]/g,'');
           if(term)query=query.ilike('content',`%${term}%`);
         }
         if(view==='home' && tab==='following'){
@@ -276,6 +293,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       else if(view==='profile'){
         const {data:p,error:pe}=await client.from('profiles').select('*').eq('handle',target||'').maybeSingle();
         if(pe)throw pe;
+        if(epoch!==loadEpoch.current)return;
         currentProfile=p as Profile|null;setProfileLookup({handle:target||'',status:currentProfile?'found':'missing',data:currentProfile});
         if(currentProfile)query=query.eq('author_id',currentProfile.id).is('parent_id',null).order('created_at',{ascending:false}).limit(80);
         else {setPosts([]);setLoading(false);return;}
@@ -288,11 +306,13 @@ export function SocialApp({view,target}:{view:View;target?:string}){
         query=query.in('id',ids).order('created_at',{ascending:false}).limit(80);
       } else if(view==='notifications'){
         const {data:n,error:ne}=await client.from('notifications').select('id,recipient_id,actor_id,kind,post_id,read_at,created_at,profiles!notifications_actor_id_fkey(id,handle,display_name,bio,avatar_url,created_at)').eq('recipient_id',user.id).order('created_at',{ascending:false}).limit(60);
+        if(epoch!==loadEpoch.current)return;
         if(ne)throw ne;setNotifs((n||[]) as unknown as Notif[]);
         await loadBadges((n||[]).map(x=>x.actor_id));
         setLoading(false);return;
       } else {setLoading(false);return;}
       const {data:rows,error}=await query;
+      if(epoch!==loadEpoch.current)return;
       if(error)throw error;
       const result=(rows||[]) as unknown as Post[];
       setPosts(result);
@@ -311,6 +331,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
           client.from('posts').select('parent_id').in('parent_id',ids),
           client.rpc('sf_post_view_counts',{p_post_ids:ids}),
         ]);
+        if(epoch!==loadEpoch.current)return;
         const collectedViews = new Map<string, number>(((v.data||[]) as {post_id:string;views:number|string}[]).map((row)=>[row.post_id,Number(row.views)||0]));
         const collect:Metrics={};
         for(const id of ids){const ls=(l.data||[]).filter(x=>x.post_id===id),rs=(r.data||[]).filter(x=>x.post_id===id),bs=(b.data||[]).filter(x=>x.post_id===id);
@@ -319,27 +340,28 @@ export function SocialApp({view,target}:{view:View;target?:string}){
         }setMetrics(collect);
       }else setMetrics({});
       if(view==='explore'){
-        const needle=search.trim().slice(0,50);
-        if(needle){const {data:u}=await client.from('profiles').select('*').or(`handle.ilike.%${needle.replace(/[%_,()]/g,'')}%,display_name.ilike.%${needle.replace(/[%_,()]/g,'')}%`).limit(8);
+        const needle=settledSearch.trim().replace(/^[@#]/,'').slice(0,50);
+        if(needle){const {data:u}=await client.from('profiles').select('*').or(`handle.ilike.%${needle.replace(/[^\p{L}\p{N}._\- ]/gu,'')}%,display_name.ilike.%${needle.replace(/[%_,()]/g,'')}%`).limit(8);
+          if(epoch!==loadEpoch.current)return;
           setAccounts((u||[]) as Profile[]);
           await loadBadges((u||[]).map(x=>x.id));}
         else setAccounts([]);
       }
-    }catch(e){if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
-    finally{setLoading(false)}
-  },[user,view,target,search,tab,loadBadges]);
+    }catch(e){if(epoch!==loadEpoch.current)return;if(view==='profile')setProfileLookup(prev=>prev?.handle===(target||'')&&prev.status==='found'?prev:{handle:target||'',status:'error',data:null});showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Loading failed. Please retry.':'加载失败，请稍后重试'));}
+    finally{if(epoch===loadEpoch.current)setLoading(false)}
+  },[user,view,target,settledSearch,tab,loadBadges]);
   useEffect(()=>{if(user)void load();},[load,user]);
 
   const ordered=useMemo(()=>{
     let list=posts;
     if(view==='home'&&tab==='following')list=list.filter(p=>following.includes(p.author_id)||p.author_id===user?.id);
-    if(view==='explore'&&search.trim()){
-      const needle=search.trim().toLocaleLowerCase();
+    if(view==='explore'&&settledSearch.trim()){ 
+      const needle=settledSearch.trim().toLocaleLowerCase();
       list=list.filter(p=>p.content.toLocaleLowerCase().includes(needle)||unwrap(p.profiles)?.display_name.toLocaleLowerCase().includes(needle));
     }
     if(view==='post')list=[...list].sort((a,b)=>a.id===target?-1:b.id===target?1:new Date(a.created_at).getTime()-new Date(b.created_at).getTime());
     return list;
-  },[posts,view,tab,following,user?.id,search,target]);
+  },[posts,view,tab,following,user?.id,settledSearch,target]);
 
   async function toggle(table:'likes'|'reposts'|'bookmarks',post:Post){
     if(!user)return;
@@ -518,11 +540,44 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       </div></div></article>;
   };
   const renderContent=()=>{
-    if(view==='notifications')return <><div className="section-heading"><h2>{t('notifications')}</h2>{unread>0&&<button className="text-action" onClick={()=>markRead()}>{t('allRead')}</button>}</div>
-      {notifs.length?notifs.map(n=>{const a=unwrap(n.profiles);const kind:Record<string,string>={like:t('likedYour'),reply:t('repliedYou'),follow:t('followedYou'),repost:t('repostedYou')};
-        return <button key={n.id} className={`notification ${n.read_at?'':'unread'}`} onClick={()=>{void markRead(n.id);router.push(n.post_id?`/post/${n.post_id}`:a?`/profile/${a.handle}`:'/')}}>
-          <Avatar name={a?.display_name||'用户'} image={a?.avatar_url}/><span><strong>{a?.display_name||'星流用户'}</strong> {kind[n.kind]||t('interacted')}<small>{ago(n.created_at,lang)}</small></span>{!n.read_at&&<span className="unread-dot"/>}
-        </button>}) : !loading&&<Empty text={t('emptyNotifications')} detail={t('notificationSub')}/>}</>;
+    if(view==='notifications')return <>
+      <div className="section-heading">
+       <h2>{t('notifications')}</h2>
+       {unread>0&&<button type="button" className="text-action" onClick={()=>void markRead()}>{t('allRead')}</button>}
+      </div>
+      <div className="sf2-notification-tabs" role="group"
+       aria-label={isEnglishLocale(lang)?'Notification categories':'通知分类'}>
+       {(['all','interaction','follow','verification','system'] as NotificationGroup[]).map(group=>
+        <button key={group} type="button" aria-pressed={notificationFilter===group}
+         className={notificationFilter===group?'selected':''} onClick={()=>setNotificationFilter(group)}>
+          {isEnglishLocale(lang)?({
+           all:'All',interaction:'Interactions',follow:'Follows',verification:'Verification',system:'System'
+          }[group]):({
+           all:'全部',interaction:'互动',follow:'关注',verification:'认证',system:'系统'
+          }[group])}
+        </button>)}
+      </div>
+      {visibleNotifications(notifs,notificationFilter).length>0?
+       visibleNotifications(notifs,notificationFilter).map(note=>{
+        const actor=unwrap(note.profiles);
+        const isOfficial=!['like','reply','repost','mention','follow','direct_message'].includes(note.kind);
+        const target=notificationTarget(note,actor);
+        return <button type="button" key={note.id}
+         className={`notification ${note.read_at?'':'unread'}`}
+         onClick={()=>{void markRead(note.id);router.push(target);}}>
+         <Avatar name={isOfficial?'星流官方':actor?.display_name||'星流用户'}
+          image={isOfficial?null:actor?.avatar_url}/>
+         <span><strong>{isOfficial?(isEnglishLocale(lang)?'Starflow':'星流官方'):
+          actor?.display_name||(isEnglishLocale(lang)?'Starflow user':'星流用户')}</strong>
+          {' '}{notificationLabel(note.kind,isEnglishLocale(lang))}
+          <small>{ago(note.created_at,lang)}</small></span>
+         {!note.read_at&&<span className="unread-dot" aria-label={isEnglishLocale(lang)?'Unread':'未读'}/>}
+        </button>;
+       }):
+       !loading&&<Empty text={t('emptyNotifications')}
+        detail={notificationFilter==='all'?t('notificationSub'):
+         (isEnglishLocale(lang)?'No notifications in this category.':'当前分类暂无通知。')}/>}
+    </>;
     if(view==='settings')return <><div className="section-heading"><h2>{t('settingsTitle')}</h2></div><div className="settings-content"><div className="settings-icon"><Shield size={24}/></div><h3>{t('profileEdit')}</h3><p className="muted">{t('settingsIntro')}</p>
       <form onSubmit={saveProfile} className="stack"><label>{t('name')}<input className="text-input" value={display} onChange={e=>setDisplay(e.target.value)} required minLength={1} maxLength={60}/></label><label>{t('handle')}<input className="text-input" value={handle} onChange={e=>setHandle(e.target.value)} pattern="[a-z0-9_]{3,24}" required/></label>
       <label>{t('bio')}<textarea className="text-input" rows={4} maxLength={160} value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="btn btn-primary" type="submit">{t('save')}</button></form>
@@ -542,8 +597,38 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       </div>}</div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{isEnglishLocale(lang)?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={isEnglishLocale(lang)?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
     if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={isEnglishLocale(lang)?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
-    if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
-      {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
+    if(view==='explore')return <>
+      <div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div>
+      <form role="search" className="search-bar sf2-explore-search" onSubmit={event=>{event.preventDefault();setSettledSearch(search.trim());}}>
+       <Search size={21} aria-hidden="true"/>
+       <input type="search" aria-label={isEnglishLocale(lang)?'Search posts and users':'搜索帖子与用户'}
+        placeholder={t('search')} value={search} maxLength={50} autoComplete="off"
+        onChange={event=>setSearch(event.target.value)}/>
+       {search&&<button type="button" className="sf2-explore-clear" aria-label={isEnglishLocale(lang)?'Clear search':'清空搜索'}
+        onClick={()=>{setSearch('');setSettledSearch('');setSearchFilter('all');}}><X size={17}/></button>}
+       <button type="submit" className="sf2-explore-submit" disabled={searchPending===false&&loading}
+         aria-label={isEnglishLocale(lang)?'Search':'搜索'}>{isEnglishLocale(lang)?'Search':'搜索'}</button>
+      </form>
+      <div className="sf2-explore-filters" role="group" aria-label={isEnglishLocale(lang)?'Filter search results':'筛选搜索结果'}>
+       {(['all','posts','people'] as const).map(group=><button key={group} type="button"
+        aria-pressed={searchFilter===group} className={searchFilter===group?'selected':''}
+        onClick={()=>setSearchFilter(group)}>
+        {isEnglishLocale(lang)?({all:'All',posts:'Posts',people:'People'}[group]):({all:'全部',posts:'帖子',people:'用户'}[group])}
+       </button>)}
+      </div>
+      {(searchPending||loading)&&<p className="sf2-explore-search-status" role="status">
+       {isEnglishLocale(lang)?'Searching…':'正在搜索…'}
+      </p>}
+      {settledSearch.trim()&&searchFilter!=='posts'&&!searchPending&&!loading&&(
+       accounts.length>0?<div className="search-people"><strong>{t('people')} · {accounts.length}</strong>
+        {accounts.map(a=><Link key={a.id} href={`/profile/${encodeURIComponent(a.handle)}`}>
+         <Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span>
+        </Link>)}</div>:
+       !loading&&searchFilter==='people'&&<p className="sf2-explore-search-status" role="status">
+        {isEnglishLocale(lang)?'No matching users in these results.':'本次搜索没有匹配的用户。'}
+       </p>
+      )}
+     </>;
     return <>
       <div className="sf-home-minihead">
         <div><h1>发现精彩</h1>
@@ -613,10 +698,15 @@ export function SocialApp({view,target}:{view:View;target?:string}){
             {!loading&&ordered.length===0&&<Empty text="关注的人还没有新动态" detail="关注感兴趣的账号，查看他们最近发布的内容。"/>}
             {ordered.map(card)}
            </div>):
-         <div className="posts-list">
-          {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
-          {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')} detail={t('emptyHint')}/>}
-          {ordered.map(card)}
+         view==='explore'&&searchFilter==='people'?null:
+         <div className="posts-list" aria-busy={loading||searchPending}>
+          {loading&&(view==='explore'||ordered.length===0)&&<div className="sf2-feed-skeleton" role="status" aria-label={t('loading')}>
+           {Array.from({length:3},(_,index)=><div key={index} className="sf2-feed-skeleton-post"><i/><span><b/><b/><b/></span></div>)}
+          </div>}
+          {!loading&&!searchPending&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty
+           text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')}
+           detail={view==='explore'?(isEnglishLocale(lang)?'Try a different search term.':'试试其他搜索关键词。'):t('emptyHint')}/>}
+          {!searchPending&&(!loading||view!=='explore')&&ordered.map(card)}
          </div>
       )}
       <div className="feed-end">© 2026 Starflow · {t('independent')}</div>
