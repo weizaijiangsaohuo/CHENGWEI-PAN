@@ -555,8 +555,38 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       </div>}</div><div className="tab-line">{t('posts')}</div></>:profileStatus==='loading'?<div className="loading-text" role="status"><div className="spinner"/> {t('loading')}</div>:profileStatus==='error'?<div className="loading-text" role="alert">{isEnglishLocale(lang)?'Unable to load profile. Please try again.':'资料加载失败，请稍后重试。'}</div>:<Empty text="用户不存在" detail={isEnglishLocale(lang)?'This username may have changed.':'此用户名可能已经被修改。'}/>}</>;
     if(view==='post')return <><div className="section-heading"><button className="back-button" onClick={()=>router.back()} aria-label={isEnglishLocale(lang)?'Back':'返回'}><ChevronLeft size={22}/></button><h2>{t('thread')}</h2></div>{posts.some(p=>p.id===target)&&<div className="reply-area"><h3>{t('discuss')}</h3>{composer(true)}</div>}</>;
     if(view==='bookmarks')return <div className="section-heading"><h2>{t('bookmarksTitle')}</h2><p>{t('bookmarksIntro')}</p></div>;
-    if(view==='explore')return <><div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div><div className="search-bar"><Search size={21}/><input placeholder={t('search')} value={search} onChange={e=>setSearch(e.target.value)}/></div>
-      {accounts.length>0&&<div className="search-people"><strong>{t('people')}</strong>{accounts.map(a=><Link key={a.id} href={`/profile/${a.handle}`}><Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span></Link>)}</div>}</>;
+    if(view==='explore')return <>
+      <div className="section-heading"><h2>{t('explore')}</h2><p>{t('exploreSub')}</p></div>
+      <form role="search" className="search-bar sf2-explore-search" onSubmit={event=>{event.preventDefault();setSettledSearch(search.trim());}}>
+       <Search size={21} aria-hidden="true"/>
+       <input type="search" aria-label={isEnglishLocale(lang)?'Search posts and users':'搜索帖子与用户'}
+        placeholder={t('search')} value={search} maxLength={50} autoComplete="off"
+        onChange={event=>setSearch(event.target.value)}/>
+       {search&&<button type="button" className="sf2-explore-clear" aria-label={isEnglishLocale(lang)?'Clear search':'清空搜索'}
+        onClick={()=>{setSearch('');setSettledSearch('');setSearchFilter('all');}}><X size={17}/></button>}
+       <button type="submit" className="sf2-explore-submit" disabled={searchPending===false&&loading}
+         aria-label={isEnglishLocale(lang)?'Search':'搜索'}>{isEnglishLocale(lang)?'Search':'搜索'}</button>
+      </form>
+      <div className="sf2-explore-filters" role="group" aria-label={isEnglishLocale(lang)?'Filter search results':'筛选搜索结果'}>
+       {(['all','posts','people'] as const).map(group=><button key={group} type="button"
+        aria-pressed={searchFilter===group} className={searchFilter===group?'selected':''}
+        onClick={()=>setSearchFilter(group)}>
+        {isEnglishLocale(lang)?({all:'All',posts:'Posts',people:'People'}[group]):({all:'全部',posts:'帖子',people:'用户'}[group])}
+       </button>)}
+      </div>
+      {(searchPending||loading)&&<p className="sf2-explore-search-status" role="status">
+       {isEnglishLocale(lang)?'Searching…':'正在搜索…'}
+      </p>}
+      {settledSearch.trim()&&searchFilter!=='posts'&&!searchPending&&(
+       accounts.length>0?<div className="search-people"><strong>{t('people')} · {accounts.length}</strong>
+        {accounts.map(a=><Link key={a.id} href={`/profile/${encodeURIComponent(a.handle)}`}>
+         <Avatar name={a.display_name} size={36} image={a.avatar_url}/><span><b>{a.display_name}</b><small>@{a.handle}</small></span>
+        </Link>)}</div>:
+       !loading&&searchFilter==='people'&&<p className="sf2-explore-search-status" role="status">
+        {isEnglishLocale(lang)?'No matching users in these results.':'本次搜索没有匹配的用户。'}
+       </p>
+      )}
+     </>;
     return <>
       <div className="sf-home-minihead">
         <div><h1>发现精彩</h1>
@@ -626,10 +656,15 @@ export function SocialApp({view,target}:{view:View;target?:string}){
             {!loading&&ordered.length===0&&<Empty text="关注的人还没有新动态" detail="关注感兴趣的账号，查看他们最近发布的内容。"/>}
             {ordered.map(card)}
            </div>):
-         <div className="posts-list">
-          {loading&&<div className="loading-text"><div className="spinner"/> {t('loading')}</div>}
-          {!loading&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')} detail={t('emptyHint')}/>}
-          {ordered.map(card)}
+         view==='explore'&&searchFilter==='people'?null:
+         <div className="posts-list" aria-busy={loading||searchPending}>
+          {loading&&ordered.length===0&&<div className="sf2-feed-skeleton" role="status" aria-label={t('loading')}>
+           {Array.from({length:3},(_,index)=><div key={index} className="sf2-feed-skeleton-post"><i/><span><b/><b/><b/></span></div>)}
+          </div>}
+          {!loading&&!searchPending&&ordered.length===0&&!(view==='profile'&&!profile)&&<Empty
+           text={view==='bookmarks'?t('emptyBook'):view==='post'?t('emptyPost'):t('emptyFeed')}
+           detail={view==='explore'?(isEnglishLocale(lang)?'Try a different search term.':'试试其他搜索关键词。'):t('emptyHint')}/>}
+          {!searchPending&&ordered.map(card)}
          </div>
       )}
       <div className="feed-end">© 2026 Starflow · {t('independent')}</div>
