@@ -191,7 +191,7 @@ export function StarflowSuperAdmin(){
    <nav className="sac-tabs" aria-label="后台功能导航">{permittedTabs.map(nav)}</nav>
    {info&&<div className="sac-alert success" role="status">{info}</div>}
    {error&&<div className="sac-alert error" role="alert">{error}</div>}
-   {tab==='overview'&&<section className="sac-card"><div className="sac-heading"><h2>平台实时数据库概览</h2><button onClick={()=>void doAction(async()=>{})} disabled={loading}>刷新</button></div>
+   {tab==='overview'&&<section className="sac-card"><div className="sac-heading"><h2>平台实时数据库概览</h2><button onClick={()=>void refresh(allowed)} disabled={loading}>刷新</button></div>
     {can('metrics.view')?<div className="sac-stats">{statItems.map(([key,title])=><article key={key}><small>{title}</small><strong>{formatCount(stats[key])}</strong></article>)}</div>:<p>当前角色无统计读取权限。</p>}
     <p className="sac-muted">全部数字直接来自真实数据库，不使用模拟人数。浏览人数与独立活跃用户需另建统计口径。</p>
     <div className="sac-grid"><div><h3>已接入</h3><p>账号与权限、内容隐藏/删除、举报处理、认证审核、官方通知、公告、审计与实际行为限制。</p></div><div><h3>不提供越权访问</h3><p>不能读取用户私信正文、获取密码或绕过身份验证。高风险操作均要求服务端授权。</p></div></div>
