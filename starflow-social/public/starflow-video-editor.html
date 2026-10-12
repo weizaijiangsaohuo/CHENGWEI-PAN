@@ -299,6 +299,7 @@ exportButton.addEventListener('click',async()=>{
  try{
   startedAt=performance.now();
   if(kind==='video'){video.pause();await seekVideo(start);video.playbackRate=Number(speed.value);}
+  if(finished)return;
   recording.start(250);
   const frameLoop=()=>{
    if(finished)return;
@@ -323,7 +324,15 @@ exportButton.addEventListener('click',async()=>{
   }
  }
 });
-cancel.addEventListener('click',()=>{if(stopRecording){stopRecording();message('已停止导出。');}});
+cancel.addEventListener('click',()=>{
+ if(stopRecording){
+  stopRecording();
+  message('已停止导出。');
+  if(recording&&recording.state==='inactive'){
+   recording=null;stopRecording=null;source.disabled=false;previewSize();wake();updateButtons();cancel.disabled=true;
+  }
+ }
+});
 window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);if(stopRecording)stopRecording();if(sourceUrl)URL.revokeObjectURL(sourceUrl);if(outputUrl)URL.revokeObjectURL(outputUrl);});
 previewSize();tick();
 })();
