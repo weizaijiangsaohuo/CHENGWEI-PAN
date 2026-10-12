@@ -29,13 +29,18 @@ export function StarflowMobileNavigation({view,profileUrl,unread,onPublish}:Prop
       && from.slot!==activeSlot && Date.now()-from.at<7000){
     setIndicatorSlot(from.slot);
     const first=window.requestAnimationFrame(()=>{
-     const second=window.requestAnimationFrame(()=>setIndicatorSlot(activeSlot));
+     const second=window.requestAnimationFrame(()=>{
+      setIndicatorSlot(activeSlot);
+      try{window.sessionStorage.setItem('sf2-last-nav-slot',JSON.stringify({slot:activeSlot,at:Date.now()}))}catch{}
+     });
      rafs.current.push(second);
     });
     rafs.current.push(first);
-   }else setIndicatorSlot(activeSlot);
+   }else{
+    setIndicatorSlot(activeSlot);
+    window.sessionStorage.setItem('sf2-last-nav-slot',JSON.stringify({slot:activeSlot,at:Date.now()}));
+   }
   }catch{setIndicatorSlot(activeSlot)}
-  try{window.sessionStorage.setItem('sf2-last-nav-slot',JSON.stringify({slot:activeSlot,at:Date.now()}))}catch{}
   return()=>{rafs.current.forEach(id=>window.cancelAnimationFrame(id));rafs.current=[]};
  },[activeSlot]);
  const markNavigation=()=>{
