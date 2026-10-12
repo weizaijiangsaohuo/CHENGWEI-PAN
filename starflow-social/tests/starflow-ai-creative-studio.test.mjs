@@ -38,6 +38,9 @@ test('paid inference never uses a public model key, arbitrary URL or fake demo o
  assert.match(api,/await auth\.client\.rpc\('sf_creative_claim'/);
  assert.match(api,/await falFetch\(falUrl\(spec\.model\),'POST',input\)/);
  assert.match(api,/if\(!process\.env\.FAL_KEY\)/);
+ assert.match(api,/params\.get\('capability'\)==='1'/);
+ assert.match(ui,/engineReady===true/);
+ assert.match(ui,/loadCapability\(\)/);
  assert.doesNotMatch(ui,/demo\.mp4|example\.com|Math\.random\(\).*video/);
  assert.doesNotMatch(api,/service_role|NEXT_PUBLIC_FAL_KEY/);
  assert.match(api,/Cache-Control':'private, no-store'/);
@@ -66,6 +69,8 @@ test('quota claims are atomic and expensive video requests have stricter limits'
  assert.match(sql,/pg_advisory_xact_lock/);
  assert.match(sql,/status IN \('preparing','queued','running'\)/);
  assert.match(sql,/CASE WHEN is_image THEN 8 ELSE 2 END/);
+ assert.match(sql,/CASE WHEN is_image THEN 150 ELSE 25 END/);
+ assert.match(sql,/pg_advisory_xact_lock\(0,8242026\)/);
  assert.match(sql,/created_at>now\(\)-interval '1 day'/);
  assert.match(sql,/SECURITY DEFINER SET search_path=''/);
  assert.match(api,/if\(state==='FAILED'\|\|state==='CANCELLED'\)/);
