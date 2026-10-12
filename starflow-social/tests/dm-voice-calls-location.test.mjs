@@ -45,3 +45,27 @@ test('Calls require participant RLS, cannot invite blocked users, and support ha
  assert.match(call,/\.getTracks\(\)\.forEach\(t=>t\.stop\(\)\)/);
  assert.match(msg,/StarflowVoiceCall userId=\{user\.id\}/);
 });
+
+test('cross-platform browser features have safe fallbacks and participant privacy',()=>{
+ const device=read('components/StarflowMediaCapability.tsx');
+ const iceRoute=read('app/api/rtc/ice/route.ts');
+ const formats=read('supabase/migrations/20261012090000_dm_cross_platform_audio.sql');
+ assert.match(device,/isSecureContext/);
+ assert.match(device,/navigator\.mediaDevices\?\.getUserMedia/);
+ assert.match(device,/typeof RTCPeerConnection/);
+ assert.match(device,/webkitSpeechRecognition/);
+ assert.match(tools,/normalizeVoice/);
+ assert.match(tools,/new MediaRecorder\(stream,mime\?/);
+ assert.match(tools,/type="file" accept="audio\/\*/);
+ assert.match(tools,/navigator\.geolocation\.getCurrentPosition/);
+ assert.match(tools,/document\.getElementById\('sf-dm-input'\)\?\.focus\(\)/);
+ assert.match(formats,/UPDATE storage\.buckets SET allowed_mime_types/);
+ assert.match(formats,/webm\|mp4\|ogg\|mp3\|m4a\|wav\|aac/);
+ assert.match(call,/fetch\('\/api\/rtc\/ice'/);
+ assert.match(call,/new RTCPeerConnection\(\{iceServers:/);
+ assert.match(iceRoute,/client\.auth\.getUser\(token\)/);
+ assert.match(iceRoute,/STARFLOW_TURN_SHARED_SECRET/);
+ assert.doesNotMatch(iceRoute,/NEXT_PUBLIC_STARFLOW_TURN_SHARED_SECRET/);
+ assert.match(iceRoute,/crypto\.subtle\.sign\('HMAC'/);
+ assert.doesNotMatch(tools,/watchPosition/);
+});
