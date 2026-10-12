@@ -317,3 +317,41 @@ html[data-sf2-theme="dark"] :is(input,textarea,select)::placeholder{color:var(--
  border:1px solid var(--sf2-line);border-radius:12px;
  color:var(--sf2-brand);background:var(--sf2-surface);font-weight:700}
 .sf2-lab-figma-link:hover{background:var(--sf2-soft);border-color:var(--sf2-brand)}
+
+
+/* Starflow 2 — functional discovery and categorized notification surfaces. */
+.sf2-explore-search{display:flex!important;align-items:center!important;gap:9px;
+ min-height:50px;padding:6px 10px!important;box-sizing:border-box}
+.sf2-explore-search>input{flex:1;min-width:0;border:0!important;outline:0!important;
+ background:transparent!important;color:var(--sf2-ink)!important;font:inherit;font-size:16px}
+.sf2-explore-search:focus-within{outline:2px solid var(--sf2-brand);outline-offset:2px}
+.sf2-explore-search :is(.sf2-explore-clear,.sf2-explore-submit){
+ display:inline-flex;align-items:center;justify-content:center;min-width:42px;min-height:42px;
+ border-radius:12px;cursor:pointer;touch-action:manipulation}
+.sf2-explore-clear{color:var(--sf2-muted);background:transparent;border:0}
+.sf2-explore-submit{background:var(--sf2-brand);color:#fff;border:0;padding-inline:12px;font-weight:700}
+.sf2-explore-submit:disabled{opacity:.55;cursor:wait}
+.sf2-explore-filters,.sf2-notification-tabs{display:flex;align-items:center;gap:5px;
+ padding:9px 12px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;
+ border-bottom:1px solid var(--sf2-line);background:var(--sf2-surface)}
+.sf2-explore-filters::-webkit-scrollbar,.sf2-notification-tabs::-webkit-scrollbar{display:none}
+.sf2-explore-filters button,.sf2-notification-tabs button{flex:none;min-height:44px;
+ padding:10px 14px;border:0;border-radius:12px;background:transparent;
+ color:var(--sf2-muted);font-size:14px;font-weight:680;cursor:pointer;
+ transition:background var(--sf2-fast),color var(--sf2-fast),transform var(--sf2-fast)}
+.sf2-explore-filters button.selected,.sf2-notification-tabs button.selected{
+ background:#f3eefb;color:#603aa3}
+html[data-sf2-theme="dark"] :is(.sf2-explore-filters button.selected,.sf2-notification-tabs button.selected){
+ background:#352743;color:#e1cafa}
+.sf2-explore-filters button:active,.sf2-notification-tabs button:active{transform:scale(.97)}
+.sf2-explore-search-status{padding:9px 16px;margin:0;color:var(--sf2-muted);font-size:13px}
+.sf2-notification-tabs{position:sticky;top:0;z-index:3;
+ -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+ background:var(--sf2-glass)}
+.app-frame .notification{width:100%;text-align:left;min-height:74px;cursor:pointer}
+.app-frame .notification:focus-visible{outline:2px solid var(--sf2-brand);outline-offset:-2px}
+@media(max-width:699px){
+ .sf2-explore-filters,.sf2-notification-tabs{padding:7px 9px}
+ .sf2-explore-filters button,.sf2-notification-tabs button{padding:10px 12px}
+}
+@media(prefers-reduced-motion:reduce){.sf2-explore-filters button,.sf2-notification-tabs button{transition:none!important}}
