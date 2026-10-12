@@ -89,7 +89,11 @@ export class ZeroGifWriter{
  }
  toBlob():Blob{
   if(!this.frames)throw Error('尚无任何动画帧');
-  return new Blob([...this.pieces,byteArray(0x3b)],{type:'image/gif'});
+  // All pieces are freshly allocated, full-length Uint8Arrays. BlobPart on
+  // modern DOM typings requires an ArrayBuffer (not ArrayBufferLike).
+  const parts:BlobPart[]=this.pieces.map(piece=>piece.buffer as ArrayBuffer);
+  parts.push(byteArray(0x3b).buffer as ArrayBuffer);
+  return new Blob(parts,{type:'image/gif'});
  }
  get frameCount(){return this.frames;}
 }
