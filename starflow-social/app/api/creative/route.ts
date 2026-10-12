@@ -3,6 +3,8 @@ import {creativeInput,creativeModes,extractCreativeOutput,isCreativeMode,isCreat
 import type {CreativeAspect,CreativeMode,CreativeStyle} from '@/lib/creative-models';
 
 export const dynamic='force-dynamic';
+// Cannot be bypassed by Cloudflare configuration or a stored paid API key.
+const STARFLOW_PAID_INFERENCE_LOCKED=true;
 type Session={client:SupabaseClient;userId:string};
 type Job={
  id:string;user_id:string;mode:CreativeMode;prompt:string;model_id:string;
@@ -66,6 +68,8 @@ export async function POST(request:Request){
  try{
   const auth=await authenticated(request);
   if(auth instanceof Response)return auth;
+  if(STARFLOW_PAID_INFERENCE_LOCKED)
+   return response({error:'星流目前只允许零预算自主创作；请使用 /api/creative/zero。'},403);
   if(process.env.STARFLOW_CREATIVE_ENABLED!=='true'||!process.env.FAL_KEY)
    return response({error:'AI 生成引擎尚未开通：需要平台管理员配置付费模型密钥与预算。'},503);
   const raw=await request.text();
@@ -120,7 +124,7 @@ export async function GET(request:Request){
   if(auth instanceof Response)return auth;
   const params=new URL(request.url).searchParams;
   if(params.get('capability')==='1'){
-   return response({enabled:process.env.STARFLOW_CREATIVE_ENABLED==='true'&&!!process.env.FAL_KEY});
+   return response({enabled:!STARFLOW_PAID_INFERENCE_LOCKED&&process.env.STARFLOW_CREATIVE_ENABLED==='true'&&!!process.env.FAL_KEY});
   }
   const id=params.get('id');
   if(!id){
