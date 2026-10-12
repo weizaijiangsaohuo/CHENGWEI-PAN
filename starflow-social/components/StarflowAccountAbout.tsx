@@ -85,7 +85,7 @@ export function StarflowAccountAbout({handle}:{handle:string}){
         await load();
       }else{
         setCountryPreview(data.country_code||null);
-        setNotice(`本次访问大致国家／地区：${regionName(data.country_code)}（仅预览，尚未保存）。${data.message||''}`);
+        setNotice(data.message||'当前地区仅供预览，尚未保存到个人资料。');
       }
     }catch(e){setNotice(e instanceof Error?e.message:'更新失败。')}
     finally{setBusy(false)}
@@ -135,10 +135,12 @@ export function StarflowAccountAbout({handle}:{handle:string}){
       <section className="sf-about-lines" aria-label="账号资料">
         <div className="sf-about-line"><CalendarDays aria-hidden="true"/><div><strong>加入日期</strong><span>{date(info.user.created_at)}</span></div></div>
         <div className="sf-about-line"><MapPin aria-hidden="true"/><div><strong>账号所在国家／地区</strong>
-          <span>{showCountry ? (country?.country_code ? regionName(country.country_code) : countryPreview ? `${regionName(countryPreview)}（本次预览，未保存）` : '未知') : '未公开'}</span>
+          <span className="sf-about-country-value">{showCountry ? (country?.country_code ? regionName(country.country_code) : countryPreview ? regionName(countryPreview) : '未知') : '未公开'}
+            {showCountry&&!country?.country_code&&countryPreview&&isOwner&&<small className="sf-about-preview-tag">本次预览，未保存</small>}
+          </span>
           {showCountry&&country?.last_seen_at&&<small>上次识别：{new Date(country.last_seen_at).toLocaleDateString('zh-CN')}</small>}
         </div><button type="button" className="sf-about-info-button" onClick={()=>setLocationExplain(v=>!v)} aria-expanded={locationExplain} aria-label="查看账号位置说明"><Info size={21}/></button></div>
-        {locationExplain&&<p className="sf-about-inline-note">国家／地区基于最近主动更新时的访问 IP 近似推断，不是 GPS 或实时定位；VPN、旅行、移动网络可能影响结果。账号持有人可以选择不公开。</p>}
+        {locationExplain&&<p className="sf-about-inline-note">这里显示访问 IP 推断的大致国家／地区，不是 GPS 定位。VPN、旅行和移动网络可能影响结果；只有成功保存且选择公开后，其他人才能看到。</p>}
         {(v||derived)&&<>
           <button type="button" className="sf-about-line sf-about-line-action" onClick={()=>setVerificationExplain(open=>!open)} aria-expanded={verificationExplain} aria-label="查看账号认证详情">
             <BadgeCheck aria-hidden="true"/>
@@ -164,7 +166,9 @@ export function StarflowAccountAbout({handle}:{handle:string}){
         {privacyOpen&&<div className="sf-about-privacy-content">
           <label className="sf-about-toggle"><span>允许其他用户查看 IP 推断的国家／地区</span><input type="checkbox" disabled={busy} checked={!!country?.is_public} onChange={e=>void setVisibility(e.target.checked)}/></label>
           <button type="button" className="sf-about-country-refresh" disabled={busy||!country?.is_public} onClick={()=>void updateCountry()}><RefreshCcw size={16}/>{busy?'处理中…':'识别并更新本次访问的国家／地区'}</button>
-          <p>只使用 Cloudflare 服务端提供的近似国家／地区，不记录原始 IP。若尚未配置服务器安全密钥，则只会预览而不会保存或公开。</p>
+          <p>只有开启公开并成功保存后，其他用户才会看到国家／地区。此功能不保存原始 IP，识别可能受 VPN 影响。</p>
+          {countryPreview&&!country?.country_code&&<p className="sf-about-region-warning" role="status">目前仅有本次访问的预览信息，尚未写入个人资料，因此其他用户看不到这次识别结果。服务器安全写入功能需要管理员配置。</p>}
+          {country?.is_public&&!country?.country_code&&!countryPreview&&<p className="sf-about-region-warning">已允许公开，但尚无已保存的国家／地区。点击上方按钮识别并尝试保存。</p>}
         </div>}
       </section>}
       {notice&&<p role="status" className="sf-about-notice">{notice}</p>}
