@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import {MonitorSmartphone,MoveHorizontal} from 'lucide-react';
 import './StarflowDisplayPreferences.css';
+import {GlassSegmentedControl} from './StarflowGlass';
 
 const REDUCE_KEY='sf-user-reduce-motion';
 const COMPACT_KEY='sf-user-compact-layout';
@@ -56,15 +57,12 @@ export function StarflowDisplayPreferences(){
   };
   return <section className="sf-display-options" aria-label="外观与动效偏好">
    <header><h3>外观与动效</h3><p>这里的偏好只改变你当前设备的显示，不会修改账号或隐私权限。</p></header>
-   <label className="sf-display-item sf2-theme-preference">
+   <div className="sf-display-item sf2-theme-preference">
     <span className="sf-display-item-icon"><MonitorSmartphone size={20}/></span>
     <span><strong>界面主题</strong><small>跟随系统或选择浅色、深色外观</small></span>
-    <select aria-label="界面主题" value={appearance} onChange={event=>updateTheme(event.target.value as Appearance)}>
-      <option value="system">跟随系统</option>
-      <option value="light">浅色模式</option>
-      <option value="dark">深色模式</option>
-    </select>
-   </label>
+    <GlassSegmentedControl<Appearance> label="界面主题" value={appearance} onChange={updateTheme}
+      options={[{value:'system',label:'自动'},{value:'light',label:'浅色'},{value:'dark',label:'深色'}]}/>
+   </div>
    <label className="sf-display-item">
     <span className="sf-display-item-icon"><MoveHorizontal size={20}/></span>
     <span><strong>减少界面动画</strong><small>关闭星流入场、跳动和卡片过渡动画</small></span>
