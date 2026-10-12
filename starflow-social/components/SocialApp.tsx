@@ -493,6 +493,25 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       setFollowBusyTarget(previous=>previous===id?null:previous);
     }
   }
+  async function sharePost(post:Post){
+    const address=new URL('/post/'+encodeURIComponent(post.id),window.location.origin).toString();
+    try{
+      if(typeof navigator.share==='function'){
+        await navigator.share({title:'星流 Starflow',url:address});
+        return;
+      }
+      if(navigator.clipboard?.writeText){
+        await navigator.clipboard.writeText(address);
+        showMessage(isEnglishLocale(lang)?'Post link copied.':'动态链接已复制。');
+      }else{
+        // Unsupported/non-secure browser: let users copy the actual URL manually.
+        window.prompt(isEnglishLocale(lang)?'Copy this post link:':'复制动态链接：',address);
+      }
+    }catch(error){
+      if(error instanceof DOMException&&error.name==='AbortError')return;
+      showMessage(isEnglishLocale(lang)?'Share failed. Open the post to copy its URL.':'分享失败，请打开帖子详情后复制链接。');
+    }
+  }
   async function deletePost(post:Post){
     if(!user||post.author_id!==user.id||!confirm(t('deletedConfirm')))return;
     const {error}=await db().from('posts').delete().eq('id',post.id).eq('author_id',user.id);
@@ -550,10 +569,11 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       {post.has_poll&&<PollCard postId={post.id}/>}
       {post.video_url&&<div style={{margin:'12px 0 16px',maxWidth:'100%'}}><video src={post.video_url} controls playsInline preload="metadata" style={{display:'block',width:'100%',maxHeight:520,background:'#231d2b',borderRadius:15}} aria-label={isEnglishLocale(lang)?'Post video':'帖子视频'}/></div>}
       <div className="post-actions"><button title={t('comments')} aria-label={t('comments')} onClick={()=>{router.push(`/post/${post.id}`)}}><MessageCircle size={18}/><span>{m.replies||''}</span></button>
-      <button className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} onClick={()=>toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
-      <button className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} onClick={()=>toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
+      <button type="button" className={m.reposted?'action-green':''} title={t('repost')} aria-label={m.reposted?t('undoRepost'):t('repost')} aria-pressed={m.reposted} onClick={()=>void toggle('reposts',post)}><Repeat2 size={19}/><span>{m.reposts||''}</span></button>
+      <button type="button" className={m.liked?'action-red':''} title={t('like')} aria-label={m.liked?t('unlike'):t('like')} aria-pressed={m.liked} onClick={()=>void toggle('likes',post)}><Heart size={19} fill={m.liked?'currentColor':'none'}/><span>{m.likes||''}</span></button>
       <span className="sf-post-unique-views" title="打开帖子详情的不同登录用户数"><Eye size={17}/><span>{m.views} 浏览</span></span>
-      <button className={m.saved?'action-green':''} title={t('saveBookmark')} aria-label={m.saved?t('undoBookmark'):t('saveBookmark')} onClick={()=>toggle('bookmarks',post)}><Bookmark size={18} fill={m.saved?'currentColor':'none'}/></button>
+      <button type="button" className={m.saved?'action-green':''} title={t('saveBookmark')} aria-label={m.saved?t('undoBookmark'):t('saveBookmark')} aria-pressed={m.saved} onClick={()=>void toggle('bookmarks',post)}><Bookmark size={18} fill={m.saved?'currentColor':'none'}/></button>
+      <button type="button" className="sf2-post-share" title={isEnglishLocale(lang)?'Share post':'分享动态'} aria-label={isEnglishLocale(lang)?'Share post':'分享动态'} onClick={()=>void sharePost(post)}><Share2 size={18}/></button>
       </div></div></article>;
   };
   const renderContent=()=>{
