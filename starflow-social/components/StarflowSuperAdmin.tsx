@@ -1,5 +1,5 @@
 'use client';
-import {useCallback,useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import Link from 'next/link';
 import {db,hasConfig} from '@/lib/supabase';
@@ -53,8 +53,16 @@ export function StarflowSuperAdmin(){
  const [staffEnabled,setStaffEnabled]=useState(true);
  const [settings,setSettings]=useState<Record<string,unknown>>({});
  const [audits,setAudits]=useState<Audit[]>([]);
+ const [auditSearch,setAuditSearch]=useState('');
+ const [refreshing,setRefreshing]=useState(false);
+ const [refreshedAt,setRefreshedAt]=useState<string|null>(null);
+ const postIdInput=useRef<HTMLInputElement|null>(null);
  const can=useCallback((name:string)=>allowed[name]===true,[allowed]);
  const permittedTabs=useMemo(()=> (Object.keys(tabLabels) as Tab[]).filter(x=>can(tabPerm[x])),[can]);
+ const filteredAudits=useMemo(()=>{
+  const query=auditSearch.trim().toLowerCase();
+  return query?audits.filter(a=>[a.action,a.actor_id,a.target_user_id,a.target_post_id].some(v=>v?.toLowerCase().includes(query))):audits;
+ },[audits,auditSearch]);
 
  const refresh=useCallback(async (p:Record<string,boolean>)=>{
   const client=db();
@@ -66,8 +74,18 @@ export function StarflowSuperAdmin(){
   if(p['staff.manage'])tasks.push((async()=>{const r=await client.from('sf_staff_roles').select('user_id,role,enabled,updated_at').order('updated_at',{ascending:false}).limit(100);if(!r.error)setStaff((r.data||[]) as Staff[])})());
   if(p['settings.manage'])tasks.push((async()=>{const r=await client.from('sf_platform_settings').select('key,value');if(!r.error)setSettings(Object.fromEntries((r.data||[]).map(x=>[x.key,x.value])))})());
   if(p['audit.view'])tasks.push((async()=>{const r=await client.from('sf_admin_activity').select('id,action,actor_id,target_user_id,target_post_id,created_at,details').order('created_at',{ascending:false}).limit(60);if(!r.error)setAudits((r.data||[]) as Audit[])})());
-  await Promise.all(tasks);
+  const results=await Promise.allSettled(tasks);
+  const failures=results.filter(result=>result.status==='rejected') as PromiseRejectedResult[];
+  if(failures.length)throw Error('部分后台数据暂时加载失败，请重试：'+failures.map(f=>f.reason instanceof Error?f.reason.message:'网络错误').join('；'));
+  setRefreshedAt(new Date().toISOString());
  },[]);
+ async function refreshNow(){
+  if(refreshing||loading)return;
+  setRefreshing(true);setError('');
+  try{await refresh(allowed);}
+  catch(e){setError(e instanceof Error?e.message:'后台刷新失败，请重试。');}
+  finally{setRefreshing(false);}
+ }
 
  useEffect(()=>{
   let alive=true;
@@ -179,7 +197,8 @@ export function StarflowSuperAdmin(){
   if(!confirmAction('更改设置 '+key))return;
   void doAction(async()=>{await invoke('sf_admin_update_setting',{p_key:key,p_value:value})});
  }
- const nav=(name:Tab)=><button type="button" key={name} className={'sac-tab '+(tab===name?'active':'')} onClick={()=>setTab(name)}>{tabLabels[name]}</button>;
+ const nav=(name:Tab)=><button type="button" key={name} aria-current={tab===name?'page':undefined}
+  className={'sac-tab '+(tab===name?'active':'')} onClick={()=>setTab(name)}>{tabLabels[name]}</button>;
  const statItems:[keyof Stats,string][]=[['users','注册用户'],['newUsers24h','24小时新用户'],['posts','主帖子'],['replies','评论回复'],['posts24h','24小时新内容'],['likes','累计点赞'],['follows','关注关系'],['pendingReports','待处理举报'],['pendingVerifications','待审认证'],['restrictedAccounts','受限账号'],['announcements','已发布公告']];
  return <main className="sac-root"><div className="sac-shell">
   <header className="sac-top"><div className="sac-brand"><span className="sac-symbol">✦</span><div><strong>Starflow Admin Console</strong><small>星流 · 安全管理控制台</small></div></div>
@@ -191,9 +210,9 @@ export function StarflowSuperAdmin(){
    <nav className="sac-tabs" aria-label="后台功能导航">{permittedTabs.map(nav)}</nav>
    {info&&<div className="sac-alert success" role="status">{info}</div>}
    {error&&<div className="sac-alert error" role="alert">{error}</div>}
-   {tab==='overview'&&<section className="sac-card"><div className="sac-heading"><h2>平台实时数据库概览</h2><button onClick={()=>void refresh(allowed)} disabled={loading}>刷新</button></div>
+   {tab==='overview'&&<section className="sac-card"><div className="sac-heading"><h2>平台实时数据库概览</h2><button type="button" onClick={()=>void refreshNow()} disabled={loading||refreshing} aria-busy={refreshing}>{refreshing?'刷新中…':'刷新'}</button></div>
     {can('metrics.view')?<div className="sac-stats">{statItems.map(([key,title])=><article key={key}><small>{title}</small><strong>{formatCount(stats[key])}</strong></article>)}</div>:<p>当前角色无统计读取权限。</p>}
-    <p className="sac-muted">全部数字直接来自真实数据库，不使用模拟人数。浏览人数与独立活跃用户需另建统计口径。</p>
+    <p className="sac-muted">全部数字直接来自真实数据库，不使用模拟人数。浏览人数与独立活跃用户需另建统计口径。{refreshedAt&&' · 最近刷新：'+date(refreshedAt)}</p>
     <div className="sac-grid"><div><h3>已接入</h3><p>账号与权限、内容隐藏/删除、举报处理、认证审核、官方通知、公告、审计与实际行为限制。</p></div><div><h3>不提供越权访问</h3><p>不能读取用户私信正文、获取密码或绕过身份验证。高风险操作均要求服务端授权。</p></div></div>
    </section>}
    {tab==='accounts'&&<section className="sac-card">
@@ -209,12 +228,12 @@ export function StarflowSuperAdmin(){
     </div>}
    </section>}
    {tab==='content'&&<section className="sac-card"><h2>内容与举报审核</h2>
-    <form className="sac-form" onSubmit={submitPost}><label>帖子 UUID<input value={postId} onChange={e=>setPostId(e.target.value)} placeholder="复制帖子完整 UUID" required/></label>
+    <form className="sac-form" onSubmit={submitPost}><label>帖子 UUID<input ref={postIdInput} value={postId} onChange={e=>setPostId(e.target.value)} placeholder="复制帖子完整 UUID" required/></label>
      <label>内容操作<select value={postAction} onChange={e=>setPostAction(e.target.value as typeof postAction)}><option value="hide">隐藏公开帖子</option><option value="restore">恢复公开展示</option><option value="delete">永久删除帖子</option></select></label>
      <label>理由（10–1000字）<textarea rows={3} minLength={10} maxLength={1000} value={postReason} onChange={e=>setPostReason(e.target.value)} required/></label><button disabled={loading}>执行审核</button>
     </form>
     <h3>待审核举报 · {reports.length}</h3>
-    {reports.length===0?<p className="sac-muted">暂无待审核举报。</p>:reports.map(r=><div className="sac-list-line" key={r.id}><strong>{r.reason}</strong><small>{date(r.created_at)} · <Link href={'/post/'+r.post_id}>查看帖子</Link></small><div className="sac-actions"><button disabled={loading} onClick={()=>reviewReport(r.id)}>标记已处理</button><button onClick={()=>{setPostId(r.post_id);setPostAction('hide');}}>填写此帖编号</button></div></div>)}
+    {reports.length===0?<p className="sac-muted">暂无待审核举报。</p>:reports.map(r=><div className="sac-list-line" key={r.id}><strong>{r.reason}</strong><small>{date(r.created_at)} · <Link href={'/post/'+r.post_id}>查看帖子</Link></small><div className="sac-actions"><button disabled={loading} onClick={()=>reviewReport(r.id)}>标记已处理</button><button type="button" onClick={()=>{setPostId(r.post_id);setPostAction('hide');postIdInput.current?.focus();postIdInput.current?.scrollIntoView({block:'center',behavior:'smooth'});}}>审核此帖</button></div></div>)}
    </section>}
    {tab==='verification'&&<section className="sac-card"><h2>蓝色 / 金色 / 灰色认证管理</h2><p>审核认证申请、审批原因、撤销认证、查询审核记录。认证必须依据真实资料审核。</p>
     <Link className="sac-primary-link" href="/admin/verifications">前往认证审核工作台 →</Link>
@@ -249,8 +268,10 @@ export function StarflowSuperAdmin(){
     <div className="sac-list-line"><strong>注册开关</strong><p className="sac-muted">必须接入 Supabase Auth 注册入口才能真正关闭注册，暂不可执行。</p><button disabled>{settings.registration_enabled===false?'已配置关闭':'已配置开放'} · 尚不可执行</button></div>
     <p className="sac-muted">Logo、首页设计、邮箱模板、部署密钥和数据库备份不在普通网页后台开放；应在安全的部署配置中管理。</p>
    </section>}
-   {tab==='audit'&&<section className="sac-card"><h2>管理员操作审计</h2><p className="sac-muted">记录真实后台写入操作，不展示任何用户私信正文。</p>
-    {audits.length===0?<p>暂无操作记录。</p>:audits.map(a=><div className="sac-list-line" key={a.id}><strong>{a.action}</strong><small>{date(a.created_at)} · 操作者：{a.actor_id}</small><p className="sac-muted">{a.target_user_id?'用户 '+a.target_user_id+' ':''}{a.target_post_id?'帖子 '+a.target_post_id:''}</p></div>)}
+   {tab==='audit'&&<section className="sac-card"><h2>管理员操作审计</h2><p className="sac-muted">仅筛选已加载的最近60条后台操作记录，不展示任何用户私信正文。</p>
+    <label className="sac-audit-search">筛选操作、操作者或目标账号 ID<input type="search" value={auditSearch}
+     onChange={e=>setAuditSearch(e.target.value)} placeholder="输入关键字（只搜索当前列表）" maxLength={100}/></label>
+    {filteredAudits.length===0?<p>{audits.length===0?'暂无操作记录。':'当前列表没有匹配的审计记录。'}</p>:filteredAudits.map(a=><div className="sac-list-line" key={a.id}><strong>{a.action}</strong><small>{date(a.created_at)} · 操作者：{a.actor_id}</small><p className="sac-muted">{a.target_user_id?'用户 '+a.target_user_id+' ':''}{a.target_post_id?'帖子 '+a.target_post_id:''}</p></div>)}
    </section>}
    <footer className="sac-footer">Starflow · 权限由 Supabase RLS 与受控 RPC 共同执行。严禁跨越数据最小权限边界。</footer>
   </>}
