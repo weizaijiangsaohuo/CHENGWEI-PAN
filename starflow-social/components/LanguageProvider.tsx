@@ -16,6 +16,3 @@ export function LanguageProvider({children}:{children:React.ReactNode}){
 }
 export function useLanguage(){return useContext(LanguageContext)}
 
-// Compatibility for legacy pages until their header markup is simplified.
-// Deliberately renders nothing: no language toolbar/menu can reappear.
-export function LanguageSwitch(){return null;}
