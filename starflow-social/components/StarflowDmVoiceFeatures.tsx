@@ -294,7 +294,7 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
  function startSpeech(){
   if(disabled||busy||recognizing||recording||speechBusy)return;
   // Prefer recorded audio + authenticated Cloudflare Whisper over fragile iOS WebSpeech.
-  if(navigator.mediaDevices?.getUserMedia && typeof MediaRecorder!=='undefined'){
+  if(typeof navigator.mediaDevices?.getUserMedia==='function' && typeof MediaRecorder!=='undefined'){
    if(!window.confirm('是否录音并将本次语音发送至星流的 Cloudflare AI 识别文字？只填写输入框，不会自动发送消息。'))return;
    setRecognizing(true);
    void startRecording('dictation');
