@@ -50,8 +50,11 @@ export function StarflowCreativeStudio(){
  const hasActive=jobs.some(job=>['preparing','queued','running'].includes(job.status));
  const needsImage=spec.image;
  const needsVideo=spec.video;
+ const usingImage=needsImage||(mode==='edit_video'&&!!image);
+ const usingVideo=needsVideo;
+ const needsRights=(usingImage&&!!image)||(usingVideo&&!!video);
  const canSubmit=!!prompt.trim()&&(!needsImage||!!image)&&(!needsVideo||!!video)&&
-  (!(image||video)||rights)&&!busy&&!hasActive&&authenticated===true&&engineReady===true;
+  (!needsRights||rights)&&!busy&&!hasActive&&authenticated===true&&engineReady===true;
  useEffect(()=>{
   if(!image){setImagePreview('');return;}
   const preview=URL.createObjectURL(image);setImagePreview(preview);
@@ -149,7 +152,7 @@ export function StarflowCreativeStudio(){
    if(!user)throw Error('登录已失效');
    const token=await getToken();
    // Only reference inputs actually used by the selected model are uploaded.
-   const imagePath=image&&(needsImage||(mode==='edit_video'))?
+   const imagePath=image&&usingImage?
     await upload(image,'images',user.id):null;
    const videoPath=video&&needsVideo?
     await upload(video,'videos',user.id):null;
@@ -251,7 +254,7 @@ export function StarflowCreativeStudio(){
        <option value={5}>5 秒</option><option value={10}>10 秒</option>
       </select></label>}
      </div>
-     {(image||video)&&<label className="sf-creative-rights">
+     {needsRights&&<label className="sf-creative-rights">
       <input type="checkbox" checked={rights} onChange={event=>setRights(event.target.checked)}/>
       <span>我拥有这些图片、视频的使用权和出镜人物授权，同意将素材安全地发送给第三方 AI 模型处理。</span>
      </label>}
