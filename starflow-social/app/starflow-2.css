@@ -234,3 +234,56 @@ html.sf-user-motion-off *,html.sf-user-motion-off *::before,html.sf-user-motion-
 .sf2-lab-section>.sf2-glass-segmented{max-width:340px}.sf2-lab-demo{max-width:480px;min-height:110px;margin-top:12px;padding:24px;border-radius:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .sf2-lab-demo p{margin:0}.sf2-lab footer{max-width:var(--sf2-max);margin:auto;color:var(--sf2-brand)}
 @media(max-width:599px){.sf2-lab-header b{display:none}.sf2-lab-grid{grid-template-columns:1fr 1fr;gap:8px}.sf2-lab-route{min-height:70px;flex-direction:column;align-items:flex-start;font-size:12px;gap:5px;padding:12px}.sf2-lab-route span:last-child{display:none}}
+
+
+/* Accessibility and theme completion — avoid bright legacy surfaces in dark mode. */
+html[data-sf2-theme="dark"] .sf-home-drawer-group,
+html[data-sf2-theme="dark"] .sf-display-options,
+html[data-sf2-theme="dark"] .sf-display-options header,
+html[data-sf2-theme="dark"] .sf-dm-shell,
+html[data-sf2-theme="dark"] .sf-dm-list-panel,
+html[data-sf2-theme="dark"] .sf-dm-thread,
+html[data-sf2-theme="dark"] .sf-dm-compose,
+html[data-sf2-theme="dark"] .sac-card,
+html[data-sf2-theme="dark"] .sac-stats article{
+ background:var(--sf2-surface)!important;color:var(--sf2-ink)!important;
+ border-color:var(--sf2-line)!important;
+}
+html[data-sf2-theme="dark"] .sf-home-drawer-group>a,
+html[data-sf2-theme="dark"] .sf-home-drawer-links>a,
+html[data-sf2-theme="dark"] .sf-home-drawer-head .brand,
+html[data-sf2-theme="dark"] .sf-display-options h3,
+html[data-sf2-theme="dark"] .sf-display-options strong,
+html[data-sf2-theme="dark"] .sf-dm-global nav a,
+html[data-sf2-theme="dark"] .sf-dm-bubble:not(.sf-dm-own .sf-dm-bubble){
+ color:var(--sf2-ink)!important;
+}
+html[data-sf2-theme="dark"] .sf-home-drawer-group>a:focus-visible,
+html[data-sf2-theme="dark"] .sf-home-drawer-group>a:hover,
+html[data-sf2-theme="dark"] .sf-home-drawer-links>a:hover{
+ background:var(--sf2-soft)!important;
+}
+html[data-sf2-theme="dark"] .sf-display-options small,
+html[data-sf2-theme="dark"] .sf-display-options header p,
+html[data-sf2-theme="dark"] .sac-muted{
+ color:var(--sf2-muted)!important;
+}
+html[data-sf2-theme="dark"] .sf-display-item,
+html[data-sf2-theme="dark"] .sf-home-drawer-group,
+html[data-sf2-theme="dark"] .sf-home-drawer-head{
+ border-color:var(--sf2-line)!important;
+}
+html[data-sf2-theme="dark"] .sf-dm-bubble:not(.sf-dm-own .sf-dm-bubble){
+ background:var(--sf2-soft)!important;
+}
+html[data-sf2-theme="dark"] .sf-dm-compose textarea{
+ background:var(--sf2-soft)!important;color:var(--sf2-ink)!important;
+ border-color:var(--sf2-line)!important;
+}
+html[data-sf2-theme="dark"] .app-frame .sf-masonry-preview{background:var(--sf2-soft)!important}
+html[data-sf2-theme="dark"] .sf-home-drawer-head>button{background:var(--sf2-soft)!important;color:var(--sf2-brand)!important}
+html[data-sf2-theme="dark"] :is(input,textarea,select)::placeholder{color:var(--sf2-muted)!important}
+/* Preserve legibility with larger font settings and screen readers. */
+.sf-home-drawer-group>a,.sf-home-drawer-links>a{min-height:44px}
+.sf2-glass-segmented button{min-height:44px!important}
+@media(hover:none){.app-frame .post-actions button:active{background:var(--sf2-soft)!important}}
