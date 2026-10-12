@@ -80,14 +80,14 @@ BEGIN
  IF (SELECT count(*) FROM public.sf_creative_jobs
      WHERE user_id=uid AND (mode='image')=is_image
        AND created_at>now()-interval '1 day')
-     >= CASE WHEN is_image THEN 8 ELSE 2 END
+     >= (CASE WHEN is_image THEN 8 ELSE 2 END)
  THEN RAISE EXCEPTION '今日创作次数已达限额，请明天再试' USING ERRCODE='P0001'; END IF;
  -- Global daily circuit breaker across all signups. The paid API must not
  -- be vulnerable to mass-registration cost abuse. Serialize global claims.
  PERFORM pg_advisory_xact_lock(0,8242026);
  IF (SELECT count(*) FROM public.sf_creative_jobs
      WHERE (mode='image')=is_image AND created_at>now()-interval '1 day')
-    >= CASE WHEN is_image THEN 150 ELSE 25 END
+    >= (CASE WHEN is_image THEN 150 ELSE 25 END)
  THEN RAISE EXCEPTION '平台今日 AI 预算额度已用完，请稍后再试' USING ERRCODE='P0001'; END IF;
  INSERT INTO public.sf_creative_jobs
   (user_id,mode,prompt,image_path,video_path,aspect_ratio,duration,model_id)
