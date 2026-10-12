@@ -3,7 +3,7 @@ import {createClient} from '@supabase/supabase-js';
 
 export const dynamic='force-dynamic';
 type RateLimiter={limit:(args:{key:string})=>Promise<{success:boolean}>};
-type Whisper={run:(model:string,args:{audio:string;task:'transcribe';language:string;vad_filter:boolean})=>Promise<{text?:string}>};
+type Whisper={run:(model:string,args:{audio:string;task:'transcribe';language?:string;vad_filter:boolean})=>Promise<{text?:string}>};
 type Bindings={AI?:Whisper;SUPPORT_PER_IP?:RateLimiter;SUPPORT_GLOBAL?:RateLimiter};
 const json=(value:object,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
 const MAX_BYTES=6*1024*1024;
@@ -36,11 +36,16 @@ export async function POST(request:Request){
   if(!personal.success||!global.success)return json({error:'转写次数过多，请稍后再试'},429);
   const buffer=await request.arrayBuffer();
   if(buffer.byteLength<100||buffer.byteLength>MAX_BYTES)return json({error:'音频太短或文件太大'},413);
-  const language=request.headers.get('x-sf-speech-language')==='en'?'en':'zh';
+  // Omit the language hint for automatic language detection (Whisper supports
+  // it). Never force Chinese for Japanese, Korean, French or mixed speech.
+  const requestedLanguage=(request.headers.get('x-sf-speech-language')||'auto').toLowerCase();
+  const allowedLanguages=new Set(['auto','zh','en','ja','ko','fr','de','es','it','pt','ru']);
+  if(!allowedLanguages.has(requestedLanguage))return json({error:'不支持此语音识别语言'},400);
+  const language=requestedLanguage==='auto'?undefined:requestedLanguage;
   const base64=Buffer.from(buffer).toString('base64');
   try{
    const result=await bindings.AI.run('@cf/openai/whisper-large-v3-turbo',
-    {audio:base64,task:'transcribe',language,vad_filter:true});
+    {audio:base64,task:'transcribe',...(language?{language}:{}),vad_filter:true});
    const transcript=(result.text||'').trim().slice(0,2000);
    if(!transcript)return json({error:'没有识别到清晰的人声，请重试或使用键盘语音输入'},422);
    return json({text:transcript});

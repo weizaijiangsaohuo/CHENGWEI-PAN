@@ -69,12 +69,26 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
  const [transcribing,setTranscribing]=useState(false);
  const objectUrl=useRef('');
  const audioBlob=useRef<Blob|null>(null);
+ const currentPath=useRef(path);
+ const playbackRequest=useRef(0);
+ const receivedController=useRef<AbortController|null>(null);
  useEffect(()=>{
+  currentPath.current=path;
+  playbackRequest.current+=1;
+  receivedController.current?.abort();
+  receivedController.current=null;
+  setTranscribing(false);setLoading(false);
   audioBlob.current=null;setTranscript('');setUrl('');setError('');
-  return ()=>{if(objectUrl.current){URL.revokeObjectURL(objectUrl.current);objectUrl.current='';}};
+  return ()=>{
+   receivedController.current?.abort();
+   playbackRequest.current+=1;
+   if(objectUrl.current){URL.revokeObjectURL(objectUrl.current);objectUrl.current='';}
+  };
  },[path]);
  async function play(){
   if(loading)return;
+  const requestId=++playbackRequest.current;
+  const requestedPath=path;
   setLoading(true);setError('');
   try{
    // Fetch through authenticated private Storage RLS, then play a same-origin blob.
@@ -82,38 +96,60 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
    const {data,error:err}=await db().storage.from(BUCKET).download(path);
    if(err||!data)throw Error(err?.message||'语音文件不存在或没有读取权限');
    if(data.size===0||data.size>8*1024*1024)throw Error('语音文件损坏或超过允许大小');
+   if(playbackRequest.current!==requestId||currentPath.current!==requestedPath)return;
    audioBlob.current=data;
    const next=URL.createObjectURL(data);
    if(objectUrl.current)URL.revokeObjectURL(objectUrl.current);
    objectUrl.current=next;setUrl(next);
-  }catch(e){setError(messageOf(e))}
-  finally{setLoading(false)}
+  }catch(e){if(playbackRequest.current===requestId)setError(messageOf(e))}
+  finally{if(playbackRequest.current===requestId)setLoading(false)}
  }
  async function transcribeReceived(){
-  if(transcribing)return;
+  if(transcribing||receivedController.current)return;
   if(!window.confirm('是否使用 Cloudflare AI 将此条私人语音识别成文字？这条语音不会公开发布。'))return;
+  const requestedPath=path;
+  const controller=new AbortController();
+  receivedController.current=controller;
+  const timeout=window.setTimeout(()=>controller.abort(),45000);
   setTranscribing(true);setError('');
   try{
    let blob=audioBlob.current;
    if(!blob){
-    const {data,error}=await db().storage.from(BUCKET).download(path);
+    const {data,error}=await db().storage.from(BUCKET).download(requestedPath);
     if(error||!data)throw Error(error?.message||'无法读取该语音');
+    if(controller.signal.aborted||currentPath.current!==requestedPath)return;
     blob=data;audioBlob.current=data;
    }
-   if(blob.size>6*1024*1024)throw Error('文件过大，无法自动转写。');
+   // Prefer a browser-decoded 16-kHz mono WAV across MP4/WebM/OGG.
+   // Fall back to the valid original file if decoding is unavailable.
+   let payload=blob;
+   let mediaType=blob.type||'audio/webm';
+   const extension=requestedPath.split('.').at(-1)?.toLowerCase();
+   mediaType=extension==='wav'?'audio/wav':extension==='mp3'?'audio/mpeg':
+    extension==='aac'?'audio/aac':extension==='ogg'?'audio/ogg':
+    extension==='mp4'?'audio/mp4':mediaType;
+   try{payload=await portableWav(blob);mediaType='audio/wav';}
+   catch{/* Existing supported codec remains usable when Safari cannot decode locally. */}
+   if(controller.signal.aborted||currentPath.current!==requestedPath)return;
+   if(payload.size>6*1024*1024)throw Error('文件过大，无法自动转写。');
    const {data:{session}}=await db().auth.getSession();
    if(!session?.access_token)throw Error('请重新登录星流。');
-   const extension=path.split('.').at(-1)?.toLowerCase();
-   const mediaType=extension==='wav'?'audio/wav':extension==='mp3'?'audio/mpeg':extension==='aac'?'audio/aac':extension==='ogg'?'audio/ogg':extension==='mp4'?'audio/mp4':blob.type||'audio/webm';
+   if(controller.signal.aborted||currentPath.current!==requestedPath)return;
    const response=await fetch('/api/voice/transcribe',{method:'POST',cache:'no-store',
+    signal:controller.signal,
     headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':mediaType,
-     'x-sf-speech-language':'zh'},
-    body:blob});
+     'x-sf-speech-language':'auto'},
+    body:payload});
    const result=await response.json() as {text?:string;error?:string};
    if(!response.ok||!result.text)throw Error(result.error||'无法识别语音');
-   setTranscript(result.text);
-  }catch(e){setError(messageOf(e))}
-  finally{setTranscribing(false)}
+   if(!controller.signal.aborted&&currentPath.current===requestedPath)setTranscript(result.text);
+  }catch(e){
+   if(currentPath.current!==requestedPath)return;
+   setError(controller.signal.aborted?'语音识别等待超时，请重试。':messageOf(e));
+  }finally{
+   window.clearTimeout(timeout);
+   if(receivedController.current===controller){receivedController.current=null;setTranscribing(false);}
+  }
  }
  const extension=path.split('.').at(-1)?.toLowerCase()||'bin';
  return <span className="sf-dm-voice-player">
@@ -150,6 +186,7 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
  const [busy,setBusy]=useState(false);
  const [recognizing,setRecognizing]=useState(false);
  const [speechBusy,setSpeechBusy]=useState(false);
+ const [speechLanguage,setSpeechLanguage]=useState('auto');
  const recordMode=useRef<'voice'|'dictation'>('voice');
  const recorder=useRef<MediaRecorder|null>(null);
  const tracks=useRef<MediaStream|null>(null);
@@ -157,6 +194,8 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
  const cancelOnStop=useRef(false);
  const recognition=useRef<Recognition|null>(null);
  const clipUrlRef=useRef('');
+ const transcriptionController=useRef<AbortController|null>(null);
+ const currentConversation=useRef(conversationId);
  const cancelRecorder=()=>{
   cancelOnStop.current=true;
   if(recorder.current&&recorder.current.state!=='inactive')recorder.current.stop();
@@ -164,9 +203,18 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
   tracks.current=null;
   recorder.current=null;
  };
-useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setClipFormat(null);setClipUrl('');setElapsed(0);
+useEffect(()=>{
+  currentConversation.current=conversationId;
+  transcriptionController.current?.abort();
+  transcriptionController.current=null;
+  setSpeechBusy(false);setRecognizing(false);
+  cancelRecorder();recognition.current?.stop();setClip(null);setClipFormat(null);setClipUrl('');setElapsed(0);
   if(clipUrlRef.current)URL.revokeObjectURL(clipUrlRef.current);clipUrlRef.current='';
-  return ()=>{cancelRecorder();recognition.current?.stop();if(clipUrlRef.current)URL.revokeObjectURL(clipUrlRef.current)};
+  return ()=>{
+   transcriptionController.current?.abort();
+   cancelRecorder();recognition.current?.stop();
+   if(clipUrlRef.current)URL.revokeObjectURL(clipUrlRef.current);
+  };
  },[conversationId]);
  useEffect(()=>{
   if(!recording)return;
@@ -273,23 +321,45 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   {enableHighAccuracy:false,timeout:12000,maximumAge:0});
  }
  async function transcribeAudio(blob:Blob){
+  if(transcriptionController.current)return;
+  const requestedConversation=conversationId;
+  const controller=new AbortController();
+  transcriptionController.current=controller;
+  const timeout=window.setTimeout(()=>controller.abort(),45000);
   setSpeechBusy(true);
   try{
-   if(blob.size>6*1024*1024)throw Error('录音文件超过语音识别限制（6MB），请缩短录音。');
+   // Normalize common iOS MP4 and Android/desktop WebM recordings to a
+   // portable WAV when the browser can decode it; preserve the original
+   // supported codec if decoding is unavailable.
+   let payload=blob;
+   try{payload=await portableWav(blob);}catch{/* Keep supported source codec. */}
+   if(controller.signal.aborted||currentConversation.current!==requestedConversation)return;
+   if(payload.size>6*1024*1024)throw Error('录音文件超过语音识别限制（6MB），请缩短录音。');
    const {data:{session}}=await db().auth.getSession();
    if(!session?.access_token)throw Error('登录状态已失效，请重新登录星流。');
+   if(controller.signal.aborted||currentConversation.current!==requestedConversation)return;
    const result=await fetch('/api/voice/transcribe',{
-    method:'POST',cache:'no-store',
-    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':blob.type||'audio/webm',
-     'x-sf-speech-language':lang.startsWith('en')?'en':'zh'},
-    body:blob
+    method:'POST',cache:'no-store',signal:controller.signal,
+    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':payload.type||'audio/webm',
+     'x-sf-speech-language':speechLanguage},
+    body:payload
    });
    const parsed=await result.json() as {text?:string;error?:string};
    if(!result.ok||!parsed.text)throw Error(parsed.error||'语音识别服务暂时不可用');
+   // Never write private speech from a previous conversation to a new DM.
+   if(controller.signal.aborted||currentConversation.current!==requestedConversation)return;
    setDraft(prev=>((prev?prev+(prev.endsWith(' ')?'':' '):'')+parsed.text).slice(0,2000));
    document.getElementById('sf-dm-input')?.focus();
-  }catch(e){onError(messageOf(e))}
-  finally{setSpeechBusy(false);setRecognizing(false)}
+  }catch(e){
+   if(currentConversation.current!==requestedConversation)return;
+   onError(controller.signal.aborted?'语音识别超时，请重试或使用系统键盘听写。':messageOf(e));
+  }finally{
+   window.clearTimeout(timeout);
+   if(transcriptionController.current===controller){
+    transcriptionController.current=null;
+    setSpeechBusy(false);setRecognizing(false);
+   }
+  }
  }
  function startSpeech(){
   if(disabled||busy||recognizing||recording||speechBusy)return;
@@ -303,7 +373,15 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   const w=window as typeof window&{SpeechRecognition?:RecognitionConstructor;webkitSpeechRecognition?:RecognitionConstructor};
   const Ctor=w.SpeechRecognition||w.webkitSpeechRecognition;
   if(!Ctor){document.getElementById('sf-dm-input')?.focus();onError('当前浏览器没有网页语音识别接口。可在弹出的手机键盘或电脑输入法中使用系统语音输入。');return;}
-  const r=new Ctor();r.lang=lang.startsWith('en')?'en-US':'zh-CN';r.interimResults=false;r.continuous=false;
+  const r=new Ctor();
+  // Browser-native speech engines do not support automatic language detection,
+  // so use an explicit choice or the interface language as a hint.
+  const browserSpeechLanguage=speechLanguage==='auto'?
+   (lang.startsWith('en')?'en-US':lang.startsWith('ja')?'ja-JP':lang.startsWith('ko')?'ko-KR':
+    lang.startsWith('fr')?'fr-FR':lang.startsWith('de')?'de-DE':'zh-CN'):
+   ({zh:'zh-CN',en:'en-US',ja:'ja-JP',ko:'ko-KR',fr:'fr-FR',de:'de-DE',
+     es:'es-ES',it:'it-IT',pt:'pt-PT',ru:'ru-RU'} as Record<string,string>)[speechLanguage]||'zh-CN';
+  r.lang=browserSpeechLanguage;r.interimResults=false;r.continuous=false;
   r.onresult=event=>{
    let text='';
    for(let i=event.resultIndex;i<event.results.length;i++){if(event.results[i].isFinal)text+=event.results[i][0].transcript;}
@@ -314,6 +392,18 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   try{recognition.current=r;r.start();setRecognizing(true);}catch(e){onError(messageOf(e));setRecognizing(false);}
  }
  return <div className="sf-dm-extra-tools">
+  <label className="sf-dm-speech-language">
+   <span>语音识别语言</span>
+   <select value={speechLanguage} onChange={event=>setSpeechLanguage(event.target.value)}
+     disabled={recording||recognizing||speechBusy} aria-label="语音转文字的语言">
+    <option value="auto">自动识别（推荐）</option>
+    <option value="zh">中文</option><option value="en">English</option>
+    <option value="ja">日本語</option><option value="ko">한국어</option>
+    <option value="fr">Français</option><option value="de">Deutsch</option>
+    <option value="es">Español</option><option value="it">Italiano</option>
+    <option value="pt">Português</option><option value="ru">Русский</option>
+   </select>
+  </label>
   <div className="sf-dm-extra-actions">
    <button type="button" onClick={()=>recording?stopRecording():void startRecording()} disabled={disabled||busy} aria-label={recording?'结束录音':'录制语音消息'} title="录制语音消息">
     {recording?<Square size={18}/>:<Mic size={19}/>}<span>{recording?'结束录音 '+elapsed+'s':'语音消息'}</span>
