@@ -131,3 +131,16 @@
 .sf-dm-own .sf-dm-voice-player .sf-dm-transcribe-note{background:#fff;color:#74468f}
 .sf-dm-voice-player .sf-dm-voice-transcript{display:block;flex-basis:100%;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;max-width:280px}
 .sf-dm-voice-player button:disabled{cursor:wait;opacity:.7}
+
+
+/* Starflow 2: preserve reading position; display a non-obstructing unread-jump control. */
+.sf-dm-jump-latest{align-self:center;display:inline-flex;gap:7px;align-items:center;justify-content:center;
+ margin:7px 12px;min-height:42px;padding:8px 16px;border-radius:999px;
+ color:var(--sf2-brand,#7549bd);background:var(--sf2-glass,rgba(255,255,255,.92));
+ border:1px solid var(--sf2-line,#eae8f0);box-shadow:0 3px 14px #24152c19;
+ -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+ font-size:13px;font-weight:750;cursor:pointer;touch-action:manipulation}
+.sf-dm-jump-latest:active{transform:scale(.97)}
+.sf-dm-thread-messages{overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable}
+@media(max-width:700px){.sf-dm-thread-messages{scrollbar-gutter:auto}}
+@media(prefers-reduced-motion:reduce){.sf-dm-jump-latest{transition:none!important}}
