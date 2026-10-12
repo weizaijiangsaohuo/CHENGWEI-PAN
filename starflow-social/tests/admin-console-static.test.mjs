@@ -33,3 +33,13 @@ test('no private message reading or privileged server credentials in client cons
  assert.doesNotMatch(consoleUI,/service_role|auth\.admin|dm_messages.*select/);
  assert.match(layout,/StarflowPublicAnnouncements/);
 });
+
+test('mobile home drawer shows admin console only after authorized login',()=>{
+ const drawer=read('components/StarflowHomeMenu.tsx');
+ const app=read('components/SocialApp.tsx');
+ assert.match(drawer,/StarflowHomeMenu\(\{isAdmin\}/);
+ assert.match(drawer,/\.\.\.\(isAdmin\?\[\{heading:'平台管理'/);
+ assert.match(drawer,/to:'\/admin\/console',label:'超级管理控制台'/);
+ assert.match(app,/<StarflowHomeMenu isAdmin=\{isAdmin\}\/>/);
+ assert.match(app,/\.rpc\('is_platform_admin'\)/);
+});

@@ -7,7 +7,7 @@ const root=file('app/layout.tsx');
 const prefs=file('components/StarflowDisplayPreferences.tsx');
 const social=file('components/SocialApp.tsx');
 test('all signed-in screens expose more menu without fake routes',()=>{
- assert.match(social,/<StarflowHomeMenu\/>/);
+ assert.match(social,/<StarflowHomeMenu isAdmin=\{isAdmin\}\/>/);
  assert.doesNotMatch(social,/view==='home'&&<StarflowHomeMenu/);
  for(const route of ['/creator','/bookmarks','/verification','/messages','/settings/security','/support','/guidelines','/privacy','/terms'])assert.ok(menu.includes(route));
 });

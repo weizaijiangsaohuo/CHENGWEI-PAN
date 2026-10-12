@@ -1,10 +1,10 @@
 'use client';
 import {useRef} from 'react';
 import Link from 'next/link';
-import {Bell,Bookmark,ChevronRight,Compass,FileText,Home,Menu,MessageCircle,PenLine,Settings,ShieldCheck,Sparkles,UserRound,Users,BookOpen,X} from 'lucide-react';
+import {Bell,Bookmark,ChevronRight,Compass,FileText,Home,LayoutDashboard,Menu,MessageCircle,PenLine,Settings,ShieldCheck,Sparkles,UserRound,Users,BookOpen,X} from 'lucide-react';
 import {Brand} from './Brand';
 
-export function StarflowHomeMenu(){
+export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
  const dialog=useRef<HTMLDialogElement>(null);
  const show=()=>{if(!dialog.current?.open){dialog.current?.showModal();dialog.current?.focus({preventScroll:true});}};
  const close=()=>dialog.current?.close();
@@ -29,6 +29,10 @@ export function StarflowHomeMenu(){
    {to:'/support',label:'星流 AI 客服',icon:Sparkles},
    {to:'/organization/affiliates',label:'组织附属账号',icon:Users},
   ]},
+  ...(isAdmin?[{heading:'平台管理',items:[
+   {to:'/admin/console',label:'超级管理控制台',icon:LayoutDashboard},
+   {to:'/admin/verifications',label:'认证审核中心',icon:ShieldCheck},
+  ]}]:[]),
   {heading:'规则与帮助',items:[
    {to:'/guidelines',label:'社区公约',icon:BookOpen},
    {to:'/privacy',label:'隐私与数据',icon:ShieldCheck},
