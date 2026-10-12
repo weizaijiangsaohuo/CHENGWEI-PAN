@@ -34,6 +34,33 @@ function normalizeVoice(file:File):{extension:string;type:string}|null{
  if(kind==='audio/aac'||name.endsWith('.aac'))return {extension:'aac',type:'audio/aac'};
  return null;
 }
+async function portableWav(audio:Blob):Promise<Blob>{
+ // 16 kHz mono PCM WAV plays in Safari, Chrome, Edge, Firefox on iOS/Android/Mac/PC.
+ const context=new AudioContext();
+ try{
+  const decoded=await context.decodeAudioData(await audio.arrayBuffer());
+  const sampleRate=16000;
+  const offline=new OfflineAudioContext(1,Math.ceil(decoded.duration*sampleRate),sampleRate);
+  const source=offline.createBufferSource();
+  source.buffer=decoded;
+  source.connect(offline.destination);
+  source.start(0);
+  const pcm=(await offline.startRendering()).getChannelData(0);
+  const buffer=new ArrayBuffer(44+pcm.length*2);
+  const view=new DataView(buffer);
+  function fourcc(offset:number,value:string){for(let i=0;i<value.length;i++)view.setUint8(offset+i,value.charCodeAt(i));}
+  fourcc(0,'RIFF');view.setUint32(4,36+pcm.length*2,true);fourcc(8,'WAVE');
+  fourcc(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);
+  view.setUint16(22,1,true);view.setUint32(24,sampleRate,true);view.setUint32(28,sampleRate*2,true);
+  view.setUint16(32,2,true);view.setUint16(34,16,true);
+  fourcc(36,'data');view.setUint32(40,pcm.length*2,true);
+  for(let i=0;i<pcm.length;i++){
+   const sample=Math.max(-1,Math.min(1,pcm[i]));
+   view.setInt16(44+i*2,sample<0?sample*32768:sample*32767,true);
+  }
+  return new Blob([buffer],{type:'audio/wav'});
+ }finally{await context.close();}
+}
 export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number}){
  const [url,setUrl]=useState('');
  const [loading,setLoading]=useState(false);
@@ -173,13 +200,19 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
  }
  async function sendVoice(){
   if(!clip||disabled||busy)return;
-  setBusy(true);
   if(!clipFormat){onError('音频格式无效');return;}
-  const extension=clipFormat.extension;
-  const path=conversationId+'/'+userId+'/'+crypto.randomUUID()+'.'+extension;
+  setBusy(true);
   try{
+   let payload=clip;
+   let format=clipFormat;
+   try{
+    payload=await portableWav(clip);
+    format={extension:'wav',type:'audio/wav'};
+   }catch{/* Fall back to the original supported recording when local decoding is unavailable. */}
+   if(payload.size>8*1024*1024)throw Error('音频文件超过8MB，无法发送。');
+   const path=conversationId+'/'+userId+'/'+crypto.randomUUID()+'.'+format.extension;
    const client=db();
-   const result=await client.storage.from(BUCKET).upload(path,clip,{cacheControl:'3600',contentType:clipFormat.type,upsert:false});
+   const result=await client.storage.from(BUCKET).upload(path,payload,{cacheControl:'3600',contentType:format.type,upsert:false});
    if(result.error)throw result.error;
    const response=await client.rpc('sf_dm_send_voice',{p_conversation:conversationId,p_path:path,p_seconds:Math.max(1,Math.min(120,elapsed))});
    if(response.error){
