@@ -8,7 +8,7 @@ type Theme='light'|'dark'|'system';
 const paths=[
  {label:'首页 · 推荐 / 关注',url:'/',icon:Home},
  {label:'搜索与发现',url:'/explore',icon:Compass},
- {label:'个人主页',url:'/settings',icon:UserRound},
+ {label:'公开个人主页 · @wei',url:'/profile/wei',icon:UserRound},
  {label:'私信与语音',url:'/messages',icon:MessageCircle},
  {label:'通知中心',url:'/notifications',icon:Bell},
  {label:'认证中心',url:'/verification',icon:BadgeCheck},
@@ -36,6 +36,11 @@ export function StarflowDesignLab(){
       options={[{value:'system',label:'自动'},{value:'light',label:'浅色'},{value:'dark',label:'深色'}]}/>
    </div>
   </GlassSurface>
+  <section className="sf2-lab-section sf2-lab-handoff">
+   <h2>设计交付与实际网页</h2>
+   <p>Figma 中的页面是可编辑的原型，下面的站内链接连接真实业务。设计交付和生产功能使用不同的验收标准。</p>
+   <a href="https://www.figma.com/design/I4LzIPERJmtZtQMORfietK" target="_blank" rel="noopener noreferrer" className="sf2-lab-figma-link">打开 Starflow 2.0 Figma 设计文件 ↗</a>
+  </section>
   <section className="sf2-lab-section">
    <h2>全站模块 · 真实操作入口</h2>
    <div className="sf2-lab-grid">
