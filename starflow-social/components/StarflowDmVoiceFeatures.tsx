@@ -198,6 +198,7 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
  const [busy,setBusy]=useState(false);
  const [recognizing,setRecognizing]=useState(false);
  const [speechBusy,setSpeechBusy]=useState(false);
+ const [speechLanguage,setSpeechLanguage]=useState('auto');
  const recordMode=useRef<'voice'|'dictation'>('voice');
  const recorder=useRef<MediaRecorder|null>(null);
  const tracks=useRef<MediaStream|null>(null);
@@ -205,6 +206,8 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
  const cancelOnStop=useRef(false);
  const recognition=useRef<Recognition|null>(null);
  const clipUrlRef=useRef('');
+ const transcriptionController=useRef<AbortController|null>(null);
+ const currentConversation=useRef(conversationId);
  const cancelRecorder=()=>{
   cancelOnStop.current=true;
   if(recorder.current&&recorder.current.state!=='inactive')recorder.current.stop();
@@ -212,9 +215,18 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
   tracks.current=null;
   recorder.current=null;
  };
-useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setClipFormat(null);setClipUrl('');setElapsed(0);
+useEffect(()=>{
+  currentConversation.current=conversationId;
+  transcriptionController.current?.abort();
+  transcriptionController.current=null;
+  setSpeechBusy(false);setRecognizing(false);
+  cancelRecorder();recognition.current?.stop();setClip(null);setClipFormat(null);setClipUrl('');setElapsed(0);
   if(clipUrlRef.current)URL.revokeObjectURL(clipUrlRef.current);clipUrlRef.current='';
-  return ()=>{cancelRecorder();recognition.current?.stop();if(clipUrlRef.current)URL.revokeObjectURL(clipUrlRef.current)};
+  return ()=>{
+   transcriptionController.current?.abort();
+   cancelRecorder();recognition.current?.stop();
+   if(clipUrlRef.current)URL.revokeObjectURL(clipUrlRef.current);
+  };
  },[conversationId]);
  useEffect(()=>{
   if(!recording)return;
@@ -321,23 +333,45 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   {enableHighAccuracy:false,timeout:12000,maximumAge:0});
  }
  async function transcribeAudio(blob:Blob){
+  if(transcriptionController.current)return;
+  const requestedConversation=conversationId;
+  const controller=new AbortController();
+  transcriptionController.current=controller;
+  const timeout=window.setTimeout(()=>controller.abort(),45000);
   setSpeechBusy(true);
   try{
-   if(blob.size>6*1024*1024)throw Error('录音文件超过语音识别限制（6MB），请缩短录音。');
+   // Normalize common iOS MP4 and Android/desktop WebM recordings to a
+   // portable WAV when the browser can decode it; preserve the original
+   // supported codec if decoding is unavailable.
+   let payload=blob;
+   try{payload=await portableWav(blob);}catch{/* Keep supported source codec. */}
+   if(controller.signal.aborted||currentConversation.current!==requestedConversation)return;
+   if(payload.size>6*1024*1024)throw Error('录音文件超过语音识别限制（6MB），请缩短录音。');
    const {data:{session}}=await db().auth.getSession();
    if(!session?.access_token)throw Error('登录状态已失效，请重新登录星流。');
+   if(controller.signal.aborted||currentConversation.current!==requestedConversation)return;
    const result=await fetch('/api/voice/transcribe',{
-    method:'POST',cache:'no-store',
-    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':blob.type||'audio/webm',
-     'x-sf-speech-language':lang.startsWith('en')?'en':'zh'},
-    body:blob
+    method:'POST',cache:'no-store',signal:controller.signal,
+    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':payload.type||'audio/webm',
+     'x-sf-speech-language':speechLanguage},
+    body:payload
    });
    const parsed=await result.json() as {text?:string;error?:string};
    if(!result.ok||!parsed.text)throw Error(parsed.error||'语音识别服务暂时不可用');
+   // Never write private speech from a previous conversation to a new DM.
+   if(controller.signal.aborted||currentConversation.current!==requestedConversation)return;
    setDraft(prev=>((prev?prev+(prev.endsWith(' ')?'':' '):'')+parsed.text).slice(0,2000));
    document.getElementById('sf-dm-input')?.focus();
-  }catch(e){onError(messageOf(e))}
-  finally{setSpeechBusy(false);setRecognizing(false)}
+  }catch(e){
+   if(currentConversation.current!==requestedConversation)return;
+   onError(controller.signal.aborted?'语音识别超时，请重试或使用系统键盘听写。':messageOf(e));
+  }finally{
+   window.clearTimeout(timeout);
+   if(transcriptionController.current===controller){
+    transcriptionController.current=null;
+    setSpeechBusy(false);setRecognizing(false);
+   }
+  }
  }
  function startSpeech(){
   if(disabled||busy||recognizing||recording||speechBusy)return;
@@ -351,7 +385,15 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   const w=window as typeof window&{SpeechRecognition?:RecognitionConstructor;webkitSpeechRecognition?:RecognitionConstructor};
   const Ctor=w.SpeechRecognition||w.webkitSpeechRecognition;
   if(!Ctor){document.getElementById('sf-dm-input')?.focus();onError('当前浏览器没有网页语音识别接口。可在弹出的手机键盘或电脑输入法中使用系统语音输入。');return;}
-  const r=new Ctor();r.lang=lang.startsWith('en')?'en-US':'zh-CN';r.interimResults=false;r.continuous=false;
+  const r=new Ctor();
+  // Browser-native speech engines do not support automatic language detection,
+  // so use an explicit choice or the interface language as a hint.
+  const browserSpeechLanguage=speechLanguage==='auto'?
+   (lang.startsWith('en')?'en-US':lang.startsWith('ja')?'ja-JP':lang.startsWith('ko')?'ko-KR':
+    lang.startsWith('fr')?'fr-FR':lang.startsWith('de')?'de-DE':'zh-CN'):
+   ({zh:'zh-CN',en:'en-US',ja:'ja-JP',ko:'ko-KR',fr:'fr-FR',de:'de-DE',
+     es:'es-ES',it:'it-IT',pt:'pt-PT',ru:'ru-RU'} as Record<string,string>)[speechLanguage]||'zh-CN';
+  r.lang=browserSpeechLanguage;r.interimResults=false;r.continuous=false;
   r.onresult=event=>{
    let text='';
    for(let i=event.resultIndex;i<event.results.length;i++){if(event.results[i].isFinal)text+=event.results[i][0].transcript;}
@@ -362,6 +404,18 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   try{recognition.current=r;r.start();setRecognizing(true);}catch(e){onError(messageOf(e));setRecognizing(false);}
  }
  return <div className="sf-dm-extra-tools">
+  <label className="sf-dm-speech-language">
+   <span>语音识别语言</span>
+   <select value={speechLanguage} onChange={event=>setSpeechLanguage(event.target.value)}
+     disabled={recording||recognizing||speechBusy} aria-label="语音转文字的语言">
+    <option value="auto">自动识别（推荐）</option>
+    <option value="zh">中文</option><option value="en">English</option>
+    <option value="ja">日本語</option><option value="ko">한국어</option>
+    <option value="fr">Français</option><option value="de">Deutsch</option>
+    <option value="es">Español</option><option value="it">Italiano</option>
+    <option value="pt">Português</option><option value="ru">Русский</option>
+   </select>
+  </label>
   <div className="sf-dm-extra-actions">
    <button type="button" onClick={()=>recording?stopRecording():void startRecording()} disabled={disabled||busy} aria-label={recording?'结束录音':'录制语音消息'} title="录制语音消息">
     {recording?<Square size={18}/>:<Mic size={19}/>}<span>{recording?'结束录音 '+elapsed+'s':'语音消息'}</span>
