@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const posts=read('components/StarflowPostDetail.tsx');
+const messages=read('components/StarflowMessages.tsx');
+const dmCss=read('app/messages/messages.css');
+const admin=read('components/StarflowSuperAdmin.tsx');
+const adminCss=read('components/StarflowSuperAdmin.css');
+test('immersive post image viewer handles keyboard, scroll lock and restores focus',()=>{
+ assert.match(posts,/closeGallery=useRef<HTMLButtonElement/);
+ assert.match(posts,/event\.key==='Escape'/);
+ assert.match(posts,/event\.key==='ArrowLeft'/);
+ assert.match(posts,/event\.key==='ArrowRight'/);
+ assert.match(posts,/document\.body\.style\.overflow='hidden'/);
+ assert.match(posts,/previouslyFocused\?\.focus/);
+ assert.match(posts,/aria-modal="true"/);
+ assert.match(posts,/ref=\{closeGallery\}/);
+ assert.match(posts,/onTouchEnd=\{onTouchEnd\}/);
+});
+test('private DM preserves reading position and does not jump the entire viewport',()=>{
+ assert.match(messages,/scrollRef=useRef<HTMLDivElement>/);
+ assert.match(messages,/stickToBottom=useRef\(true\)/);
+ assert.match(messages,/node\.scrollTop = node\.scrollHeight/);
+ assert.match(messages,/newMessageCount > 0/);
+ assert.match(messages,/onScroll=\{updateScrollPosition\}/);
+ assert.match(messages,/onClick=\{jumpToLatest\}/);
+ assert.doesNotMatch(messages,/endRef\.current\?\.scrollIntoView/);
+ assert.match(messages,/window\.matchMedia\('\(pointer:fine\)'\)\.matches/);
+ assert.match(dmCss,/\.sf-dm-jump-latest/);
+ assert.match(dmCss,/overscroll-behavior-y:contain/);
+});
+test('admin actions never claim failed mutation when only subsequent refresh fails',()=>{
+ assert.match(admin,/await action\(\)/);
+ assert.match(admin,/setInfo\('后台操作已成功提交/);
+ assert.match(admin,/操作已提交成功，但刷新数据失败/);
+ assert.match(admin,/Promise\.allSettled\(tasks\)/);
+ assert.match(admin,/if\(r\.error\)throw r\.error/);
+ assert.match(admin,/refreshNow/);
+ assert.match(admin,/aria-busy=\{refreshing\}/);
+ assert.match(admin,/postIdInput\.current\?\.focus/);
+});
+test('admin audit filtering is explicitly scoped to loaded, permission-gated history',()=>{
+ assert.match(admin,/filteredAudits=useMemo/);
+ assert.match(admin,/const query=auditSearch\.trim\(\)\.toLowerCase\(\)/);
+ assert.match(admin,/仅筛选已加载的最近60条/);
+ assert.match(admin,/audits\.map|filteredAudits\.map/);
+ assert.match(admin,/aria-current=\{tab===name\?'page':undefined\}/);
+ assert.match(adminCss,/\.sac-audit-search/);
+ assert.doesNotMatch(admin,/\.from\('dm_messages'\)/);
+});
