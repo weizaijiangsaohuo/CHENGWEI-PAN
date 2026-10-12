@@ -18,10 +18,7 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
   {heading:'互动与创作',items:[
    {to:'/?compose=1',label:'发布新动态',icon:PenLine},
    {to:'/creator',label:'创作者中心',icon:Sparkles},
-   {to:'/ai-studio',label:'星流 AI 图片与视频创作',icon:Sparkles},
-   {to:'/starflow-video-editor.html',label:'免费视频创作工作台',icon:Sparkles},
    {to:'/bookmarks',label:'我的收藏',icon:Bookmark},
-   {to:'/notifications',label:'通知中心',icon:Bell},
    {to:'/messages',label:'私信消息',icon:MessageCircle},
   ]},
   {heading:'账户服务',items:[
@@ -44,7 +41,7 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
  return <>
   <button type="button" className="sf-home-menu-trigger" aria-label="打开首页菜单"
     aria-haspopup="dialog" onClick={show}><Menu size={21}/></button>
-  <dialog ref={dialog} tabIndex={-1} className="sf-home-drawer" aria-label="星流首页功能菜单"
+  <dialog ref={dialog} tabIndex={-1} className="sf-home-drawer sf-clean-drawer" aria-label="星流首页功能菜单"
     onClick={event=>{if(event.target===event.currentTarget)close();}}>
     <header className="sf-home-drawer-head"><Brand/>
       <button type="button" aria-label="关闭菜单" onClick={close}><X size={20}/></button>
@@ -63,7 +60,7 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
         <Icon size={19}/><span>{label}</span><ChevronRight size={16}/></Link>)}
      </section>)}
     </nav>
-    <p className="sf-home-drawer-note">星流 STARFLOW · 发掘精彩，连接彼此</p>
+    <p className="sf-home-drawer-note">✦ 星流 STARFLOW · 分享此刻，连接彼此</p>
   </dialog>
  </>;
 }
