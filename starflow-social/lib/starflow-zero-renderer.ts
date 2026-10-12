@@ -1,12 +1,15 @@
 import type {ZeroPlan} from './starflow-zero-engine';
 import {normalizeZeroTimeline,zeroShotAt,zeroSubtitleVisible} from './starflow-zero-timeline';
 import type {ZeroTimelineOptions} from './starflow-zero-timeline';
+import {ZeroGifWriter,ZERO_GIF_FPS,zeroGifDimensions} from './starflow-zero-gif';
 
 /** This is on-device procedural rendering, NOT AI diffusion/generative video.
  * Sources remain on the user's phone; no paid API, network or uploaded media.
  */
-export type ZeroArtifact={blob:Blob;mime:string;extension:'png'|'mp4'|'webm'};
+export type ZeroArtifact={blob:Blob;mime:string;extension:'png'|'mp4'|'webm'|'gif'};
+export type ZeroExportFormat='auto'|'gif';
 type Asset={image?:File|null;images?:File[];video?:File|null;
+ format?:ZeroExportFormat;
  timeline?:Partial<ZeroTimelineOptions>;signal?:AbortSignal;
  onProgress?:(value:number)=>void};
 function assertNotAborted(signal?:AbortSignal){
@@ -214,14 +217,48 @@ export async function renderZeroArtifact(plan:ZeroPlan,assets:Asset={}):Promise<
    if(!blob)throw Error('PNG 导出失败，可能是内存不足');
    return {blob,mime:'image/png',extension:'png'};
   }
+  async function exportGif():Promise<ZeroArtifact>{
+   // A true animated GIF is the zero-dependency fallback on mobile Safari.
+   // Encode only a downscaled frame, without storing 50 RGBA frames in memory.
+   const dim=zeroGifDimensions(plan.width,plan.height);
+   const miniature=document.createElement('canvas');
+   miniature.width=dim.width;miniature.height=dim.height;
+   const gifContext=miniature.getContext('2d',{alpha:false,willReadFrequently:true});
+   if(!gifContext)throw Error('设备无法初始化 GIF 兼容编码');
+   const writer=new ZeroGifWriter(dim.width,dim.height);
+   const frames=plan.duration*ZERO_GIF_FPS;
+   for(let i=0;i<frames;i++){
+    assertNotAborted(assets.signal);
+    // For video sources wait for local playback to advance. Non-video GIF
+    // frames are encoded as quickly as the phone can manage.
+    if(srcVideo&&i>0){
+     await new Promise<void>(resolve=>window.setTimeout(resolve,100));
+    }else if(i%3===0){
+     await new Promise<void>(resolve=>window.setTimeout(resolve,0));
+    }
+    assertNotAborted(assets.signal);
+    const progress=i/frames;
+    paintZeroFrame(context,plan,progress,img,srcVideo?.element,timeline,slides);
+    gifContext.drawImage(canvas,0,0,dim.width,dim.height);
+    const pixels=gifContext.getImageData(0,0,dim.width,dim.height);
+    writer.addFrame(pixels);
+    assets.onProgress?.(Math.round((i+1)/frames*100));
+   }
+   const blob=writer.toBlob();
+   return {blob,mime:'image/gif',extension:'gif'};
+  }
+  if(assets.format==='gif')return exportGif();
   if(typeof canvas.captureStream!=='function'||typeof MediaRecorder==='undefined')
-   throw Error('此浏览器不支持 Canvas 视频录制，可先尝试免费 PNG 海报模式');
+   return exportGif();
   const mime=supportedType();
-  if(!mime)throw Error('此浏览器暂不支持 MP4/WebM 本地编码，请尝试另一浏览器');
-  const stream=canvas.captureStream(plan.fps);
+  if(!mime)return exportGif();
+  let stream:MediaStream;
+  try{stream=canvas.captureStream(plan.fps);}
+  catch{return exportGif();}
+
   let recorder:MediaRecorder;
   try{recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3000000});}
-  catch{stream.getTracks().forEach(track=>track.stop());throw Error('无法初始化本地视频编码器');}
+  catch{stream.getTracks().forEach(track=>track.stop());return exportGif();}
   const chunks:BlobPart[]=[];
   const done=new Promise<Blob>((resolve,reject)=>{
    recorder.ondataavailable=event=>{if(event.data.size)chunks.push(event.data)};

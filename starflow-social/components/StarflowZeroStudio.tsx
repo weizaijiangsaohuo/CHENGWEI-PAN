@@ -1,10 +1,11 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
-import {ArrowLeft,Clapperboard,Download,Image as ImageIcon,Film,
+import {ArrowLeft,Clapperboard,Download,Share2,Image as ImageIcon,Film,
  LoaderCircle,ShieldCheck,Sparkles,UploadCloud,WandSparkles} from 'lucide-react';
 import type {ZeroAspect,ZeroMode,ZeroPlan,ZeroStyle} from '@/lib/starflow-zero-engine';
 import {renderZeroArtifact} from '@/lib/starflow-zero-renderer';
+import type {ZeroExportFormat} from '@/lib/starflow-zero-renderer';
 import type {ZeroTransition} from '@/lib/starflow-zero-timeline';
 import './StarflowCreativeStudio.css';
 
@@ -41,6 +42,8 @@ export function StarflowZeroStudio(){
  const [subtitleFrom,setSubtitleFrom]=useState(0);
  const [subtitleTo,setSubtitleTo]=useState(5);
  const [showTitle,setShowTitle]=useState(true);
+ const [exportFormat,setExportFormat]=useState<ZeroExportFormat>('auto');
+ const [browserEncoder,setBrowserEncoder]=useState<'checking'|'video'|'gif'>('checking');
  const [video,setVideo]=useState<File|null>(null);
  const [imagePreview,setImagePreview]=useState('');
  const [videoPreview,setVideoPreview]=useState('');
@@ -51,6 +54,7 @@ export function StarflowZeroStudio(){
  const [result,setResult]=useState<DownloadResult|null>(null);
  const [lastPlan,setLastPlan]=useState<ZeroPlan|null>(null);
  const resultUrl=useRef<string|null>(null);
+ const resultBlob=useRef<Blob|null>(null);
  const abort=useRef<AbortController|null>(null);
  const spec=modes.find(item=>item.key===mode)!;
  const canSubmit=prompt.trim().length>0&&(!spec.image||photoFiles.length>0)&&
@@ -65,6 +69,15 @@ export function StarflowZeroStudio(){
   const url=URL.createObjectURL(video);setVideoPreview(url);
   return()=>URL.revokeObjectURL(url);
  },[video]);
+ useEffect(()=>{
+  const canRecord=typeof HTMLCanvasElement!=='undefined'&&
+   typeof HTMLCanvasElement.prototype.captureStream==='function'&&
+   typeof MediaRecorder!=='undefined'&&
+   typeof MediaRecorder.isTypeSupported==='function'&&
+   ['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp8','video/webm']
+    .some(type=>MediaRecorder.isTypeSupported(type));
+  setBrowserEncoder(canRecord?'video':'gif');
+ },[]);
  useEffect(()=>()=>{
   abort.current?.abort();
   if(resultUrl.current)URL.revokeObjectURL(resultUrl.current);
@@ -109,6 +122,7 @@ export function StarflowZeroStudio(){
     image:spec.image||mode==='poster'?image:null,
     images:mode==='image_motion'?photoFiles:undefined,
     video:spec.video?video:null,
+    format:exportFormat,
     timeline:{imageCount:photoFiles.length||1,transition,trimStart,
      subtitle,subtitleFrom,subtitleTo,showTitle},
     signal:controller.signal,onProgress:setProgress
@@ -116,17 +130,36 @@ export function StarflowZeroStudio(){
    if(controller.signal.aborted)return;
    if(resultUrl.current)URL.revokeObjectURL(resultUrl.current);
    const url=URL.createObjectURL(artifact.blob);resultUrl.current=url;
+   resultBlob.current=artifact.blob;
    const filename='starflow-zero-'+Date.now()+'.'+artifact.extension;
    setResult({url,filename,mime:artifact.mime,mode});
-   setNotice('本地作品已生成。点击下方“保存作品”即可保存到手机。');
+   setNotice(artifact.extension==='gif'?
+    '已生成兼容 GIF 动图（10 FPS、无声音）。可保存或使用系统分享。':
+    '本地作品已生成。点击下方“保存作品”即可保存到手机。');
   }catch(e){
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'本地渲染失败');
   }finally{
-   if(abort.current===controller)abort.current=null;
-   setBusy(false);
+   if(abort.current===controller){abort.current=null;setBusy(false);}
   }
  }
- function stop(){abort.current?.abort();setBusy(false);setNotice('本次本地任务已取消。');}
+ function stop(){
+  abort.current?.abort();
+  // Keep the button blocked until the renderer has actually observed abort:
+  // otherwise a second render could race against cleanup of the first.
+  setNotice('正在取消本地渲染并释放资源…');
+ }
+ async function shareResult(){
+  if(!result||!resultBlob.current)return;
+  const file=new File([resultBlob.current],result.filename,{type:result.mime});
+  if(typeof navigator.share!=='function'||
+     (typeof navigator.canShare==='function'&&!navigator.canShare({files:[file]}))){
+   setNotice('当前浏览器不支持分享作品文件。请点击“保存作品”，在 iPhone 文件 App 中查看。');
+   return;
+  }
+  try{await navigator.share({title:'Starflow Zero 本地创作',files:[file]});}
+  catch(e){if(e instanceof Error&&e.name==='AbortError')return;
+   setNotice('系统分享未成功，请使用“保存作品”保存文件。');}
+ }
  return <main className="sf-creative-page sf-zero-page">
   <div className="sf-creative-wrap">
    <header className="sf-creative-topbar">
@@ -257,6 +290,17 @@ export function StarflowZeroStudio(){
       </select></label>
       <label>渲染时长<select value="5" disabled><option value="5">5 秒 / 24FPS（本地视频）</option></select></label>
      </div>
+     {mode!=='poster'&&<div className="sf-zero-export-picker">
+      <label htmlFor="sf-zero-export-format">导出格式</label>
+      <select id="sf-zero-export-format" value={exportFormat}
+       onChange={event=>setExportFormat(event.target.value as ZeroExportFormat)}>
+       <option value="auto">自动：优先 MP4/WebM，失败时兼容 GIF</option>
+       <option value="gif">强制 GIF 动图（10 FPS、低分辨率、无声）</option>
+      </select>
+      <small role="status">{browserEncoder==='checking'?'正在检测设备编码能力…':
+       browserEncoder==='gif'?'此设备未检测到兼容的视频录制编码器，将自动使用 GIF 动图模式。':
+       '此设备检测到本地视频编码支持，仍可手动选 GIF。'}</small>
+     </div>}
      {busy?<button type="button" className="sf-creative-generate" onClick={stop}>
       <LoaderCircle className="sf-creative-spin" size={20}/> 取消渲染 · {progress}%
      </button>:<button type="button" className="sf-creative-generate" disabled={!canSubmit}
@@ -275,8 +319,13 @@ export function StarflowZeroStudio(){
       {result.mime.startsWith('image/')?
        <img src={result.url} alt="星流程序化概念海报"/>:
        <video src={result.url} controls playsInline preload="metadata" aria-label="星流本地渲染视频"/>}
-      <a href={result.url} download={result.filename}><Download size={18}/> 保存作品（{result.filename.split('.').at(-1)?.toUpperCase()}）</a>
-      {lastPlan&&<small>Starflow Zero v0.1 · {lastPlan.width}×{lastPlan.height} · 设备端生成</small>}
+      <div className="sf-zero-result-actions">
+       <a href={result.url} download={result.filename}><Download size={18}/> 保存作品（{result.filename.split('.').at(-1)?.toUpperCase()}）</a>
+       <button type="button" onClick={()=>void shareResult()}>
+        <Share2 size={17}/> 系统分享 / 存储到文件
+       </button>
+      </div>
+      {lastPlan&&<small>Starflow Zero · {lastPlan.width}×{lastPlan.height} 原始画布 · 文件在设备端生成，GIF 会自动缩小分辨率</small>}
      </article>}
      <div className="sf-zero-architecture">
       <h3>自主引擎架构</h3>
