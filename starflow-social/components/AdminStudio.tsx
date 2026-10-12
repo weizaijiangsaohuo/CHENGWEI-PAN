@@ -87,7 +87,7 @@ export function AdminStudio(){
   setNotice(markError?'帖子已删除，但举报审核状态更新失败：'+markError.message:'帖子已删除，举报审核已完成');await load();setBusy(false);
  }
  return <main className="sf-hub"><div className="sf-hub-inner">
-  <header><Link href="/">← 返回 Starflow</Link><Link href="/admin/verifications">认证审核 →</Link></header>
+  <header><Link href="/">← 返回 Starflow</Link><Link href="/admin/console">高级管理控制台 →</Link><Link href="/admin/verifications">认证审核 →</Link></header>
   <h1>✦ Starflow 管理中心</h1>
   {authorized===null?<p>正在检查权限…</p>:authorized===false?<section className="sf-hub-card">
    <h2>需要管理员权限</h2><p className="sf-hub-help">账号必须由数据库所有者明确授权，普通用户不能自行获取管理员身份。</p>
