@@ -38,21 +38,37 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
  const [url,setUrl]=useState('');
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState('');
- useEffect(()=>{setUrl('');setError('')},[path]);
+ const objectUrl=useRef('');
+ useEffect(()=>{
+  setUrl('');setError('');
+  return ()=>{if(objectUrl.current){URL.revokeObjectURL(objectUrl.current);objectUrl.current='';}};
+ },[path]);
  async function play(){
   if(loading)return;
-  setLoading(true);
+  setLoading(true);setError('');
   try{
-   const {data,error:err}=await db().storage.from(BUCKET).createSignedUrl(path,1800);
-   if(err||!data?.signedUrl)throw Error(err?.message||'音频不可用');
-   setUrl(data.signedUrl);
+   // Fetch through authenticated private Storage RLS, then play a same-origin blob.
+   // Safari can stall when seeking a cross-origin signed URL with Range requests.
+   const {data,error:err}=await db().storage.from(BUCKET).download(path);
+   if(err||!data)throw Error(err?.message||'语音文件不存在或没有读取权限');
+   if(data.size===0||data.size>8*1024*1024)throw Error('语音文件损坏或超过允许大小');
+   const next=URL.createObjectURL(data);
+   if(objectUrl.current)URL.revokeObjectURL(objectUrl.current);
+   objectUrl.current=next;setUrl(next);
   }catch(e){setError(messageOf(e))}
   finally{setLoading(false)}
  }
+ const extension=path.split('.').at(-1)?.toLowerCase()||'bin';
  return <span className="sf-dm-voice-player">
-  <Volume2 size={17}/>{url?
-   <audio aria-label="私信语音" controls preload="none" src={url} controlsList="nodownload"/>:
-   <button type="button" onClick={()=>void play()} disabled={loading}>{loading?'正在读取…':('播放语音 · '+Math.ceil(seconds)+'秒')}</button>}
+  <Volume2 size={17}/>{url?<>
+   <audio aria-label="私信语音" controls preload="auto" src={url}
+    onError={()=>setError('当前浏览器无法播放此音频编码（'+extension+'）。可保存文件后使用其他播放器。')}/>
+   <small>如果未自动播放，请点击播放键。</small>
+   </>:
+   <button type="button" onClick={()=>void play()} disabled={loading}>
+    {loading?'正在安全读取语音…':('加载语音 · '+Math.ceil(seconds)+'秒')}
+   </button>}
+  {url&&<a href={url} download={'starflow-voice.'+extension} className="sf-dm-save-voice">保存语音</a>}
   {error&&<small role="alert">{error}</small>}
  </span>;
 }
