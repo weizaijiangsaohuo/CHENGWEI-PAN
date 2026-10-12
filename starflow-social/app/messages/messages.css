@@ -144,3 +144,17 @@
 .sf-dm-thread-messages{overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable}
 @media(max-width:700px){.sf-dm-thread-messages{scrollbar-gutter:auto}}
 @media(prefers-reduced-motion:reduce){.sf-dm-jump-latest{transition:none!important}}
+
+
+/* Starflow 2.0: speech language is a user choice, not silently locked to Chinese. */
+.sf-dm-speech-language{display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:10px 13px;border-bottom:1px solid var(--sf2-line,#eae8f0);
+ background:var(--sf2-surface,#fff);color:var(--sf2-ink,#1d1b24);
+ font-size:13px;font-weight:650}
+.sf-dm-speech-language select{max-width:min(58%,240px);min-width:145px;min-height:44px;
+ padding:9px 33px 9px 12px;border-radius:12px;border:1px solid var(--sf2-line,#eae8f0);
+ background:var(--sf2-soft,#f7f7fa);color:var(--sf2-ink,#1d1b24);font:inherit}
+.sf-dm-speech-language select:focus-visible{outline:2px solid var(--sf2-brand,#7549bd);outline-offset:2px}
+.sf-dm-speech-language select:disabled{opacity:.6}
+@media(max-width:390px){.sf-dm-speech-language{flex-wrap:wrap}
+ .sf-dm-speech-language select{max-width:100%;width:100%}}
