@@ -145,7 +145,7 @@ export function StarflowDmTools({userId,conversationId,disabled,lang,draft,setDr
   r.onresult=event=>{
    let text='';
    for(let i=event.resultIndex;i<event.results.length;i++){if(event.results[i].isFinal)text+=event.results[i][0].transcript;}
-   const next=text.trim();if(next)setDraft(prev=> (prev?(prev.endsWith(' ')?prev:prev+' '):'')+next).slice(0,2000));
+   const next=text.trim();if(next)setDraft(prev=> ((prev?(prev.endsWith(' ')?prev:prev+' '):'')+next).slice(0,2000));
   };
   r.onerror=event=>{setRecognizing(false);onError('语音识别失败：'+event.error)};
   r.onend=()=>{setRecognizing(false);recognition.current=null};
