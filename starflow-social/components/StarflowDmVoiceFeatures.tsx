@@ -69,12 +69,26 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
  const [transcribing,setTranscribing]=useState(false);
  const objectUrl=useRef('');
  const audioBlob=useRef<Blob|null>(null);
+ const currentPath=useRef(path);
+ const playbackRequest=useRef(0);
+ const receivedController=useRef<AbortController|null>(null);
  useEffect(()=>{
+  currentPath.current=path;
+  playbackRequest.current+=1;
+  receivedController.current?.abort();
+  receivedController.current=null;
+  setTranscribing(false);setLoading(false);
   audioBlob.current=null;setTranscript('');setUrl('');setError('');
-  return ()=>{if(objectUrl.current){URL.revokeObjectURL(objectUrl.current);objectUrl.current='';}};
+  return ()=>{
+   receivedController.current?.abort();
+   playbackRequest.current+=1;
+   if(objectUrl.current){URL.revokeObjectURL(objectUrl.current);objectUrl.current='';}
+  };
  },[path]);
  async function play(){
   if(loading)return;
+  const requestId=++playbackRequest.current;
+  const requestedPath=path;
   setLoading(true);setError('');
   try{
    // Fetch through authenticated private Storage RLS, then play a same-origin blob.
@@ -82,28 +96,62 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
    const {data,error:err}=await db().storage.from(BUCKET).download(path);
    if(err||!data)throw Error(err?.message||'语音文件不存在或没有读取权限');
    if(data.size===0||data.size>8*1024*1024)throw Error('语音文件损坏或超过允许大小');
+   if(playbackRequest.current!==requestId||currentPath.current!==requestedPath)return;
    audioBlob.current=data;
    const next=URL.createObjectURL(data);
    if(objectUrl.current)URL.revokeObjectURL(objectUrl.current);
    objectUrl.current=next;setUrl(next);
-  }catch(e){setError(messageOf(e))}
-  finally{setLoading(false)}
+  }catch(e){if(playbackRequest.current===requestId)setError(messageOf(e))}
+  finally{if(playbackRequest.current===requestId)setLoading(false)}
  }
  async function transcribeReceived(){
-  if(transcribing)return;
+  if(transcribing||receivedController.current)return;
   if(!window.confirm('是否使用 Cloudflare AI 将此条私人语音识别成文字？这条语音不会公开发布。'))return;
+  const requestedPath=path;
+  const controller=new AbortController();
+  receivedController.current=controller;
+  const timeout=window.setTimeout(()=>controller.abort(),45000);
   setTranscribing(true);setError('');
   try{
    let blob=audioBlob.current;
    if(!blob){
-    const {data,error}=await db().storage.from(BUCKET).download(path);
+    const {data,error}=await db().storage.from(BUCKET).download(requestedPath);
     if(error||!data)throw Error(error?.message||'无法读取该语音');
+    if(controller.signal.aborted||currentPath.current!==requestedPath)return;
     blob=data;audioBlob.current=data;
    }
-   if(blob.size>6*1024*1024)throw Error('文件过大，无法自动转写。');
+   // Prefer a browser-decoded 16-kHz mono WAV across MP4/WebM/OGG.
+   // Fall back to the valid original file if decoding is unavailable.
+   let payload=blob;
+   let mediaType=blob.type||'audio/webm';
+   const extension=requestedPath.split('.').at(-1)?.toLowerCase();
+   mediaType=extension==='wav'?'audio/wav':extension==='mp3'?'audio/mpeg':
+    extension==='aac'?'audio/aac':extension==='ogg'?'audio/ogg':
+    extension==='mp4'?'audio/mp4':mediaType;
+   try{payload=await portableWav(blob);mediaType='audio/wav';}
+   catch{/* Existing supported codec remains usable when Safari cannot decode locally. */}
+   if(controller.signal.aborted||currentPath.current!==requestedPath)return;
+   if(payload.size>6*1024*1024)throw Error('文件过大，无法自动转写。');
    const {data:{session}}=await db().auth.getSession();
    if(!session?.access_token)throw Error('请重新登录星流。');
-   const extension=path.split('.').at(-1)?.toLowerCase();
+   if(controller.signal.aborted||currentPath.current!==requestedPath)return;
+   const response=await fetch('/api/voice/transcribe',{method:'POST',cache:'no-store',
+    signal:controller.signal,
+    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':mediaType,
+     'x-sf-speech-language':'auto'},
+    body:payload});
+   const result=await response.json() as {text?:string;error?:string};
+   if(!response.ok||!result.text)throw Error(result.error||'无法识别语音');
+   if(!controller.signal.aborted&&currentPath.current===requestedPath)setTranscript(result.text);
+  }catch(e){
+   if(currentPath.current!==requestedPath)return;
+   setError(controller.signal.aborted?'语音识别等待超时，请重试。':messageOf(e));
+  }finally{
+   window.clearTimeout(timeout);
+   if(receivedController.current===controller){receivedController.current=null;setTranscribing(false);}
+  }
+ }
+ const extension=path.split('.').at(-1)?.toLowerCase();
    const mediaType=extension==='wav'?'audio/wav':extension==='mp3'?'audio/mpeg':extension==='aac'?'audio/aac':extension==='ogg'?'audio/ogg':extension==='mp4'?'audio/mp4':blob.type||'audio/webm';
    const response=await fetch('/api/voice/transcribe',{method:'POST',cache:'no-store',
     headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':mediaType,
