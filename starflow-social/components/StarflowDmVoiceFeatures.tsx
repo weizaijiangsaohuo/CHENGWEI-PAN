@@ -65,9 +65,12 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
  const [url,setUrl]=useState('');
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState('');
+ const [transcript,setTranscript]=useState('');
+ const [transcribing,setTranscribing]=useState(false);
  const objectUrl=useRef('');
+ const audioBlob=useRef<Blob|null>(null);
  useEffect(()=>{
-  setUrl('');setError('');
+  audioBlob.current=null;setTranscript('');setUrl('');setError('');
   return ()=>{if(objectUrl.current){URL.revokeObjectURL(objectUrl.current);objectUrl.current='';}};
  },[path]);
  async function play(){
@@ -79,11 +82,38 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
    const {data,error:err}=await db().storage.from(BUCKET).download(path);
    if(err||!data)throw Error(err?.message||'语音文件不存在或没有读取权限');
    if(data.size===0||data.size>8*1024*1024)throw Error('语音文件损坏或超过允许大小');
+   audioBlob.current=data;
    const next=URL.createObjectURL(data);
    if(objectUrl.current)URL.revokeObjectURL(objectUrl.current);
    objectUrl.current=next;setUrl(next);
   }catch(e){setError(messageOf(e))}
   finally{setLoading(false)}
+ }
+ async function transcribeReceived(){
+  if(transcribing)return;
+  if(!window.confirm('是否使用 Cloudflare AI 将此条私人语音识别成文字？这条语音不会公开发布。'))return;
+  setTranscribing(true);setError('');
+  try{
+   let blob=audioBlob.current;
+   if(!blob){
+    const {data,error}=await db().storage.from(BUCKET).download(path);
+    if(error||!data)throw Error(error?.message||'无法读取该语音');
+    blob=data;audioBlob.current=data;
+   }
+   if(blob.size>6*1024*1024)throw Error('文件过大，无法自动转写。');
+   const {data:{session}}=await db().auth.getSession();
+   if(!session?.access_token)throw Error('请重新登录星流。');
+   const extension=path.split('.').at(-1)?.toLowerCase();
+   const mediaType=extension==='wav'?'audio/wav':extension==='mp3'?'audio/mpeg':extension==='aac'?'audio/aac':extension==='ogg'?'audio/ogg':extension==='mp4'?'audio/mp4':blob.type||'audio/webm';
+   const response=await fetch('/api/voice/transcribe',{method:'POST',cache:'no-store',
+    headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':mediaType,
+     'x-sf-speech-language':'zh'},
+    body:blob});
+   const result=await response.json() as {text?:string;error?:string};
+   if(!response.ok||!result.text)throw Error(result.error||'无法识别语音');
+   setTranscript(result.text);
+  }catch(e){setError(messageOf(e))}
+  finally{setTranscribing(false)}
  }
  const extension=path.split('.').at(-1)?.toLowerCase()||'bin';
  return <span className="sf-dm-voice-player">
@@ -96,6 +126,8 @@ export function StarflowVoicePlayer({path,seconds}:{path:string;seconds:number})
     {loading?'正在安全读取语音…':('加载语音 · '+Math.ceil(seconds)+'秒')}
    </button>}
   {url&&<a href={url} download={'starflow-voice.'+extension} className="sf-dm-save-voice">保存语音</a>}
+  <button type="button" onClick={()=>void transcribeReceived()} disabled={transcribing||loading} className="sf-dm-transcribe-note">{transcribing?'识别中…':'转为文字'}</button>
+  {transcript&&<small className="sf-dm-voice-transcript">{transcript}</small>}
   {error&&<small role="alert">{error}</small>}
  </span>;
 }
