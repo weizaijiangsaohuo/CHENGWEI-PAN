@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {FileAudio,MapPin,Mic,MicOff,Send,Square,Speech,Volume2,X} from 'lucide-react';
 import {db} from '@/lib/supabase';
+import {StarflowMediaCapability} from './StarflowMediaCapability';
 
 const BUCKET='sf-private-dm-voice';
 type SpeechResult={results:ArrayLike<{isFinal:boolean;0:{transcript:string}}>;resultIndex:number};
@@ -136,8 +137,8 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
   if(!format){onError('请选择 MP4/M4A、WebM、Ogg、MP3、WAV 或 AAC 格式音频。');return;}
   if(file.size<1||file.size>8*1024*1024){onError('音频文件大小必须在1字节至8MB之间。');return;}
   const url=URL.createObjectURL(file);
+  const probe=new Audio();probe.preload='metadata';probe.src=url;
   try{
-   const probe=new Audio();probe.preload='metadata';probe.src=url;
    const seconds=await new Promise<number>((resolve,reject)=>{
     const timeout=window.setTimeout(()=>reject(Error('无法读取音频时长，请换一种格式。')),10000);
     probe.onloadedmetadata=()=>{window.clearTimeout(timeout);resolve(probe.duration)};
@@ -148,8 +149,7 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
    // clearClip revokes the previous URL, not the newly selected one.
    clipUrlRef.current=url;setClip(file);setClipFormat(format);setClipUrl(url);setElapsed(Math.ceil(seconds));
   }catch(e){URL.revokeObjectURL(url);onError(messageOf(e))}
-  finally{probeCleanup();}
-  function probeCleanup(){/* Audio metadata probing does not hold microphone tracks. */}
+  finally{probe.onloadedmetadata=null;probe.onerror=null;probe.pause();probe.removeAttribute('src');}
  }
  async function sendVoice(){
   if(!clip||disabled||busy)return;
@@ -223,5 +223,6 @@ useEffect(()=>{cancelRecorder();recognition.current?.stop();setClip(null);setCli
    </div>}
   {recording&&<p className="sf-dm-recording">● 正在录音，最长120秒；点击结束后可以试听，再决定是否发送。</p>}
   {recognizing&&<p className="sf-dm-recording">正在识别语音，识别结果只会填入输入框，不会自动发送。</p>}
+  <StarflowMediaCapability/>
  </div>;
 }
