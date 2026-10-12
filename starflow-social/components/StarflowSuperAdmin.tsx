@@ -67,13 +67,13 @@ export function StarflowSuperAdmin(){
  const refresh=useCallback(async (p:Record<string,boolean>)=>{
   const client=db();
   const tasks:Promise<void>[]=[];
-  if(p['metrics.view'])tasks.push((async()=>{const r=await client.rpc('sf_admin_metrics');if(!r.error)setStats((r.data||{}) as Stats)})());
-  if(p['users.read'])tasks.push((async()=>{const r=await client.rpc('sf_admin_find_users',{p_query:''});if(!r.error)setAccounts((r.data||[]) as Account[])})());
-  if(p['reports.manage'])tasks.push((async()=>{const r=await client.from('reports').select('id,reason,post_id,created_at,reviewed_at').is('reviewed_at',null).order('created_at',{ascending:false}).limit(50);if(!r.error)setReports((r.data||[]) as Report[])})());
-  if(p['announcements.manage'])tasks.push((async()=>{const r=await client.from('sf_platform_announcements').select('id,title,body,published,created_at').order('created_at',{ascending:false}).limit(50);if(!r.error)setAnnouncements((r.data||[]) as Announcement[])})());
-  if(p['staff.manage'])tasks.push((async()=>{const r=await client.from('sf_staff_roles').select('user_id,role,enabled,updated_at').order('updated_at',{ascending:false}).limit(100);if(!r.error)setStaff((r.data||[]) as Staff[])})());
-  if(p['settings.manage'])tasks.push((async()=>{const r=await client.from('sf_platform_settings').select('key,value');if(!r.error)setSettings(Object.fromEntries((r.data||[]).map(x=>[x.key,x.value])))})());
-  if(p['audit.view'])tasks.push((async()=>{const r=await client.from('sf_admin_activity').select('id,action,actor_id,target_user_id,target_post_id,created_at,details').order('created_at',{ascending:false}).limit(60);if(!r.error)setAudits((r.data||[]) as Audit[])})());
+  if(p['metrics.view'])tasks.push((async()=>{const r=await client.rpc('sf_admin_metrics');if(r.error)throw r.error;setStats((r.data||{}) as Stats)})());
+  if(p['users.read'])tasks.push((async()=>{const r=await client.rpc('sf_admin_find_users',{p_query:''});if(r.error)throw r.error;setAccounts((r.data||[]) as Account[])})());
+  if(p['reports.manage'])tasks.push((async()=>{const r=await client.from('reports').select('id,reason,post_id,created_at,reviewed_at').is('reviewed_at',null).order('created_at',{ascending:false}).limit(50);if(r.error)throw r.error;setReports((r.data||[]) as Report[])})());
+  if(p['announcements.manage'])tasks.push((async()=>{const r=await client.from('sf_platform_announcements').select('id,title,body,published,created_at').order('created_at',{ascending:false}).limit(50);if(r.error)throw r.error;setAnnouncements((r.data||[]) as Announcement[])})());
+  if(p['staff.manage'])tasks.push((async()=>{const r=await client.from('sf_staff_roles').select('user_id,role,enabled,updated_at').order('updated_at',{ascending:false}).limit(100);if(r.error)throw r.error;setStaff((r.data||[]) as Staff[])})());
+  if(p['settings.manage'])tasks.push((async()=>{const r=await client.from('sf_platform_settings').select('key,value');if(r.error)throw r.error;setSettings(Object.fromEntries((r.data||[]).map(x=>[x.key,x.value])))})());
+  if(p['audit.view'])tasks.push((async()=>{const r=await client.from('sf_admin_activity').select('id,action,actor_id,target_user_id,target_post_id,created_at,details').order('created_at',{ascending:false}).limit(60);if(r.error)throw r.error;setAudits((r.data||[]) as Audit[])})());
   const results=await Promise.allSettled(tasks);
   const failures=results.filter(result=>result.status==='rejected') as PromiseRejectedResult[];
   if(failures.length)throw Error('部分后台数据暂时加载失败，请重试：'+failures.map(f=>f.reason instanceof Error?f.reason.message:'网络错误').join('；'));
