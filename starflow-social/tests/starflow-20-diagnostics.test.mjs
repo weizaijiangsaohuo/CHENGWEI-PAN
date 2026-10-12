@@ -26,7 +26,7 @@ test('on-device diagnostic examines communications, notifications, recording and
  }
  assert.doesNotMatch(ui,/getUserMedia\s*\(|requestPermission\s*\(|getCurrentPosition\s*\(|getDisplayMedia\s*\(/);
  assert.doesNotMatch(ui,/navigator\.geolocation|fetch\('https?:\/\/|new WebSocket\(/);
- assert.match(ui,/不主动上传设备报告/);
+ assert.match(ui,/不会主动上传设备报告/);
  assert.match(ui,/接口可用不代表相关业务功能已经完成实际验收/);
 });
 
