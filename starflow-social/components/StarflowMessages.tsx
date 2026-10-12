@@ -71,6 +71,10 @@ export function StarflowMessages() {
   const activeRef = useRef<string | null>(null);
   const lastMarked = useRef<Record<string, string>>({});
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
+  const [newMessageCount, setNewMessageCount] = useState(0);
+  const prevThreadCount = useRef(0);
   const sendingRef = useRef(false);
 
   useEffect(() => {
@@ -216,6 +220,9 @@ export function StarflowMessages() {
   }, [activeId, user?.id, blocksKey]);
   useEffect(() => {
     activeRef.current = activeId;
+    stickToBottom.current = true;
+    prevThreadCount.current = 0;
+    setNewMessageCount(0);
     setMessages([]);
     if (activeId) void loadThread(activeId);
   }, [activeId, loadThread]);
@@ -339,8 +346,36 @@ export function StarflowMessages() {
     return () => { valid = false; window.clearTimeout(timer); };
   }, [user?.id, search]);
 
+  const jumpToLatest = () => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollTo({top: element.scrollHeight, behavior: 'smooth'});
+    stickToBottom.current = true;
+    setNewMessageCount(0);
+  };
+  const updateScrollPosition = () => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const nearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+    stickToBottom.current = nearBottom;
+    if (nearBottom) setNewMessageCount(0);
+  };
   useEffect(() => {
-    if (activeId) endRef.current?.scrollIntoView({ block: 'end' });
+    if (!activeId) return;
+    const node = scrollRef.current;
+    const previous = prevThreadCount.current;
+    const delta = Math.max(0, messages.length - previous);
+    prevThreadCount.current = messages.length;
+    if (!node) return;
+    if (stickToBottom.current || previous === 0) {
+      // Scroll only inside the message list, never the whole Safari viewport.
+      node.scrollTop = node.scrollHeight;
+      stickToBottom.current = true;
+      setNewMessageCount(0);
+    } else if (delta > 0) {
+      // Don't pull the reader away from older messages as realtime updates arrive.
+      setNewMessageCount(count => count + delta);
+    }
   }, [activeId, messages.length]);
 
   async function send(event: FormEvent<HTMLFormElement>) {
@@ -472,7 +507,7 @@ export function StarflowMessages() {
               onClick={() => void toggleBlock()}>{blocking ? (en ? 'Working…' : '处理中…') :
                 blockedByMe ? (en ? 'Unblock' : '解除拉黑') : (en ? 'Block' : '拉黑')}</button>}
           </div>
-          <div className="sf-dm-thread-messages" role="log" aria-live="polite" aria-label="消息内容">
+          <div className="sf-dm-thread-messages" ref={scrollRef} onScroll={updateScrollPosition} role="log" aria-live="polite" aria-label="消息内容">
             {loadingThread && messages.length === 0 && <p className="sf-dm-muted">{en ? 'Loading messages…' : '正在读取消息…'}</p>}
             {!loadingThread && messages.length === 0 && <div className="sf-dm-thread-empty">
               {en ? 'Send the first message.' : '发送第一条私信，开始聊天。'}</div>}
@@ -488,6 +523,10 @@ export function StarflowMessages() {
             {sending && <p className="sf-dm-sending">{en ? 'Sending…' : '正在发送…'}</p>}
             <div ref={endRef}/>
           </div>
+          {newMessageCount > 0 && <button type="button" className="sf-dm-jump-latest"
+            onClick={jumpToLatest} aria-label={en ? 'Jump to newest messages' : '跳转到最新消息'}>
+            {en ? `${newMessageCount} new messages ↓` : `${newMessageCount} 条新消息 ↓`}
+          </button>}
           {!canSend && !loadingThread && <p className="sf-dm-send-restricted">
             {en ? 'You cannot send messages in this conversation at the moment.' : '当前会话暂时无法发送私信。'}
           </p>}
@@ -498,7 +537,7 @@ export function StarflowMessages() {
             <label htmlFor="sf-dm-input" className="sf-dm-sr-only">{en ? 'Message' : '私信内容'}</label>
             <textarea id="sf-dm-input" value={draft} onChange={e => setDraft(e.target.value)}
               maxLength={2000} rows={2} disabled={!canSend} placeholder={en ? 'Write a private message…' : '发送私信…'}
-              onKeyDown={e => {if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {e.preventDefault(); e.currentTarget.form?.requestSubmit();}}}/>
+              onKeyDown={e => {if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !e.repeat && e.currentTarget.form && window.matchMedia('(pointer:fine)').matches) {e.preventDefault(); e.currentTarget.form.requestSubmit();}}}/>
             <button type="submit" disabled={!canSend || sending || !draft.trim() || draft.trim().length > 2000}
               aria-label={en ? 'Send message' : '发送私信'}><Send size={20}/></button>
           </form>
