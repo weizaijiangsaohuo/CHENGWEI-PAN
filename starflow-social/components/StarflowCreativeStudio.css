@@ -105,3 +105,35 @@ html.sf-user-motion-off .sf-creative-spin{animation:none}
  .sf-zero-honest{padding:13px 12px;font-size:12px}
  .sf-zero-page .sf-creative-modes button{min-height:119px}
 }
+
+
+/* Starflow Zero 0.2: local editing timeline and accessibility. */
+.sf-zero-timeline{display:flex;flex-direction:column;gap:11px;
+ border:1px solid var(--sf2-line,#e6e0ef);border-radius:15px;
+ background:var(--sf2-soft,#f8f6fb);padding:15px;margin:12px 0;
+ color:var(--sf2-ink,#292332)}
+.sf-zero-timeline label{display:flex;flex-direction:column;gap:7px;
+ font-size:12px;font-weight:720}
+.sf-zero-timeline input[type="text"],.sf-zero-timeline input[type="number"],
+.sf-zero-timeline select{min-height:44px;width:100%;box-sizing:border-box;
+ border:1px solid var(--sf2-line,#e4dded);border-radius:10px;
+ background:var(--sf2-surface,#fff);color:var(--sf2-ink,#252130);
+ padding:9px 11px;font-size:14px;font-family:inherit}
+.sf-zero-timeline input[type="range"]{width:100%;min-height:40px;
+ accent-color:var(--sf2-brand,#7549bd)}
+.sf-zero-timeline small{font-size:11px;color:var(--sf2-muted,#766d7f);
+ line-height:1.6}
+.sf-zero-timeline .sf-zero-checkbox{display:flex;flex-direction:row;align-items:center;
+ gap:10px;line-height:1.6}
+.sf-zero-checkbox input{width:18px;height:18px;flex:none;accent-color:var(--sf2-brand,#7549bd)}
+.sf-zero-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.sf-zero-shot-list{display:flex;flex-wrap:wrap;gap:7px;align-items:center;
+ margin:13px 0;font-size:12px;color:var(--sf2-ink,#292332)}
+.sf-zero-shot-list>strong{flex-basis:100%}
+.sf-zero-shot-list>span{display:block;max-width:100%;overflow-wrap:anywhere;
+ border-radius:9px;border:1px solid var(--sf2-line,#e6e0ef);padding:6px 8px;
+ background:var(--sf2-surface,#fff);font-size:11px}
+.sf-zero-shot-list small{flex-basis:100%;color:var(--sf2-muted,#766d7f)}
+@media(max-width:400px){.sf-zero-time-fields{gap:8px}
+ .sf-zero-timeline{padding:12px}.sf-zero-time-fields label{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.sf-zero-timeline *{scroll-behavior:auto}}
