@@ -75,6 +75,7 @@ export function StarflowMessages() {
   const stickToBottom = useRef(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const prevThreadCount = useRef(0);
+  const prevLatestId = useRef<string|null>(null);
   const sendingRef = useRef(false);
 
   useEffect(() => {
@@ -150,7 +151,8 @@ export function StarflowMessages() {
       if (readError) throw readError;
       if (activeRef.current !== conversationId) return;
       const rows = ((data ?? []) as DirectMessage[]).reverse();
-      setMessages(rows);
+      setMessages(previous => previous.length === rows.length && previous.every((item,index)=>item.id===rows[index].id && item.body===rows[index].body)
+        ? previous : rows);
       const lastIncoming = [...rows].reverse().find(row => row.sender_id !== user.id);
       if (lastIncoming && lastMarked.current[conversationId] !== lastIncoming.id) {
         const { error: markError } = await db().rpc('sf_dm_mark_read', { p_conversation: conversationId });
@@ -222,6 +224,7 @@ export function StarflowMessages() {
     activeRef.current = activeId;
     stickToBottom.current = true;
     prevThreadCount.current = 0;
+    prevLatestId.current = null;
     setNewMessageCount(0);
     setMessages([]);
     if (activeId) void loadThread(activeId);
@@ -364,8 +367,16 @@ export function StarflowMessages() {
     if (!activeId) return;
     const node = scrollRef.current;
     const previous = prevThreadCount.current;
-    const delta = Math.max(0, messages.length - previous);
+    const previousId = prevLatestId.current;
+    const latestId = messages[messages.length-1]?.id??null;
+    if(latestId===previousId)return;
+    // Count messages arriving even when the 100-item history window is full.
+    const previousIndex=previousId?messages.findIndex(item=>item.id===previousId):-1;
+    const delta = previousId
+      ? previousIndex>=0 ? messages.length-previousIndex-1 : Math.max(1,messages.length-previous)
+      : messages.length;
     prevThreadCount.current = messages.length;
+    prevLatestId.current = latestId;
     if (!node) return;
     if (stickToBottom.current || previous === 0) {
       // Scroll only inside the message list, never the whole Safari viewport.
@@ -376,7 +387,7 @@ export function StarflowMessages() {
       // Don't pull the reader away from older messages as realtime updates arrive.
       setNewMessageCount(count => count + delta);
     }
-  }, [activeId, messages.length]);
+  }, [activeId, messages]);
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
