@@ -10,6 +10,7 @@ export default function manifest():MetadataRoute.Manifest{
   shortcuts:[
    {name:'探索话题',url:'/trending'},
    {name:'草稿与定时发布',url:'/drafts'},
+   {name:'通知中心',url:'/notifications'},
   ]
  };
 }
