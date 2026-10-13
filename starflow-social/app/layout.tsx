@@ -32,6 +32,7 @@ import { StarflowLiveAlertBootstrap } from '@/components/StarflowLiveAlertBootst
 import { StarflowIPRegionSync } from '@/components/StarflowIPRegionSync';
 import { StarflowOfflineBootstrap } from '@/components/StarflowOfflineBootstrap';
 import { StarflowMFASessionPrompt } from '@/components/StarflowMFASessionPrompt';
+import { StarflowAppBadge } from '@/components/StarflowAppBadge';
 
 export const metadata: Metadata = {
   title: '星流 Starflow · 分享此刻，连接彼此',
@@ -61,5 +62,5 @@ const bootstrapAppearance = `(function(){try{
 }})();`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="zh-CN" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:bootstrapAppearance}} /></head><body><LanguageProvider><StarflowIPRegionSync/><StarflowOfflineBootstrap/><StarflowMFASessionPrompt/><StarflowExperienceBootstrap/><StarflowPublicAnnouncements/><StarflowLiveAlertBootstrap/>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /><StarflowAccountAboutEntry /><StarflowMentions /></LanguageProvider></body></html>;
+  return <html lang="zh-CN" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:bootstrapAppearance}} /></head><body><LanguageProvider><StarflowIPRegionSync/><StarflowOfflineBootstrap/><StarflowMFASessionPrompt/><StarflowAppBadge/><StarflowExperienceBootstrap/><StarflowPublicAnnouncements/><StarflowLiveAlertBootstrap/>{children}<StarflowDiscovery /><StarflowProfileEnhancements /><StarflowProfileMedia /><StarflowProfileEditor /><StarflowMobileCompose /><StarflowDiscoveryPhase2 /><StarflowAccountDeletion /><StarflowAffiliationBadges /><StarflowNotificationCenter /><StarflowAccountAboutEntry /><StarflowMentions /></LanguageProvider></body></html>;
 }
