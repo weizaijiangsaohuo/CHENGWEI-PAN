@@ -18,6 +18,7 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
   {heading:'互动与创作',items:[
    {to:'/?compose=1',label:'发布新动态',icon:PenLine},
    {to:'/creator',label:'创作者中心',icon:Sparkles},
+   {to:'/contracts',label:'我的创作者签约',icon:FileText},
    {to:'/drafts',label:'草稿与预约',icon:PenLine},
    {to:'/trending',label:'热门话题榜',icon:Compass},
    {to:'/bookmarks',label:'我的收藏',icon:Bookmark},
@@ -35,6 +36,7 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
    {to:'/admin/console',label:'超级管理控制台',icon:LayoutDashboard},
    {to:'/admin/verifications',label:'认证审核中心',icon:ShieldCheck},
    {to:'/admin/appeals',label:'申诉审核队列',icon:FileText},
+   {to:'/admin/contracts',label:'创作者签约审核台',icon:FileText},
   ]}]:[]),
   {heading:'规则与帮助',items:[
    {to:'/guidelines',label:'社区公约',icon:BookOpen},
