@@ -89,9 +89,9 @@ BEGIN
   (SELECT count(*) FROM public.likes l JOIN public.posts x ON x.id=l.post_id WHERE x.author_id=p.id AND x.created_at>now()-interval '90 days') AS likes_90d,
   (SELECT count(*) FROM public.follows f WHERE f.following_id=p.id) AS followers
  FROM public.profiles p
- WHERE (p.handle ILIKE '%'||replace(replace(coalesce(p_query,''),'%','\\%'),'_','\\_')||'%' ESCAPE '\\'
-  OR p.display_name ILIKE '%'||replace(replace(coalesce(p_query,''),'%','\\%'),'_','\\_')||'%' ESCAPE '\\')
- ORDER BY followers DESC,likes_90d DESC,posts_90d DESC,p.created_at DESC LIMIT 50;
+ WHERE (position(lower(coalesce(p_query,'')) in lower(coalesce(p.handle,'')))>0
+  OR position(lower(coalesce(p_query,'')) in lower(coalesce(p.display_name,'')))>0)
+ ORDER BY 6 DESC,5 DESC,4 DESC,p.created_at DESC LIMIT 50;
 END $fn$;
 REVOKE ALL ON FUNCTION public.sf_contract_candidates(text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.sf_contract_candidates(text) TO authenticated;
