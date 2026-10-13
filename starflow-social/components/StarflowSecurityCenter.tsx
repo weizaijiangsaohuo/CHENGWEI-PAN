@@ -168,6 +168,11 @@ export function StarflowSecurityCenter(){
    </section>}
 
    <section className="sf-sec-card">
+    <h2><ShieldCheck size={19}/> 双重验证（2FA）</h2>
+    <p className="sf-sec-muted">绑定手机认证器，每次新登录后可用6位动态验证码完成第二重身份验证。认证密钥不会存入本地浏览器缓存。</p>
+    <Link className="sf-sec-bind" href="/settings/security/2fa" style={{display:'inline-flex',textDecoration:'none',alignItems:'center',marginTop:14}}>管理双重验证 →</Link>
+   </section>
+   <section className="sf-sec-card">
     <h2><ShieldCheck size={19}/> 登录设备与会话保护</h2>
     <p className="sf-sec-muted">如怀疑其他设备存在异常登录，可以撤销它们的刷新会话。当前设备保留登录；已签发的访问令牌可能在到期前仍有效。</p>
     <button className="sf-sec-bind" type="button" disabled={revoking} onClick={()=>void revokeOtherSessions()}>{revoking?'正在处理…':'退出其他设备'}</button>
