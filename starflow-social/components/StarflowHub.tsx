@@ -5,7 +5,8 @@ import type {FormEvent} from 'react';
 import {db,hasConfig} from '@/lib/supabase';
 import './StarflowExtras.css';
 
-type Community={id:string;name:string;description:string;rules:string;owner_id:string;created_at:string};
+type Community={id:string;name:string;description:string;rules:string;owner_id:string;join_policy:'open'|'approval';created_at:string};
+type JoinRequest={community_id:string;user_id:string;status:'pending'|'approved'|'rejected';created_at:string};
 type CommunityMember={community_id:string;user_id:string;role:string};
 type List={id:string;owner_id:string;name:string;description:string;visibility:string};
 type Member={list_id:string;profile_id:string};
@@ -18,6 +19,8 @@ export function StarflowHub(){
  const [userId,setUserId]=useState<string|null>(null);const [loading,setLoading]=useState(true);
  const [communities,setCommunities]=useState<Community[]>([]);
  const [members,setMembers]=useState<CommunityMember[]>([]);
+ const [joinRequests,setJoinRequests]=useState<JoinRequest[]>([]);
+ const [memberProfiles,setMemberProfiles]=useState<Record<string,Person>>({});
  const [lists,setLists]=useState<List[]>([]);const [listMembers,setListMembers]=useState<Member[]>([]);
  const [followed,setFollowed]=useState<Person[]>([]);
  const [selectedCommunity,setSelectedCommunity]=useState<string|null>(null);
@@ -34,12 +37,18 @@ export function StarflowHub(){
   const client=db();const {data:{user}}=await client.auth.getUser();
   setUserId(user?.id||null);
   const [c,m,l,lm]=await Promise.all([
-   client.from('communities').select('id,name,description,rules,owner_id,created_at').order('created_at',{ascending:false}).limit(100),
+   client.from('communities').select('id,name,description,rules,owner_id,join_policy,created_at').order('created_at',{ascending:false}).limit(100),
    client.from('community_members').select('community_id,user_id,role').limit(1000),
    client.from('social_lists').select('id,name,description,visibility,owner_id').order('created_at',{ascending:false}).limit(100),
    client.from('social_list_members').select('list_id,profile_id').limit(1000),
   ]);
   setCommunities((c.data||[]) as Community[]);setMembers((m.data||[]) as CommunityMember[]);
+  const {data:requests,error:requestError}=user?await client.from('community_join_requests').select('community_id,user_id,status,created_at').limit(200):{data:[],error:null};
+  setJoinRequests((requests||[]) as JoinRequest[]);
+  const memberIds=[...new Set((m.data||[]).map(x=>x.user_id))].slice(0,100);
+  if(memberIds.length){const {data:people}=await client.from('profiles').select('id,handle,display_name').in('id',memberIds);
+   setMemberProfiles(Object.fromEntries(((people||[]) as Person[]).map(x=>[x.id,x])))}else setMemberProfiles({});
+  if(c.error||m.error||l.error||lm.error||requestError)report('社区数据尚未就绪：'+(c.error?.message||m.error?.message||l.error?.message||lm.error?.message||requestError?.message));
   setLists((l.data||[]) as List[]);setListMembers((lm.data||[]) as Member[]);
   if(user){
    const {data:f}=await client.from('follows').select('following_id').eq('follower_id',user.id).limit(100);
@@ -53,6 +62,13 @@ export function StarflowHub(){
  useEffect(()=>{void refresh()},[refresh]);
  const selected=mode==='communities'?communities.find(x=>x.id===selectedCommunity):lists.find(x=>x.id===selectedList);
  const joined=members.some(x=>x.community_id===selectedCommunity&&x.user_id===userId);
+ const currentCommunity=communities.find(x=>x.id===selectedCommunity);
+ const myRequest=joinRequests.find(x=>x.community_id===selectedCommunity&&x.user_id===userId&&x.status==='pending');
+ const isCommunityOwner=currentCommunity?.owner_id===userId;
+ const myRole=members.find(x=>x.community_id===selectedCommunity&&x.user_id===userId)?.role;
+ const canModerate=myRole==='owner'||myRole==='moderator';
+ const currentMembers=members.filter(x=>x.community_id===selectedCommunity);
+ const pendingRequests=joinRequests.filter(x=>x.community_id===selectedCommunity&&x.status==='pending');
  useEffect(()=>{
   let active=true;const client=db();
   const show=async()=>{
@@ -87,9 +103,11 @@ export function StarflowHub(){
  async function join(){
   if(!userId||!selectedCommunity||busy)return;
   setBusy(true);
-  const {error}=joined?await db().from('community_members').delete().eq('community_id',selectedCommunity).eq('user_id',userId):
-   await db().from('community_members').insert({community_id:selectedCommunity,user_id:userId,role:'member'});
-  report(error?error.message:joined?'已退出社区':'加入社区成功');await refresh();setBusy(false);
+  const result=joined||myRequest
+   ?await db().rpc('sf_community_leave',{p_community:selectedCommunity})
+   :await db().rpc('sf_community_join',{p_community:selectedCommunity});
+  report(result.error?'操作失败：'+result.error.message:joined?'已退出社区':myRequest?'已撤回入群申请':result.data==='pending'?'申请已提交，等待社区创建者审核':'加入社区成功');
+  await refresh();setBusy(false);
  }
  async function sendPost(e:FormEvent){
   e.preventDefault();if(!selectedCommunity||!userId||busy||!postText.trim())return;
@@ -103,6 +121,24 @@ export function StarflowHub(){
   const {error}=remove?await db().from('social_list_members').delete().eq('list_id',selectedList).eq('profile_id',profileId):
    await db().from('social_list_members').insert({list_id:selectedList,profile_id:profileId});
   report(error?'更新失败：'+error.message:remove?'已移出列表':'已加入列表');await refresh();setBusy(false);
+ }
+ async function reviewJoin(targetUser:string,approve:boolean){
+  if(!selectedCommunity||!isCommunityOwner||busy)return;
+  setBusy(true);const r=await db().rpc('sf_community_review_join',{p_community:selectedCommunity,p_user:targetUser,p_approve:approve});
+  report(r.error?'审核失败：'+r.error.message:r.data?'处理完成':'该申请已被处理');await refresh();setBusy(false);
+ }
+ async function changeCommunityPolicy(policy:'open'|'approval'){
+  if(!selectedCommunity||!isCommunityOwner||busy)return;
+  setBusy(true);const r=await db().from('communities').update({join_policy:policy}).eq('id',selectedCommunity).eq('owner_id',userId!);
+  report(r.error?'保存失败：'+r.error.message:'入群规则已更新');await refresh();setBusy(false);
+ }
+ async function moderateMember(targetUser:string,action:'promote'|'demote'|'remove'){
+  if(!selectedCommunity||!canModerate||busy||targetUser===userId)return;
+  if(!window.confirm('确认修改这名社区成员的权限或成员资格？'))return;
+  setBusy(true);
+  const r=action==='remove'?await db().rpc('sf_community_remove_member',{p_community:selectedCommunity,p_user:targetUser})
+   :await db().rpc('sf_community_set_moderator',{p_community:selectedCommunity,p_user:targetUser,p_moderator:action==='promote'});
+  report(r.error?'操作失败：'+r.error.message:r.data?'操作已保存':'未找到可更改的成员');await refresh();setBusy(false);
  }
  const mineList=mode==='lists'&&selected&&'owner_id' in selected&&selected.owner_id===userId;
  return <div className="sf-hub"><div className="sf-hub-inner">
@@ -128,7 +164,31 @@ export function StarflowHub(){
    {selected&&<section className="sf-hub-card">
     <h2>{selected.name}</h2><p className="sf-hub-help">{selected.description}</p>
     {mode==='communities'&&'rules' in selected&&<p className="sf-hub-help">社区规则：{selected.rules||'遵守平台社区规范'}</p>}
-    {mode==='communities'&&userId&&<button className="sf-hub-outline" disabled={busy||(selected.owner_id===userId)} onClick={()=>void join()}>{joined?'退出社区':'加入社区'}</button>}
+    {mode==='communities'&&userId&&<button className="sf-hub-outline" disabled={busy||(selected.owner_id===userId)} onClick={()=>void join()}>{joined?'退出社区':myRequest?'撤回入群申请':selected.join_policy==='approval'?'申请加入（需审核）':'加入社区'}</button>}
+    {mode==='communities'&&<p className="sf-hub-help">入群方式：{selected.join_policy==='approval'?'申请后由创建者审核':'公开加入'} · 成员 {currentMembers.length} 人</p>}
+    {mode==='communities'&&isCommunityOwner&&<div className="sf-hub-form" style={{marginTop:14}}>
+     <label>入群管理规则
+      <select value={selected.join_policy} disabled={busy} onChange={e=>void changeCommunityPolicy(e.target.value as 'open'|'approval')}>
+       <option value="open">允许直接加入</option><option value="approval">加入前必须审核</option>
+      </select>
+     </label>
+     <h3>待审核入群申请 · {pendingRequests.length}</h3>
+     {pendingRequests.length===0?<p className="sf-hub-help">没有待审申请。</p>:pendingRequests.map(req=><div key={req.user_id} style={{padding:'8px 0'}}>
+       <span>{memberProfiles[req.user_id]?.display_name||req.user_id.slice(0,8)} </span>
+       <button type="button" className="sf-hub-outline" disabled={busy} onClick={()=>void reviewJoin(req.user_id,true)}>同意</button>
+       <button type="button" className="sf-hub-outline" disabled={busy} onClick={()=>void reviewJoin(req.user_id,false)}>拒绝</button>
+      </div>)}
+    </div>}
+    {mode==='communities'&&canModerate&&<div className="sf-hub-form" style={{marginTop:12}}>
+     <h3>社区成员管理</h3>
+     {currentMembers.map(member=><div key={member.user_id} style={{padding:'8px 0',borderBottom:'1px solid #eee'}}>
+      <strong>{memberProfiles[member.user_id]?.display_name||member.user_id.slice(0,8)}</strong> <small>（{member.role==='owner'?'创建者':member.role==='moderator'?'管理员':'成员'}）</small>
+      {member.role!=='owner'&&member.user_id!==userId&&<>
+       {isCommunityOwner&&<button type="button" className="sf-hub-outline" disabled={busy} onClick={()=>void moderateMember(member.user_id,member.role==='moderator'?'demote':'promote')}>{member.role==='moderator'?'撤销管理':'设为管理'}</button>}
+       {(isCommunityOwner||member.role==='member')&&<button type="button" className="sf-hub-outline" disabled={busy} onClick={()=>void moderateMember(member.user_id,'remove')}>移出</button>}
+      </>}
+     </div>)}
+    </div>}
     {mode==='communities'&&userId&&joined&&<form className="sf-hub-form" onSubmit={sendPost} style={{marginTop:15}}>
      <textarea placeholder="分享社区动态（最多280字）" value={postText} maxLength={280} onChange={e=>setPostText(e.target.value)}/>
      <button className="sf-hub-btn" disabled={busy||!postText.trim()}>发布到社区</button>
