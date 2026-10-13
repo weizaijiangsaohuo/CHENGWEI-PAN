@@ -633,6 +633,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       
 <StarflowServicesPanel isAdmin={isAdmin}/>
       <StarflowDisplayPreferences/>
+      <div className="sf-diagnostics-entry"><Link href="/appeals" aria-label="打开举报申诉与处理反馈"><span>申诉与处理反馈</span><small>对账号限制、内容或认证结果申请复核</small><ChevronRight size={19} aria-hidden="true"/></Link></div>
       <div className="sf-diagnostics-entry">
         <Link href="/diagnostics" aria-label="打开设备与网站服务自检中心">
           <span>设备与服务自检</span>
