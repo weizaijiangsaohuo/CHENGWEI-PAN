@@ -45,7 +45,7 @@ DROP POLICY IF EXISTS sf_contracts_private_read ON public.sf_creator_contracts;
 CREATE POLICY sf_contracts_private_read ON public.sf_creator_contracts FOR SELECT TO authenticated
  USING(creator_id=(SELECT auth.uid()) OR EXISTS(
  SELECT 1 FROM public.sf_staff_roles sr WHERE sr.user_id=(SELECT auth.uid())
- AND sr.enabled=true AND sr.role IN ('founder','super_admin','official','senior_admin')
+ AND sr.enabled=true AND sr.role IN ('founder','super_admin')
  ));
 DROP POLICY IF EXISTS sf_contract_events_private_read ON public.sf_creator_contract_events;
 CREATE POLICY sf_contract_events_private_read ON public.sf_creator_contract_events FOR SELECT TO authenticated
