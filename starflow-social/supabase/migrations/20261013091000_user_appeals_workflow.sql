@@ -21,7 +21,11 @@ DROP POLICY IF EXISTS sf_appeals_owner_or_reviewer_read ON public.sf_user_appeal
 CREATE POLICY sf_appeals_owner_or_reviewer_read ON public.sf_user_appeals
  FOR SELECT TO authenticated USING (
    user_id=(SELECT auth.uid())
-   OR (SELECT public.sf_admin_has_permission('users.restrict'))
+   OR EXISTS (
+     SELECT 1 FROM public.sf_staff_roles r
+     WHERE r.user_id=(SELECT auth.uid()) AND r.enabled=true
+       AND r.role IN ('founder','super_admin')
+   )
  );
 
 -- User submits an appeal, but cannot edit status or create another user's appeal.
