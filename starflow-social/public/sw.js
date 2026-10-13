@@ -29,6 +29,27 @@ const isPublicStatic = (url) => url.pathname.startsWith('/_next/static/')
   || url.pathname === '/starflow-mail-logo.png'
   || url.pathname === '/starflow-official-mark.webp'
   || url.pathname === '/manifest.webmanifest';
+// Generic background notification only: payload details are deliberately ignored.
+// Never display DM content, identity, account details, or untrusted links.
+self.addEventListener('push', (event) => {
+  event.waitUntil(self.registration.showNotification('星流 Starflow', {
+    body: '你收到了新的站内通知',
+    icon: '/starflow-mail-logo.png',
+    badge: '/starflow-mail-logo.png',
+    tag: 'sf-private-notice',
+    data: {url:'/notifications'}
+  }));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const destination = new URL('/notifications', self.location.origin).href;
+    const windows = await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const existing = windows.find(client => new URL(client.url).origin === self.location.origin);
+    if (existing) {await existing.focus(); await existing.navigate(destination);return;}
+    await self.clients.openWindow(destination);
+  })());
+});
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
