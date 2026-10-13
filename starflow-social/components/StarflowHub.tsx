@@ -164,11 +164,11 @@ export function StarflowHub(){
    {selected&&<section className="sf-hub-card">
     <h2>{selected.name}</h2><p className="sf-hub-help">{selected.description}</p>
     {mode==='communities'&&'rules' in selected&&<p className="sf-hub-help">社区规则：{selected.rules||'遵守平台社区规范'}</p>}
-    {mode==='communities'&&userId&&<button className="sf-hub-outline" disabled={busy||(selected.owner_id===userId)} onClick={()=>void join()}>{joined?'退出社区':myRequest?'撤回入群申请':selected.join_policy==='approval'?'申请加入（需审核）':'加入社区'}</button>}
-    {mode==='communities'&&<p className="sf-hub-help">入群方式：{selected.join_policy==='approval'?'申请后由创建者审核':'公开加入'} · 成员 {currentMembers.length} 人</p>}
+    {mode==='communities'&&userId&&<button className="sf-hub-outline" disabled={busy||(selected.owner_id===userId)} onClick={()=>void join()}>{joined?'退出社区':myRequest?'撤回入群申请':currentCommunity?.join_policy==='approval'?'申请加入（需审核）':'加入社区'}</button>}
+    {mode==='communities'&&<p className="sf-hub-help">入群方式：{currentCommunity?.join_policy==='approval'?'申请后由创建者审核':'公开加入'} · 成员 {currentMembers.length} 人</p>}
     {mode==='communities'&&isCommunityOwner&&<div className="sf-hub-form" style={{marginTop:14}}>
      <label>入群管理规则
-      <select value={selected.join_policy} disabled={busy} onChange={e=>void changeCommunityPolicy(e.target.value as 'open'|'approval')}>
+      <select value={currentCommunity?.join_policy} disabled={busy} onChange={e=>void changeCommunityPolicy(e.target.value as 'open'|'approval')}>
        <option value="open">允许直接加入</option><option value="approval">加入前必须审核</option>
       </select>
      </label>
