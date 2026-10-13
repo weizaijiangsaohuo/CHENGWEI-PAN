@@ -106,7 +106,7 @@ export function StarflowDraftScheduler(){
      <button type="button" className="secondary" disabled={busy||!content.trim()} onClick={()=>restore(content)}>返回发布框</button>
     </div>
     <label htmlFor="sf-growth-when">预约发布日期和时间（设备当地时间）</label>
-    <input id="sf-growth-when" type="datetime-local" value={when} min={new Date(Date.now()+6*60000).toISOString().slice(0,16)} onChange={e=>setWhen(e.target.value)}/>
+    <input id="sf-growth-when" type="datetime-local" value={when} min={(()=>{const date=new Date(Date.now()+6*60000);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)})()} onChange={e=>setWhen(e.target.value)}/>
     <button type="button" disabled={busy||!content.trim()||!when} onClick={()=>void schedule()}>预约定时发布</button>
     <p className="sf-growth-note">最早5分钟后，最晚30天内；后台每分钟检查到期记录。若发布被限制或失败，状态会如实显示。</p>
    </section>
