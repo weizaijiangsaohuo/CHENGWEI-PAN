@@ -18,6 +18,8 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
   {heading:'互动与创作',items:[
    {to:'/?compose=1',label:'发布新动态',icon:PenLine},
    {to:'/creator',label:'创作者中心',icon:Sparkles},
+   {to:'/drafts',label:'草稿与预约',icon:PenLine},
+   {to:'/trending',label:'热门话题榜',icon:Compass},
    {to:'/bookmarks',label:'我的收藏',icon:Bookmark},
    {to:'/messages',label:'私信消息',icon:MessageCircle},
   ]},
@@ -26,11 +28,13 @@ export function StarflowHomeMenu({isAdmin}:{isAdmin:boolean}){
    {to:'/settings',label:'账号设置',icon:Settings},
    {to:'/settings/security',label:'账户安全管理中心',icon:UserRound},
    {to:'/support',label:'星流 AI 客服',icon:Sparkles},
+   {to:'/appeals',label:'我的申诉与审核结果',icon:FileText},
    {to:'/organization/affiliates',label:'组织附属账号',icon:Users},
   ]},
   ...(isAdmin?[{heading:'平台管理',items:[
    {to:'/admin/console',label:'超级管理控制台',icon:LayoutDashboard},
    {to:'/admin/verifications',label:'认证审核中心',icon:ShieldCheck},
+   {to:'/admin/appeals',label:'申诉审核队列',icon:FileText},
   ]}]:[]),
   {heading:'规则与帮助',items:[
    {to:'/guidelines',label:'社区公约',icon:BookOpen},

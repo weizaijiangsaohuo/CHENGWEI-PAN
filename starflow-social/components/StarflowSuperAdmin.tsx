@@ -254,7 +254,7 @@ export function StarflowSuperAdmin(){
     <div className="sac-grid"><div><h3>已接入</h3><p>账号与权限、内容隐藏/删除、举报处理、认证审核、官方通知、公告、审计与实际行为限制。</p></div><div><h3>不提供越权访问</h3><p>不能读取用户私信正文、获取密码或绕过身份验证。高风险操作均要求服务端授权。</p></div></div>
    </section>}
    {tab==='accounts'&&<section className="sac-card">
-    <h2>用户与账号管理</h2><form className="sac-search" onSubmit={findAccounts}><input aria-label="搜索用户" value={search} onChange={e=>setSearch(e.target.value)} maxLength={40} placeholder="搜索 @用户名或显示名称"/><button type="submit">搜索</button></form>
+    <h2>用户与账号管理</h2><p><Link href="/admin/appeals">查看和处理用户申诉 →</Link></p><form className="sac-search" onSubmit={findAccounts}><input aria-label="搜索用户" value={search} onChange={e=>setSearch(e.target.value)} maxLength={40} placeholder="搜索 @用户名或显示名称"/><button type="submit">搜索</button></form>
     <p className="sac-muted">最多显示50条，点击选择用户；官方与管理员账号受到保护。</p>
     <div className="sac-user-list">{accounts.map(a=><button type="button" key={a.id} className={selected?.id===a.id?'picked':''} onClick={()=>pick(a)}><b>@{a.handle}</b><small>{a.display_name} · {a.account_status} · {date(a.created_at)}</small></button>)}</div>
     {selected&&<div className="sac-subcard"><h3>管理 @{selected.handle}</h3><p className="sac-muted">ID: {selected.id} · 当前状态：{selected.account_status}{selected.staff_role?' · '+roleNames[selected.staff_role]:''}</p>

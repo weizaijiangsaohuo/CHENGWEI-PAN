@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, ChevronRight, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Share2, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
+import {optimizeImageForPost} from '@/lib/optimize-upload-image';
 import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
@@ -101,6 +102,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [pollOptions,setPollOptions]=useState(['','']);const [pollHours,setPollHours]=useState(24);
   const [draftHydrated,setDraftHydrated]=useState(false);
   const [sending,setSending]=useState(false);
+  const [uploadStage,setUploadStage]=useState('');
   const [display,setDisplay]=useState('');const [bio,setBio]=useState('');const [handle,setHandle]=useState('');
   const [unread,setUnread]=useState(0);const [dmUnread,setDmUnread]=useState(0);const [isAdmin,setIsAdmin]=useState(false);
   const inputRef=useRef<HTMLInputElement>(null);
@@ -450,15 +452,20 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       }else{
       const files=galleryFiles.length?galleryFiles:image?[image]:[];
       const urls:string[]=[];
-      for(const file of files){
+      for(let i=0;i<files.length;i++){
+        const file=files[i];
+        setUploadStage('正在处理图片 '+(i+1)+'/'+files.length+'…');
+        const uploadFile=await optimizeImageForPost(file);
         const ext:Record<string,string>={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'};
-        const path=`${user.id}/${crypto.randomUUID()}.${ext[file.type]}`;
-        const {error:uploadError}=await client.storage.from('post-media').upload(path,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+        const path=`${user.id}/${crypto.randomUUID()}.${ext[uploadFile.type]}`;
+        setUploadStage('正在上传图片 '+(i+1)+'/'+files.length+'…');
+        const {error:uploadError}=await client.storage.from('post-media').upload(path,uploadFile,{contentType:uploadFile.type,upsert:false,cacheControl:'3600'});
         if(uploadError)throw uploadError;
         urls.push(client.storage.from('post-media').getPublicUrl(path).data.publicUrl);
       }
       image_url=urls[0]||null;
       if(video){
+        setUploadStage('正在上传视频…');
         const ext:Record<string,string>={'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov'};
         const path=`${user.id}/${crypto.randomUUID()}.${ext[video.type]}`;
         const {error:videoUploadError}=await client.storage.from('post-videos').upload(path,video,{contentType:video.type,upsert:false,cacheControl:'3600'});
@@ -480,7 +487,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       showMessage(t('posted'));
       if(view==='home'||view==='profile'||view==='post')void load();else router.push('/');
     }catch(e){showMessage(e instanceof Error?e.message:(isEnglishLocale(lang)?'Failed to publish':'发布失败'));}
-    finally{setSending(false);}
+    finally{setSending(false);setUploadStage('');}
   }
   async function follow(id:string){
     if(!user||id===user.id||pendingFollows.current.has(id))return;
@@ -566,6 +573,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <button type="button" title={isEnglishLocale(lang)?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={isEnglishLocale(lang)?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
     {!reply&&<Link href="/drafts" title="云端草稿与定时发布" aria-label="草稿箱与定时发布" style={{display:'inline-flex',alignItems:'center',gap:4,color:'#7551ad',fontSize:12,textDecoration:'none'}}><PenLine size={18}/><span>草稿 / 预约</span></Link>}
     <button type="button" title="发布投票" aria-label="发布投票" disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
+    {sending&&uploadStage&&<span role="status" className="muted small" aria-live="polite">{uploadStage}</span>}
     <span className={Array.from(draft).length>280?'char-count over':'char-count'}>{280-Array.from(draft).length}</span>
     <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video&&!pollOpen)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
   </form>;
@@ -633,6 +641,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       
 <StarflowServicesPanel isAdmin={isAdmin}/>
       <StarflowDisplayPreferences/>
+      <div className="sf-diagnostics-entry"><Link href="/settings/alerts" aria-label="设置站内实时提醒"><span>实时互动通知</span><small>开启或关闭网页打开时的即时提醒</small><ChevronRight size={19} aria-hidden="true"/></Link></div>
+      <div className="sf-diagnostics-entry"><Link href="/appeals" aria-label="打开举报申诉与处理反馈"><span>申诉与处理反馈</span><small>对账号限制、内容或认证结果申请复核</small><ChevronRight size={19} aria-hidden="true"/></Link></div>
       <div className="sf-diagnostics-entry">
         <Link href="/diagnostics" aria-label="打开设备与网站服务自检中心">
           <span>设备与服务自检</span>
