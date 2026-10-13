@@ -32,7 +32,15 @@ export function StarflowBackgroundPushSettings({userId}:{userId:string}){
   (async()=>{
    try{
     const registration=await navigator.serviceWorker.ready;
-    const subscription=await registration.pushManager.getSubscription();
+    let subscription=await registration.pushManager.getSubscription();
+    if(subscription){
+     const {data:owned,error:ownerError}=await db().rpc('sf_web_push_device_registered',{p_endpoint:subscription.endpoint});
+     // Avoid delivering a previous account's pushes on shared iPhones.
+     if(!ownerError&&owned!==true){
+      await subscription.unsubscribe().catch(()=>{});
+      subscription=null;
+     }
+    }
     const {data,error:e}=await db().rpc('sf_web_push_subscription_count');
     if(alive){setEnabled(Boolean(subscription));setDevices(e?null:Number(data||0));}
    }catch{/* A browser without a push provider may reject silently. */}
@@ -40,7 +48,7 @@ export function StarflowBackgroundPushSettings({userId}:{userId:string}){
   return()=>{alive=false;};
  },[userId]);
  async function toggle(next:boolean){
-  if(busy||!supported||!configured)return;
+  if(busy||!supported||(next&&!configured))return;
   setBusy(true);setNotice('');setError('');
   try{
    const {data:{user},error:authError}=await db().auth.getUser();
@@ -85,7 +93,9 @@ export function StarflowBackgroundPushSettings({userId}:{userId:string}){
   <p className="sf-growth-note">支持的设备可在关闭页面后收到通用系统通知。仅推送“你有新的站内通知”，不会把私信正文或个人资料发给推送服务商。</p>
   {!supported?<p role="status">当前浏览器不支持 Web Push，或网站不是安全 HTTPS 环境。</p>:
   !installed&&/iPhone|iPad|iPod/.test(navigator.userAgent)?<p role="status">在 iPhone 上，请先通过 Safari「分享 → 添加到主屏幕」，再从主屏幕打开星流。</p>:
-  !configured?<p role="status">服务器尚未配置 Web Push VAPID 公钥和加密投递服务，后台推送暂不可开启。原有站内通知继续可用。</p>:
+  !configured?<div><p role="status">服务器尚未配置 Web Push VAPID 公钥和加密投递服务，暂时不能开启新订阅。原有站内通知继续可用。</p>
+   {enabled&&<button type="button" disabled={busy} onClick={()=>void toggle(false)}>取消本设备旧订阅</button>}
+  </div>:
   <>
    <p>本设备：<strong>{enabled?'已订阅':'未订阅'}</strong>{devices!==null?' · 当前账号登记了 '+devices+' 台设备':''}</p>
    <div className="sf-growth-actions">
