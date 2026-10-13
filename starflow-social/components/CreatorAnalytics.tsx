@@ -29,13 +29,27 @@ export function CreatorAnalytics(){
    setLoading(false);
   };void go();return()=>{active=false};
  },[days]);
+ function exportDailyCsv(){
+  if(!stats||loading||!authed)return;
+  const lines=['date,post_count',...points.map(x=>[x.date,x.count].join(','))];
+  const csv='\uFEFF'+lines.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');link.href=url;
+  link.download='starflow-creator-posts-'+days+'days.csv';
+  link.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+ }
  const max=Math.max(1,...points.map(x=>x.count));
  return <main className="sf-hub"><div className="sf-hub-inner">
-  <header><Link href="/">← 返回 Starflow</Link><Link href="/hub">社区与列表 →</Link></header>
+  <header><Link href="/">← 返回 Starflow</Link><Link href="/hub">社区与列表 →</Link><Link href="/drafts">草稿 / 预约 →</Link><Link href="/trending">热门话题 →</Link></header>
   <h1>✦ 创作者数据中心</h1>
   <p className="sf-hub-help">所有指标均由真实帖子与互动记录统计。尚未接入的浏览量、收益不会显示虚构数字。</p>
   <label>统计周期：<select value={days} style={{maxWidth:170}} onChange={e=>setDays(Number(e.target.value))}><option value={7}>近7天</option><option value={30}>近30天</option><option value={90}>近90天</option></select></label>
   {loading?<p>正在载入统计…</p>:!authed?<div className="sf-hub-card">需要登录后查看个人创作者数据。<Link href="/">登录 →</Link></div>:message?<p className="sf-hub-status" role="alert">{message}</p>:stats?<>
+   <div style={{marginTop:16,display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+    <button type="button" onClick={exportDailyCsv} className="btn btn-outline">导出真实发帖数据 CSV</button>
+    <small>仅导出本人所选周期内的每日发帖数，不包含他人私人资料。</small>
+   </div>
    <section className="sf-stat-grid" style={{marginTop:18}}>
     {([['发布帖子',stats.post_count],['收到点赞',stats.likes_received],['收到转发',stats.reposts_received],['收到回复',stats.replies_received],['当前粉丝',stats.follower_count]] as const).map(([label,value])=><div key={label} className="sf-stat"><span>{label}</span><strong>{Number(value||0).toLocaleString()}</strong></div>)}
    </section>

@@ -24,7 +24,8 @@ test('final Nebula Glass stylesheet overrides legacy sheets, with no private dat
  assert.match(css,/prefers-contrast:more/);
 });
 test('recommendation and actual following timelines are functionally separate',()=>{
- assert.match(social,/aria-pressed=\{tab==='all'\}/);
+ assert.match(social,/aria-pressed=\{tab==='all'&&feedSort==='recommended'\}/);
+ assert.match(social,/aria-pressed=\{tab==='all'&&feedSort==='latest'\}/);
  assert.match(social,/aria-pressed=\{tab==='following'\}/);
  assert.match(social,/tab==='all'\?/);
  assert.match(social,/className="posts-list sf2-following-list"/);

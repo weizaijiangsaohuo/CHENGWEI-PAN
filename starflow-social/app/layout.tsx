@@ -34,6 +34,8 @@ export const metadata: Metadata = {
   title: '星流 Starflow · 分享此刻，连接彼此',
   description: '独立社交社区，发布动态、参与讨论、关注感兴趣的人。非 X / Twitter 官方网站。',
   applicationName: 'Starflow',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: '星流', statusBarStyle: 'default' },
   robots: { index: true, follow: true },
 };
 
