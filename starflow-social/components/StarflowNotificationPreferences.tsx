@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {db,hasConfig} from '@/lib/supabase';
 import '@/components/StarflowGrowth.css';
+import {StarflowBackgroundPushSettings} from './StarflowBackgroundPushSettings';
 
 export function StarflowNotificationPreferences(){
  const [userId,setUserId]=useState('');
@@ -55,5 +56,6 @@ export function StarflowNotificationPreferences(){
    {error&&<p className="sf-growth-error" role="alert">{error}</p>}
    <p className="sf-growth-note">不会把私信内容放进系统横幅。iPhone 后台推送须另建可验证的 Web Push 服务，本页不声称已支持。</p>
   </section>}
+  {userId&&<StarflowBackgroundPushSettings userId={userId}/>}
  </div></main>;
 }
