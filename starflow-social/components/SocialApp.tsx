@@ -62,7 +62,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
   const [profileLookup,setProfileLookup]=useState<{handle:string;status:'found'|'missing'|'error';data:Profile|null}|null>(null);const [following,setFollowing]=useState<string[]>([]);
   const profile=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.data:null;
   const profileStatus=view==='profile' && profileLookup?.handle===(target||'')?profileLookup.status:'loading';
-  const [tab,setTab]=useState<'all'|'following'>('all');const [search,setSearch]=useState('');
+  const [tab,setTab]=useState<'all'|'following'>('all');
+  const [feedSort,setFeedSort]=useState<'recommended'|'latest'>('recommended');const [search,setSearch]=useState('');
   const [settledSearch,setSettledSearch]=useState('');
   const [searchFilter,setSearchFilter]=useState<'all'|'posts'|'people'>('all');
   const [notificationFilter,setNotificationFilter]=useState<NotificationGroup>('all');
@@ -361,9 +362,19 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       const needle=settledSearch.trim().toLocaleLowerCase();
       list=list.filter(p=>p.content.toLocaleLowerCase().includes(needle)||unwrap(p.profiles)?.display_name.toLocaleLowerCase().includes(needle));
     }
+    if(view==='home'&&tab==='all'&&feedSort==='recommended'){
+      // Transparent relevance using actual interactions among loaded posts.
+      const rank=(p:Post)=>{
+        const ageHours=Math.max(0,(Date.now()-Date.parse(p.created_at))/3600000);
+        const m=metrics[p.id];
+        const activity=(m?.likes||0)*3+(m?.replies||0)*4+(m?.reposts||0)*5;
+        return 10*Math.exp(-ageHours/72)+Math.min(20,4*Math.log1p(activity))+(following.includes(p.author_id)?8:0);
+      };
+      list=[...list].sort((a,b)=>rank(b)-rank(a)||Date.parse(b.created_at)-Date.parse(a.created_at));
+    }
     if(view==='post')list=[...list].sort((a,b)=>a.id===target?-1:b.id===target?1:new Date(a.created_at).getTime()-new Date(b.created_at).getTime());
     return list;
-  },[posts,view,tab,following,user?.id,settledSearch,target]);
+  },[posts,view,tab,following,user?.id,settledSearch,target,metrics,feedSort]);
 
   async function toggle(table:'likes'|'reposts'|'bookmarks',post:Post){
     if(!user)return;
@@ -683,7 +694,8 @@ export function SocialApp({view,target}:{view:View;target?:string}){
       </div>
       <div className="sf-home-channels">
         <div className="home-tabs" role="group" aria-label="首页内容筛选">
-          <button type="button" aria-pressed={tab==='all'} className={tab==='all'?'active':''} onClick={()=>setTab('all')}>推荐</button>
+          <button type="button" aria-pressed={tab==='all'&&feedSort==='recommended'} className={tab==='all'&&feedSort==='recommended'?'active':''} onClick={()=>{setFeedSort('recommended');setTab('all')}} title="按近况、真实互动和关注关系排列当前加载的动态">推荐</button>
+          <button type="button" aria-pressed={tab==='all'&&feedSort==='latest'} className={tab==='all'&&feedSort==='latest'?'active':''} onClick={()=>{setFeedSort('latest');setTab('all')}}>最新</button>
           <button type="button" aria-pressed={tab==='following'} className={tab==='following'?'active':''} onClick={()=>setTab('following')}>关注</button>
         </div>
 
