@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS public.sf_creator_contracts(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  creator_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
  invited_by uuid NOT NULL REFERENCES auth.users(id),
- source_post_id uuid REFERENCES public.posts(id) ON DELETE SET NULL,
+ source_post_id uuid, -- immutable reference; posts may be removed without blocking user deletion
  title text NOT NULL CHECK(char_length(btrim(title)) BETWEEN 8 AND 120),
  platform_legal_entity text NOT NULL CHECK(char_length(btrim(platform_legal_entity)) BETWEEN 2 AND 160),
  agreement_body text NOT NULL CHECK(char_length(btrim(agreement_body)) BETWEEN 250 AND 16000),
