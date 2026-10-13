@@ -1,5 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
+import type {FormEvent} from 'react';
 import Link from 'next/link';
 import {db,hasConfig} from '@/lib/supabase';
 import './StarflowGrowth.css';
@@ -34,7 +35,7 @@ export function StarflowAppealCenter(){
   }).catch(e=>{if(active)setError(e instanceof Error?e.message:'服务暂时无法使用')}).finally(()=>{if(active)setLoading(false)});
   return()=>{active=false};
  },[refresh]);
- async function submit(event:React.FormEvent){
+ async function submit(event:FormEvent){
   event.preventDefault();if(!uid||busy)return;
   setError('');setNotice('');setBusy(true);
   try{
