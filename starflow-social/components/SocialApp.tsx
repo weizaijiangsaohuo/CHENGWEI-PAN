@@ -553,6 +553,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" className="sr-only" onChange={chooseVideo}/>
     <button type="button" title={t('photo')} aria-label={t('photo')} disabled={sending||pollOpen} onClick={()=>inputRef.current?.click()}><ImagePlus size={21}/></button>
     <button type="button" title={isEnglishLocale(lang)?'Select video (max 50 MB)':'选择视频（最多 50 MB）'} aria-label={isEnglishLocale(lang)?'Select video':'选择视频'} disabled={sending||pollOpen} onClick={()=>videoInputRef.current?.click()}><Video size={21}/></button>
+    {!reply&&<Link href="/drafts" title="云端草稿与定时发布" aria-label="草稿箱与定时发布" style={{display:'inline-flex',alignItems:'center',gap:4,color:'#7551ad',fontSize:12,textDecoration:'none'}}><PenLine size={18}/><span>草稿 / 预约</span></Link>}
     <button type="button" title="发布投票" aria-label="发布投票" disabled={sending||reply||!!video||galleryFiles.length>0} onClick={()=>setPollOpen(v=>!v)}><BarChart3 size={21}/></button><span className="muted small">{t('shareMoment')}</span></div>
     <span className={Array.from(draft).length>280?'char-count over':'char-count'}>{280-Array.from(draft).length}</span>
     <button className="btn btn-primary publish-btn" disabled={sending||(!draft.trim()&&!image&&!video&&!pollOpen)||Array.from(draft).length>280}>{sending?t('posting'):reply?t('reply'):t('post')}<Send size={15}/></button></div></div>
@@ -653,6 +654,7 @@ export function SocialApp({view,target}:{view:View;target?:string}){
        <button type="submit" className="sf2-explore-submit" disabled={searchPending===false&&loading}
          aria-label={isEnglishLocale(lang)?'Search':'搜索'}>{isEnglishLocale(lang)?'Search':'搜索'}</button>
       </form>
+      <div className="sf-growth-shortcuts"><Link href="/trending">🔥 七日热门话题榜 →</Link><Link href="/drafts">✍️ 我的草稿与预约 →</Link></div>
       <div className="sf2-explore-filters" role="group" aria-label={isEnglishLocale(lang)?'Filter search results':'筛选搜索结果'}>
        {(['all','posts','people'] as const).map(group=><button key={group} type="button"
         aria-pressed={searchFilter===group} className={searchFilter===group?'selected':''}
