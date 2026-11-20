@@ -1,0 +1,44 @@
+name: Starflow Better Auth laboratory
+on:
+  push:
+    branches: [feature/neon-backend-foundation-20261120]
+    paths: ['starflow-social/backend/auth/**', '.github/workflows/starflow-auth-lab.yml']
+  pull_request:
+    branches: [main]
+    paths: ['starflow-social/backend/auth/**', '.github/workflows/starflow-auth-lab.yml']
+permissions:
+  contents: read
+jobs:
+  auth-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: starflow_auth_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d starflow_auth_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: starflow-social/backend/auth
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve experimental dependency lock
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auth-lab-lock
+          path: starflow-social/backend/auth/package-lock.json
+      - name: Audit resolved dependencies
+        run: npm audit --audit-level=low
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test
