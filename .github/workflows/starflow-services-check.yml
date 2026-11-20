@@ -1,0 +1,41 @@
+name: Starflow service safety laboratory
+on:
+  push:
+    branches: [feature/neon-backend-foundation-20261120]
+    paths: ['starflow-social/backend/**', '.github/workflows/starflow-services-check.yml']
+  pull_request:
+    branches: [main]
+    paths: ['starflow-social/backend/**', '.github/workflows/starflow-services-check.yml']
+permissions:
+  contents: read
+jobs:
+  service-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: starflow_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d starflow_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: ephemeral-ci-only
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGDATABASE: starflow_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test starflow-social/backend/services/services.test.mjs
+      - run: |
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/001_core_profiles.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/002_email_budget.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/002_email_budget.sql
