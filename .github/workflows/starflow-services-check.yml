@@ -58,3 +58,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/009_notifications_queue.sql
       - run: node --test starflow-social/backend/services/realtime-policy.test.mjs
       - run: node --test starflow-social/backend/services/realtime-registry.test.mjs
+      - run: |
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/011_otp_mail_budget.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/011_otp_mail_budget.sql

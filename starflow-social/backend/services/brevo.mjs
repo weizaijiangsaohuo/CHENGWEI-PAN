@@ -19,3 +19,9 @@ export function prepareBrevoRequest(input,apiKey){
  if(typeof apiKey!=='string'||!apiKey||/[\r\n]/.test(apiKey))throw Error('Missing credential');
  return {url:'https://api.brevo.com/v3/smtp/email',options:{method:'POST',redirect:'error',cache:'no-store',headers:{'api-key':apiKey,'content-type':'application/json'},body:JSON.stringify(buildSecurityEmail(input))}};
 }
+
+// Offline template only. Sender and verified account limits must be configured before any dispatch.
+export function prepareBrevoOtpRequest({sender,recipient,otp,eventId},apiKey){
+ if(typeof sender!=='string'||typeof recipient!=='string'||!email.test(sender)||!email.test(recipient)||sender.length>254||recipient.length>254||typeof otp!=='string'||!/^\d{6}$/.test(otp)||typeof eventId!=='string'||!uuid.test(eventId)||typeof apiKey!=='string'||!apiKey||/[\r\n]/.test(apiKey))throw Error('Invalid OTP mail');
+ return {url:'https://api.brevo.com/v3/smtp/email',options:{method:'POST',redirect:'error',cache:'no-store',headers:{'api-key':apiKey,'content-type':'application/json'},body:JSON.stringify({sender:{email:sender,name:'Starflow'},to:[{email:recipient}],subject:'Starflow 邮箱验证码',textContent:'你的星流验证码：'+otp+'。5分钟内有效，仅能使用一次。请勿向任何人透露验证码。',headers:{IdempotencyKey:eventId}})}};
+}
