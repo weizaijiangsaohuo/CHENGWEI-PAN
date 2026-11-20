@@ -1,0 +1,53 @@
+name: Starflow Worker dependency preparation
+on:
+  push:
+    branches: [feature/neon-backend-foundation-20261120]
+    paths:
+      - '.github/workflows/starflow-worker-dependency-prep.yml'
+permissions:
+  contents: read
+jobs:
+  worker-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: starflow-social
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve the Worker dependencies in disposable CI
+        run: |
+          cp package-lock.json /tmp/starflow-before-lock.json
+          npm pkg set 'overrides.@better-auth/core=1.7.26'
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund --save-exact better-auth@1.7.26 @better-auth/passkey@1.7.26 pg@8.23.1 jose@6
+          npm audit --audit-level=low
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --input-type=module -e "await import('better-auth'); await import('@better-auth/passkey'); await import('pg'); await import('jose'); console.log('Module imports OK')"
+      - name: Export reviewable lock delta without credentials
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const a=JSON.parse(fs.readFileSync('/tmp/starflow-before-lock.json'));
+          const b=JSON.parse(fs.readFileSync('package-lock.json'));
+          const manifest=JSON.parse(fs.readFileSync('package.json'));
+          const changed=Object.fromEntries(Object.entries(b.packages).filter(([k,v])=>JSON.stringify(v)!==JSON.stringify(a.packages[k])));
+          const removed=Object.keys(a.packages).filter(k=>!Object.hasOwn(b.packages,k));
+          const delta={dependencies:manifest.dependencies,overrides:manifest.overrides,changed,removed};
+          fs.writeFileSync('worker-lock-delta.json',JSON.stringify(delta,null,2)+'\n');
+          console.log('STARFLOW_WORKER_LOCK_DELTA_BEGIN');
+          console.log(JSON.stringify(delta));
+          console.log('STARFLOW_WORKER_LOCK_DELTA_END');
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: starflow-worker-lock
+          path: |
+            starflow-social/package.json
+            starflow-social/package-lock.json
+            starflow-social/worker-lock-delta.json
+          retention-days: 3
