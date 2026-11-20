@@ -133,5 +133,7 @@ test('user can select GIF, native iPhone share files, and leave paid API disable
  assert.match(ui,/result\.mime\.startsWith\('image\/'\)/);
  assert.match(ui,/iPhone|文件 App/);
  assert.match(css,/\.sf-zero-result-actions/);
- assert.match(paid,/STARFLOW_PAID_INFERENCE_LOCKED=true/);
+ assert.match(paid,/enabled:false/);
+ assert.match(paid,/\/api\/creative\/zero。'},410/);
+ assert.doesNotMatch(paid,/FAL_KEY|queue\.fal\.run|falFetch|fetch\(/);
 });
