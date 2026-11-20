@@ -92,3 +92,4 @@ jobs:
       - run: node --test totp-ceremony.test.mjs
       - run: node --test passkey-ceremony.test.mjs
       - run: node --test email-otp-lab.test.mjs
+      - run: node --test preview-runtime.test.mjs
