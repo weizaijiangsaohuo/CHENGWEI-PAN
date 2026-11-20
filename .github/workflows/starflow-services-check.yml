@@ -39,3 +39,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/001_core_profiles.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/002_email_budget.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/002_email_budget.sql
+
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/003_social_core.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/003_social_core.sql
