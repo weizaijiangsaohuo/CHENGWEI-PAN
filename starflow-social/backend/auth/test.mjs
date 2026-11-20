@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
+import {betterAuth} from 'better-auth';
 import {getMigrations} from 'better-auth/db/migration';
 import {authOptions,createStarflowAuthLab} from './auth.mjs';
 
@@ -39,5 +40,46 @@ test('real Better Auth migration and disabled public signup against disposable P
   const response=await auth.handler(req);
   assert.ok(response.status>=400 && response.status<500,'expected closed signup, got '+response.status);
   assert.equal(Number((await db.query('select count(*) as n from "user"')).rows[0].n),0);
+ }finally{await db.end();}
+});
+
+test('disposable database: real signup, verification, login and session revocation; no mail network',async()=>{
+ const db=new pg.Pool({host:'127.0.0.1',port:5432,user:'postgres',password:'ephemeral-ci-only',database:'starflow_auth_test'});
+ const o=authOptions({database:db,origin,secret});
+ let verification;
+ // Deliberately override only in the offline test harness, not in auth.mjs or any live route.
+ const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
+   emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({url})=>{verification=url;}}});
+ const email='fixture@example.invalid',password='synthetic-password-for-test-2026';
+ const headers={'content-type':'application/json',origin,'cf-connecting-ip':'192.0.2.8'};
+ const post=(path,body,cookie)=>auth.handler(new Request(origin+'/api/identity/auth/'+path,
+  {method:'POST',headers:{...headers,...(cookie?{cookie}:{})},body:JSON.stringify(body)}));
+ const read=(path,cookie)=>auth.handler(new Request(origin+'/api/identity/auth/'+path,{headers:{...headers,...(cookie?{cookie}:{})}}));
+ try{
+  await (await getMigrations(auth.options)).runMigrations();
+  const sign=await post('sign-up/email',{name:'Synthetic Test',email,password,username:'fixture_user'});
+  assert.ok(sign.ok,'signup status '+sign.status);
+  assert.equal(typeof verification,'string','verification link was not produced');
+  assert.equal(new URL(verification).origin,origin);
+  assert.equal((await db.query('select "emailVerified" from "user" where email=$1',[email])).rows[0].emailVerified,false);
+  const unverified=await post('sign-in/email',{email,password});
+  assert.ok(unverified.status>=400 && unverified.status<500,'unverified login allowed');
+  const verified=await auth.handler(new Request(verification,{headers}));
+  assert.ok(verified.ok||verified.status===302,'verification failed '+verified.status);
+  assert.equal((await db.query('select "emailVerified" from "user" where email=$1',[email])).rows[0].emailVerified,true);
+  const invalid=await post('sign-in/email',{email,password:'wrong-password-for-test'});
+  assert.ok(invalid.status>=400 && invalid.status<500,'incorrect password accepted');
+  const signed=await post('sign-in/email',{email,password});
+  assert.ok(signed.ok,'login status '+signed.status);
+  const cookies=signed.headers.getSetCookie();
+  const sessionCookie=cookies.find(v=>v.includes('session_token='));
+  assert.ok(sessionCookie?.includes('HttpOnly')&&sessionCookie.includes('Secure'),'secure session cookie missing');
+  const cookie=sessionCookie.split(';')[0];
+  const session=await read('get-session',cookie);
+  assert.equal((await session.json()).user.email,email);
+  const out=await post('sign-out',{},cookie);
+  assert.ok(out.ok,'signout failed');
+  const revoked=await read('get-session',cookie);
+  assert.equal(await revoked.json(),null);
  }finally{await db.end();}
 });
