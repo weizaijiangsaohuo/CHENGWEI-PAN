@@ -39,11 +39,12 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
-      # Reuse the successful Next build. No cloud deployment and no account credentials.
+      # OpenNext must run its own standalone Next build; the normal build lacks its manifests.
+      # No cloud deployment and no account credentials.
       - name: Build OpenNext Worker locally
         env:
           WRANGLER_SEND_METRICS: 'false'
-        run: npm run build:cloudflare -- --skipNextBuild
+        run: npm run build:cloudflare
       - name: Smoke-test disabled v2 routes in local workerd
         env:
           WRANGLER_SEND_METRICS: 'false'
@@ -53,7 +54,7 @@ jobs:
           ./node_modules/.bin/wrangler dev --local --ip 127.0.0.1 --port 8787 --var STARFLOW_V2_ENABLED:false --var STARFLOW_V2_PREVIEW_ONLY:true > "$RUNNER_TEMP/starflow-workerd.log" 2>&1 &
           worker_pid=$!
           trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
-          node --input-type=module <<'JS'
+          if ! node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           const origin='http://127.0.0.1:8787';
           const paths=['/api/v2/readiness','/api/v2/me','/api/identity/auth/get-session'];
@@ -81,3 +82,7 @@ jobs:
           assert.deepEqual(await response.json(),{error:'not_permitted'});
           console.log('PASS: bundled Worker denies disabled v2 requests, including forged identity headers');
           JS
+          then
+            tail -100 "$RUNNER_TEMP/starflow-workerd.log"
+            exit 1
+          fi
