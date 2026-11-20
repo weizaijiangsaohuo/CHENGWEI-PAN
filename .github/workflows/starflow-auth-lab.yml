@@ -2,10 +2,10 @@ name: Starflow Better Auth laboratory
 on:
   push:
     branches: [feature/neon-backend-foundation-20261120]
-    paths: ['starflow-social/backend/auth/**', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', '.github/workflows/starflow-auth-lab.yml']
   pull_request:
     branches: [main]
-    paths: ['starflow-social/backend/auth/**', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', '.github/workflows/starflow-auth-lab.yml']
 permissions:
   contents: read
 jobs:
@@ -41,4 +41,14 @@ jobs:
       - name: Audit resolved dependencies
         run: npm audit --audit-level=low
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install isolated core and gateway schema
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -f ../migrations/001_core_profiles.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/005_session_gateway.sql
       - run: npm test
+      - run: node --test profile-gateway.test.mjs
