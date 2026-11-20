@@ -1,4 +1,4 @@
-// Preview-only composition for the existing Worker. Not mounted in Next.js yet.
+// Preview-only composition for the existing Next.js Worker routes.
 // Access verification must be supplied by a trusted server integration, never by a client flag.
 import pg from 'pg';
 import {createStarflowAuthLab} from './auth.mjs';
@@ -11,6 +11,7 @@ const authPaths=new Set([
  'POST /api/identity/auth/sign-out',
  'POST /api/identity/auth/two-factor/verify-totp'
 ]);
+const readinessRoute='GET /api/v2/readiness';
 const businessPaths=new Set([
  'GET /api/v2/me','GET /api/v2/messages','GET /api/v2/notifications',
  'POST /api/v2/messages','POST /api/v2/notifications/read'
@@ -40,7 +41,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   let target;try{target=new URL(origin);}catch{return deny();}
   if(target.origin!==origin||target.protocol!=='https:'||!/^[-a-z0-9]+-weizai\.[a-z0-9-]+\.workers\.dev$/.test(target.hostname)||url.origin!==origin||url.username||url.password)return deny();
   const route=request.method+' '+url.pathname;
-  if(!authPaths.has(route)&&!businessPaths.has(route))return deny();
+  if(route!==readinessRoute&&!authPaths.has(route)&&!businessPaths.has(route))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
@@ -63,6 +64,15 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
    const b=restrictedPoolConfig(env.STARFLOW_BUSINESS_DB_URL,'sf_business_connect',env.STARFLOW_PREVIEW_DB_HOST);
    if(a.password===b.password)return deny(503);
    authPool=new Pool(a);
+   if(route===readinessRoute){
+    businessPool=new Pool(b);
+    const sql="SELECT current_user::text AS role, session_user::text AS login, current_database() AS db";
+    const results=await Promise.allSettled([authPool.query(sql),businessPool.query(sql)]);
+    const expected=[a.user,b.user];
+    if(!results.every((result,i)=>result.status==='fulfilled'&&result.value.rows.length===1&&
+      result.value.rows[0].role===expected[i]&&result.value.rows[0].login===expected[i]&&result.value.rows[0].db==='neondb'))return deny(503);
+    return Response.json({ready:true},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+   }
    const auth=authFactory({database:authPool,origin,secret:env.BETTER_AUTH_SECRET});
    let response;
    if(authPaths.has(route))response=await auth.handler(request);

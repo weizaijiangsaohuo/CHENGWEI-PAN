@@ -34,3 +34,28 @@ test('real request dispatcher separates pools, preserves session cookie and clos
  const fail=createPreviewHandler({env,authorizePreview:async()=>true,Pool,authFactory:()=>{throw Error('fixture');}});
  assert.equal((await fail(req('/api/v2/me'))).status,503);assert.ok(instances.every(p=>p.closed));
 });
+
+test('owner-only readiness checks both pool identities without exposing credentials',async()=>{
+ const pools=[];
+ class Pool{
+  constructor(cfg){this.cfg=cfg;this.closed=false;this.queries=[];pools.push(this);}
+  async query(sql){this.queries.push(sql);return {rows:[{role:this.cfg.user,login:this.cfg.user,db:'neondb'}]};}
+  async end(){this.closed=true;}
+ }
+ const make=(authorizePreview,options={})=>createPreviewHandler({env,authorizePreview,Pool,authFactory:()=>{throw Error('must not invoke auth handler');},...options});
+ assert.equal((await make(async()=>false)(req('/api/v2/readiness'))).status,403);
+ assert.equal((await make(async()=>true)(new Request('https://weizai.example.workers.dev/api/v2/readiness'))).status,404);
+ assert.equal(pools.length,0);
+ const result=await make(async()=>true)(req('/api/v2/readiness'));
+ assert.equal(result.status,200);assert.deepEqual(await result.json(),{ready:true});
+ assert.equal(result.headers.get('cache-control'),'private, no-store');
+ assert.deepEqual(pools.map(p=>p.cfg.user),['sf_auth_runtime','sf_business_connect']);
+ assert.ok(pools.every(p=>p.closed&&p.queries.length===1));
+ class WrongPool extends Pool{async query(){return {rows:[{role:'neondb_owner',login:'neondb_owner',db:'neondb'}]};}}
+ const wrong=await make(async()=>true,{Pool:WrongPool})(req('/api/v2/readiness'));
+ assert.equal(wrong.status,503);assert.deepEqual(await wrong.json(),{error:'unavailable'});
+ class OfflinePool extends Pool{async query(){throw Error('synthetic private connection error');}}
+ const offline=await make(async()=>true,{Pool:OfflinePool})(req('/api/v2/readiness'));
+ assert.equal(offline.status,503);assert.deepEqual(await offline.json(),{error:'unavailable'});
+ assert.ok(pools.every(p=>p.closed));
+});
