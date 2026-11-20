@@ -1,5 +1,6 @@
 // Request/Response integration for isolated staging. Not imported by the production Next.js app.
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid=v=>typeof v==='string'&&uuid.test(v);
 const response=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const cursor=v=>typeof v==='string'&&/^\d{1,19}$/.test(v)&&BigInt(v)<=9223372036854775807n;
 async function body(request){
@@ -26,8 +27,8 @@ export function createBusinessHandler({auth,pool,origin}){
   }else if(url.search)return response({error:'invalid_query'},400);
   if(request.method==='POST'){
    try{input=await body(request);}catch{return response({error:'invalid_body'},400);}
-   if(route==='POST /api/v2/messages'&&(!uuid.test(input.recipient??'')||typeof input.body!=='string'||!input.body.trim()||[...input.body].length>4000||Object.keys(input).some(k=>!['recipient','body'].includes(k))))return response({error:'invalid_message'},400);
-   if(route==='POST /api/v2/notifications/read'&&(!uuid.test(input.id??'')||Object.keys(input).length!==1))return response({error:'invalid_notice'},400);
+   if(route==='POST /api/v2/messages'&&(!isUuid(input.recipient)||typeof input.body!=='string'||!input.body.trim()||[...input.body].length>4000||(Object.hasOwn(input,'requestId')&&!isUuid(input.requestId))||Object.keys(input).some(k=>!['recipient','body','requestId'].includes(k))))return response({error:'invalid_message'},400);
+   if(route==='POST /api/v2/notifications/read'&&(!isUuid(input.id)||Object.keys(input).length!==1))return response({error:'invalid_notice'},400);
   }
   let client,destroy=false;
   try{
@@ -45,7 +46,21 @@ export function createBusinessHandler({auth,pool,origin}){
     const rows=(await client.query('SELECT * FROM sf_core.read_dm_delta($1::bigint,50)',[after])).rows;result={messages:rows,next:rows.at(-1)?.sync_seq??after};
    }
    if(route==='GET /api/v2/notifications')result={notifications:(await client.query('SELECT id,message_id,created_at,read_at FROM sf_core.dm_notifications ORDER BY created_at DESC,id LIMIT 50')).rows};
-   if(route==='POST /api/v2/messages'){const q=await client.query('INSERT INTO sf_core.direct_messages(sender_id,recipient_id,body) VALUES($1,$2,$3) RETURNING id',[id,input.recipient,input.body]);result={id:q.rows[0].id};status=201;}
+   if(route==='POST /api/v2/messages'){
+    if(!input.requestId){
+     const q=await client.query('INSERT INTO sf_core.direct_messages(sender_id,recipient_id,body) VALUES($1,$2,$3) RETURNING id',[id,input.recipient,input.body]);result={id:q.rows[0].id};status=201;
+    }else{
+     const q=await client.query('INSERT INTO sf_core.direct_messages(sender_id,recipient_id,body,client_request_id) VALUES($1,$2,$3,$4) ON CONFLICT(sender_id,client_request_id) DO NOTHING RETURNING id',[id,input.recipient,input.body,input.requestId]);
+     if(q.rowCount){result={id:q.rows[0].id};status=201;}
+     else{
+      // New statement at READ COMMITTED sees the committed winner. RLS still applies.
+      const existing=(await client.query('SELECT id,recipient_id,body FROM sf_core.direct_messages WHERE sender_id=$1 AND client_request_id=$2',[id,input.requestId])).rows[0];
+      if(!existing){await client.query('ROLLBACK');return response({error:'not_permitted'},403);}
+      if(existing.recipient_id!==input.recipient.toLowerCase()||existing.body!==input.body){await client.query('ROLLBACK');return response({error:'request_conflict'},409);}
+      result={id:existing.id};status=200;
+     }
+    }
+   }
    if(route==='POST /api/v2/notifications/read'){const q=await client.query('UPDATE sf_core.dm_notifications SET read_at=clock_timestamp() WHERE id=$1 RETURNING id,read_at',[input.id]);result=q.rows[0]??{error:'not_found'};if(!q.rowCount)status=404;}
    await client.query('COMMIT');return response(result,status);
   }catch(e){

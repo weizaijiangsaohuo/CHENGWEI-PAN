@@ -2,10 +2,10 @@ name: Starflow Better Auth laboratory
 on:
   push:
     branches: [feature/neon-backend-foundation-20261120]
-    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
   pull_request:
     branches: [main]
-    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
 permissions:
   contents: read
 jobs:
@@ -74,7 +74,7 @@ jobs:
           PGDATABASE: starflow_auth_test
         run: |
           psql -v ON_ERROR_STOP=1 -c "DELETE FROM sf_core.principals"
-          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue 010_review_gateway; do
+          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue 010_review_gateway 013_dm_idempotency; do
             psql -v ON_ERROR_STOP=1 -f ../migrations/$i.sql
           done
       - name: Validate reproducible backend role grants
