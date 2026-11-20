@@ -77,6 +77,17 @@ test('disposable database: real signup, verification, login and session revocati
   const cookie=sessionCookie.split(';')[0];
   const session=await read('get-session',cookie);
   assert.equal((await session.json()).user.email,email);
+  // Real provider challenge generation, not a simulated biometric success.
+  await assert.rejects(()=>auth.api.generatePasskeyRegistrationOptions({headers:new Headers(headers)}));
+  const regHeaders=new Headers({...headers,cookie});
+  const options=await auth.api.generatePasskeyRegistrationOptions({headers:regHeaders});
+  assert.equal(options.rp.id,new URL(origin).hostname);
+  assert.equal(options.authenticatorSelection.userVerification,'required');
+  assert.equal(typeof options.challenge,'string');
+  assert.ok(options.challenge.length>=32);
+  const second=await auth.api.generatePasskeyRegistrationOptions({headers:regHeaders});
+  assert.notEqual(options.challenge,second.challenge);
+  assert.equal(Number((await db.query('select count(*) as n from passkey')).rows[0].n),0,'challenge must not register credential');
   const out=await post('sign-out',{},cookie);
   assert.ok(out.ok,'signout failed');
   const revoked=await read('get-session',cookie);
