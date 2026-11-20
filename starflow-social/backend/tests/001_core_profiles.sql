@@ -1,9 +1,9 @@
 -- Disposable local PostgreSQL only. Fixture data are synthetic.
 \set ON_ERROR_STOP on
-BEGIN;
 INSERT INTO sf_core.principals(id) VALUES ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222');
 INSERT INTO sf_core.profiles(id,handle) VALUES ('11111111-1111-4111-8111-111111111111','test_a'),('22222222-2222-4222-8222-222222222222','test_b');
 INSERT INTO sf_core.auth_bindings(principal_id,auth_subject) VALUES ('11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333');
+BEGIN;
 SET LOCAL ROLE sf_profile_runtime;
 DO $$ BEGIN
  IF (SELECT count(*) FROM sf_core.profiles) <> 0 THEN RAISE EXCEPTION 'missing context exposed profiles'; END IF;
@@ -41,3 +41,4 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM sf_core.profiles) <> 0 THEN RAISE EXCEPTION 'context leaked'; END IF;
 END $$;
 RESET ROLE;
+DELETE FROM sf_core.principals WHERE id IN ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222');
