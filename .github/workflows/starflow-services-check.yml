@@ -47,3 +47,6 @@ jobs:
 
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/006_social_private.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/006_social_private.sql
+
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/007_review_mfa.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/007_review_mfa.sql
