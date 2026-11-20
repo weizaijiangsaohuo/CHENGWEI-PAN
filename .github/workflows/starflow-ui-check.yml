@@ -38,3 +38,46 @@ jobs:
       - run: npm run check
       - run: npm run lint
       - run: npm run build
+
+      # Reuse the successful Next build. No cloud deployment and no account credentials.
+      - name: Build OpenNext Worker locally
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: npm run build:cloudflare -- --skipNextBuild
+      - name: Smoke-test disabled v2 routes in local workerd
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/wrangler dev --local --ip 127.0.0.1 --port 8787 --var STARFLOW_V2_ENABLED:false --var STARFLOW_V2_PREVIEW_ONLY:true > "$RUNNER_TEMP/starflow-workerd.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          const origin='http://127.0.0.1:8787';
+          const paths=['/api/v2/readiness','/api/v2/me','/api/identity/auth/get-session'];
+          let ready=false;
+          for(let i=0;i<60;i++){
+            try {
+              const response=await fetch(origin+paths[0],{redirect:'manual',signal:AbortSignal.timeout(1500)});
+              if(response.status===404 && (await response.json()).error==='not_permitted'){ready=true;break;}
+            } catch {}
+            await new Promise(resolve=>setTimeout(resolve,1000));
+          }
+          assert.ok(ready,'local Worker did not serve the guarded route');
+          for(const path of paths){
+            const response=await fetch(origin+path,{redirect:'manual',signal:AbortSignal.timeout(5000)});
+            assert.equal(response.status,404,path);
+            assert.deepEqual(await response.json(),{error:'not_permitted'});
+            assert.match(response.headers.get('cache-control')??'',/no-store/i);
+          }
+          const response=await fetch(origin+'/api/identity/auth/sign-in/email',{
+            method:'POST',redirect:'manual',signal:AbortSignal.timeout(5000),
+            headers:{origin,'content-type':'application/json','cf-access-authenticated-user-email':'synthetic@example.invalid'},
+            body:JSON.stringify({email:'synthetic@example.invalid',password:'fixture-only'})
+          });
+          assert.equal(response.status,404);
+          assert.deepEqual(await response.json(),{error:'not_permitted'});
+          console.log('PASS: bundled Worker denies disabled v2 requests, including forged identity headers');
+          JS
