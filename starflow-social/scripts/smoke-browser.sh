@@ -12,12 +12,22 @@ WORK="$(mktemp -d)"
 SERVER_PID=""
 CHROME_PID=""
 cleanup() {
+  local test_status="$1"
+  trap - EXIT
   if [[ -n "$CHROME_PID" ]]; then kill "$CHROME_PID" 2>/dev/null || true; wait "$CHROME_PID" 2>/dev/null || true; fi
   if [[ -n "$SERVER_PID" ]]; then kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi
-  rm -rf -- "$WORK"
+  # Chromium subprocesses may finish writing the profile after the parent exits.
+  # Retry cleanup, but never replace the actual browser test's exit status.
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if rm -rf -- "$WORK" 2>/dev/null; then exit "$test_status"; fi
+    sleep 1
+  done
+  echo "::warning::Temporary browser profile cleanup incomplete; disposable runner will remove it."
+  exit "$test_status"
 }
-trap cleanup EXIT
-npm run start -- --hostname 127.0.0.1 --port "$PORT" >"$WORK/server.log" 2>&1 &
+trap 'cleanup "$?"' EXIT
+node ./node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port "$PORT" >"$WORK/server.log" 2>&1 &
 SERVER_PID=$!
 
 READY=0
