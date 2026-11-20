@@ -66,10 +66,9 @@ test('user reference media remains on-device and unsupported models are labeled 
  assert.doesNotMatch(ui,/upload\(image|storage\.from\(|FAL_KEY|queue\.fal\.run/);
 });
 
-test('legacy paid model endpoint has permanent budget circuit breaker',()=>{
- assert.match(paid,/const STARFLOW_PAID_INFERENCE_LOCKED=true/);
- assert.match(paid,/if\(STARFLOW_PAID_INFERENCE_LOCKED\)\s*return response\(/);
- assert.match(paid,/enabled:!STARFLOW_PAID_INFERENCE_LOCKED&&/);
- assert.match(paid,/请使用 \/api\/creative\/zero/);
- assert.match(paid,/warning:'星流零预算模式已停止所有第三方付费模型同步。'/);
+test('legacy paid endpoint cannot call external inference even with stored credentials',()=>{
+ assert.match(paid,/export async function POST\(\)/);
+ assert.match(paid,/请使用 \/api\/creative\/zero。'},410/);
+ assert.match(paid,/enabled:false/);
+ assert.doesNotMatch(paid,/FAL_KEY|queue\.fal\.run|falFetch|fetch\(|sf_creative_claim/);
 });
