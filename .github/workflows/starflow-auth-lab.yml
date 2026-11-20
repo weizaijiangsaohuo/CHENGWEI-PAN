@@ -41,6 +41,20 @@ jobs:
       - name: Audit resolved dependencies
         run: npm audit --audit-level=low
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile and apply generated authentication schema in disposable CI
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          node export-auth-schema.mjs
+          psql -v ON_ERROR_STOP=1 -f auth-schema-staging.sql
+      - uses: actions/upload-artifact@v4
+        with:
+          name: starflow-auth-schema-staging
+          path: starflow-social/backend/auth/auth-schema-staging.sql
+          retention-days: 3
       - name: Install isolated core and gateway schema
         env:
           PGPASSWORD: ephemeral-ci-only
