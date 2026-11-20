@@ -1,0 +1,26 @@
+name: Starflow identity security unit tests
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'starflow-social/lib/identity/**'
+      - 'starflow-social/tests/didit-identity.test.mjs'
+      - '.github/workflows/starflow-identity-check.yml'
+  push:
+    branches: [feature/didit-identity-foundation-20261120]
+permissions:
+  contents: read
+jobs:
+  identity-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test identity decision and signed event handling without credentials
+        working-directory: starflow-social
+        run: node --experimental-strip-types --test tests/didit-identity.test.mjs
