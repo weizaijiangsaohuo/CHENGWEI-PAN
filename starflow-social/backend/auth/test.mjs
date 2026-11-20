@@ -46,9 +46,9 @@ test('real Better Auth migration and disabled public signup against disposable P
 test('disposable database: real signup, verification, login and session revocation; no mail network',async()=>{
  const db=new pg.Pool({host:'127.0.0.1',port:5432,user:'postgres',password:'ephemeral-ci-only',database:'starflow_auth_test'});
  const o=authOptions({database:db,origin,secret});
- let verification;
+ let verification, resetToken;
  // Deliberately override only in the offline test harness, not in auth.mjs or any live route.
- const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
+ const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false,sendResetPassword:async({token})=>{resetToken=token;}},
    emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({url})=>{verification=url;}}});
  const email='fixture@example.invalid',password='synthetic-password-for-test-2026';
  const headers={'content-type':'application/json',origin,'cf-connecting-ip':'192.0.2.8'};
@@ -92,5 +92,19 @@ test('disposable database: real signup, verification, login and session revocati
   assert.ok(out.ok,'signout failed');
   const revoked=await read('get-session',cookie);
   assert.equal(await revoked.json(),null);
+  const existing=await post('sign-in/email',{email,password});
+  assert.ok(existing.ok);
+  const oldCookie=existing.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
+  const reset=await post('request-password-reset',{email,redirectTo:origin+'/reset-password'});
+  assert.ok(reset.ok,'reset request failed '+reset.status);
+  assert.ok(typeof resetToken==='string'&&resetToken.length>0);
+  const newPassword='synthetic-replacement-password-2026';
+  const changed=await post('reset-password',{token:resetToken,newPassword});
+  assert.ok(changed.ok,'reset failed '+changed.status);
+  const replay=await post('reset-password',{token:resetToken,newPassword:'synthetic-replay-password-2026'});
+  assert.ok(replay.status>=400&&replay.status<500,'reset token replay accepted');
+  assert.equal(await (await read('get-session',oldCookie)).json(),null);
+  assert.ok(!(await post('sign-in/email',{email,password})).ok);
+  assert.ok((await post('sign-in/email',{email,password:newPassword})).ok);
  }finally{await db.end();}
 });
