@@ -57,3 +57,4 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/009_notifications_queue.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/009_notifications_queue.sql
       - run: node --test starflow-social/backend/services/realtime-policy.test.mjs
+      - run: node --test starflow-social/backend/services/realtime-registry.test.mjs

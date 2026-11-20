@@ -60,8 +60,9 @@ jobs:
           PGDATABASE: starflow_auth_test
         run: |
           psql -v ON_ERROR_STOP=1 -c "DELETE FROM sf_core.principals"
-          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue; do
+          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue 010_review_gateway; do
             psql -v ON_ERROR_STOP=1 -f ../migrations/$i.sql
           done
       - run: node --test business-api.test.mjs
       - run: node --test real-session.test.mjs
+      - run: node --test review-api.test.mjs
