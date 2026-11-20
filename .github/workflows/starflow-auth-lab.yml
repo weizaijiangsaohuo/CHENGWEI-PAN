@@ -66,3 +66,4 @@ jobs:
       - run: node --test business-api.test.mjs
       - run: node --test real-session.test.mjs
       - run: node --test review-api.test.mjs
+      - run: node --test totp-ceremony.test.mjs
