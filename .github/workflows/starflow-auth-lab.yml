@@ -2,10 +2,10 @@ name: Starflow Better Auth laboratory
 on:
   push:
     branches: [feature/neon-backend-foundation-20261120]
-    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
   pull_request:
     branches: [main]
-    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
 permissions:
   contents: read
 jobs:
@@ -77,6 +77,15 @@ jobs:
           for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue 010_review_gateway; do
             psql -v ON_ERROR_STOP=1 -f ../migrations/$i.sql
           done
+      - name: Validate reproducible backend role grants
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -f ../migrations/012_backend_roles.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/012_backend_roles.sql
       - run: node --test business-api.test.mjs
       - run: node --test real-session.test.mjs
       - run: node --test review-api.test.mjs
