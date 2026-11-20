@@ -10,11 +10,31 @@ const secret='synthetic-real-session-test-only-not-a-production-secret';
 test('real Better Auth session -> restricted business SQL -> realtime policy; logout invalidates access',async()=>{
  const db={host:'127.0.0.1',port:5432,database:'starflow_auth_test',max:1};
  const owner=new pg.Pool({...db,user:'postgres',password:'ephemeral-ci-only'});
- let pool;
+ let pool,authPool,fixtureRolesEnabled=false;
  const a='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',b='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
  const pending=new Map();
  try{
-  const o=authOptions({database:owner,origin,secret});
+  // Only the disposable PostgreSQL service declared in starflow-auth-lab.yml.
+  // Never run this role activation against Neon or a shared database.
+  const identity=(await owner.query("SELECT current_database() AS db, current_user AS role, inet_server_addr()::text AS host")).rows[0];
+  assert.equal(identity.db,'starflow_auth_test');assert.equal(identity.role,'postgres');
+  assert.equal(db.host,'127.0.0.1');
+  const roles=(await owner.query("SELECT rolname,rolcanlogin FROM pg_roles WHERE rolname IN ('sf_auth_runtime','sf_business_connect') ORDER BY rolname")).rows;
+  assert.deepEqual(roles,[{rolname:'sf_auth_runtime',rolcanlogin:false},{rolname:'sf_business_connect',rolcanlogin:false}]);
+  await owner.query("BEGIN");
+  try{
+   await owner.query("ALTER ROLE sf_auth_runtime LOGIN PASSWORD 'synthetic-local-auth-fixture-only'");
+   await owner.query("ALTER ROLE sf_business_connect LOGIN PASSWORD 'synthetic-local-business-fixture-only'");
+   await owner.query("COMMIT");fixtureRolesEnabled=true;
+  }catch(error){await owner.query("ROLLBACK");throw error;}
+  authPool=new pg.Pool({...db,user:'sf_auth_runtime',password:'synthetic-local-auth-fixture-only'});
+  pool=new pg.Pool({...db,user:'sf_business_connect',password:'synthetic-local-business-fixture-only'});
+  assert.equal((await authPool.query('SELECT current_user AS role')).rows[0].role,'sf_auth_runtime');
+  assert.equal((await pool.query('SELECT current_user AS role')).rows[0].role,'sf_business_connect');
+  await assert.rejects(authPool.query('SELECT id FROM sf_core.profiles LIMIT 0'),e=>e.code==='42501');
+  await assert.rejects(pool.query('SELECT id FROM public."user" LIMIT 0'),e=>e.code==='42501');
+  await assert.rejects(pool.query('SET ROLE sf_review_gateway'),e=>e.code==='42501');
+  const o=authOptions({database:authPool,origin,secret});
   const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
    emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{pending.set(user.email,url);}}});
   const register=async(label,ip)=>{
@@ -33,13 +53,10 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   };
   const alice=await register('integration_alice','192.0.2.31');
   const bob=await register('integration_bob','192.0.2.32');
-  await owner.query("CREATE ROLE sf_real_session_fixture LOGIN NOSUPERUSER NOINHERIT NOBYPASSRLS PASSWORD 'synthetic-real-session-fixture-only'");
-  await owner.query('GRANT sf_session_gateway TO sf_real_session_fixture');
   await owner.query('INSERT INTO sf_core.principals(id) VALUES($1),($2)',[a,b]);
   await owner.query("INSERT INTO sf_core.profiles(id,handle) VALUES($1,'integration_a'),($2,'integration_b')",[a,b]);
   await owner.query('INSERT INTO sf_core.auth_bindings(principal_id,auth_subject) VALUES($1,$2),($3,$4)',[a,alice.subject,b,bob.subject]);
   await owner.query('INSERT INTO sf_core.follows(follower_id,target_id,accepted) VALUES($1,$2,true),($2,$1,true)',[a,b]);
-  pool=new pg.Pool({...db,user:'sf_real_session_fixture',password:'synthetic-real-session-fixture-only'});
   const handle=createBusinessHandler({auth,pool,origin});
   const call=(method,path,cookie,data)=>handle(new Request(origin+path,{method,headers:{origin,cookie,'content-type':'application/json','x-user-id':b},...(data?{body:JSON.stringify(data)}:{})}));
   assert.equal((await (await call('GET','/api/v2/me',alice.cookie)).json()).profile.id,a);
@@ -62,5 +79,13 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.ok((await bob.logout()).ok);
   assert.equal(await upgrade(),null);assert.equal(syncHint(grant,await upgrade()),null);
   assert.equal((await call('GET','/api/v2/notifications',bob.cookie)).status,401);
- }finally{if(pool)await pool.end();await owner.end();}
+ }finally{
+  try{
+   await Promise.allSettled([pool,authPool].filter(Boolean).map(p=>p.end()));
+   if(fixtureRolesEnabled){
+    await owner.query("ALTER ROLE sf_auth_runtime NOLOGIN PASSWORD NULL");
+    await owner.query("ALTER ROLE sf_business_connect NOLOGIN PASSWORD NULL");
+   }
+  }finally{await owner.end();}
+ }
 });
