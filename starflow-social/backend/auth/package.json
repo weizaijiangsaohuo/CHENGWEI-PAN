@@ -10,5 +10,8 @@
     "better-auth": "1.7.26",
     "@better-auth/passkey": "1.7.26",
     "pg": "8.23.1"
+  },
+  "overrides": {
+    "@better-auth/core": "1.7.26"
   }
 }

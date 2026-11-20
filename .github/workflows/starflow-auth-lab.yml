@@ -52,3 +52,15 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f ../migrations/005_session_gateway.sql
       - run: npm test
       - run: node --test profile-gateway.test.mjs
+      - name: Prepare business API test database
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "DELETE FROM sf_core.principals"
+          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue; do
+            psql -v ON_ERROR_STOP=1 -f ../migrations/$i.sql
+          done
+      - run: node --test business-api.test.mjs
