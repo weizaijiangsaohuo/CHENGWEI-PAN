@@ -92,19 +92,41 @@ test('disposable database: real signup, verification, login and session revocati
   assert.ok(out.ok,'signout failed');
   const revoked=await read('get-session',cookie);
   assert.equal(await revoked.json(),null);
+ }finally{await db.end();}
+});
+
+test('separate recovery account: single-use reset token revokes sessions and old password',async()=>{
+ const db=new pg.Pool({host:'127.0.0.1',port:5432,user:'postgres',password:'ephemeral-ci-only',database:'starflow_auth_test'});
+ const o=authOptions({database:db,origin,secret});
+ let verification,resetToken;
+ const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false,sendResetPassword:async({token})=>{resetToken=token;}},
+ emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({url})=>{verification=url;}}});
+ const email='recovery-fixture@example.invalid',password='synthetic-recovery-original-2026',newPassword='synthetic-recovery-replacement-2026';
+ // Independent account and simulated device, not a relaxation of production rate limits.
+ const headers={'content-type':'application/json',origin,'cf-connecting-ip':'192.0.2.19'};
+ const post=(path,body)=>auth.handler(new Request(origin+'/api/identity/auth/'+path,{method:'POST',headers,body:JSON.stringify(body)}));
+ try{
+  await (await getMigrations(auth.options)).runMigrations();
+  const signup=await post('sign-up/email',{name:'Recovery Fixture',email,password,username:'recovery_fixture'});
+  assert.ok(signup.ok,'signup status '+signup.status);
+  assert.ok(verification);
+  const verified=await auth.handler(new Request(verification,{headers}));
+  assert.ok(verified.ok||verified.status===302);
   const existing=await post('sign-in/email',{email,password});
-  assert.ok(existing.ok);
+  assert.ok(existing.ok,'initial login status '+existing.status);
   const oldCookie=existing.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
   const reset=await post('request-password-reset',{email,redirectTo:origin+'/reset-password'});
-  assert.ok(reset.ok,'reset request failed '+reset.status);
+  assert.ok(reset.ok,'reset request status '+reset.status);
   assert.ok(typeof resetToken==='string'&&resetToken.length>0);
-  const newPassword='synthetic-replacement-password-2026';
   const changed=await post('reset-password',{token:resetToken,newPassword});
-  assert.ok(changed.ok,'reset failed '+changed.status);
+  assert.ok(changed.ok,'reset status '+changed.status);
   const replay=await post('reset-password',{token:resetToken,newPassword:'synthetic-replay-password-2026'});
-  assert.ok(replay.status>=400&&replay.status<500,'reset token replay accepted');
-  assert.equal(await (await read('get-session',oldCookie)).json(),null);
-  assert.ok(!(await post('sign-in/email',{email,password})).ok);
-  assert.ok((await post('sign-in/email',{email,password:newPassword})).ok);
+  assert.ok(replay.status>=400&&replay.status<500&&replay.status!==429,'reset replay must be rejected by validation, not throttling');
+  const current=await auth.handler(new Request(origin+'/api/identity/auth/get-session',{headers:{...headers,cookie:oldCookie}}));
+  assert.equal(await current.json(),null);
+  const denied=await post('sign-in/email',{email,password});
+  assert.ok(denied.status>=400&&denied.status<500&&denied.status!==429,'old password must fail validation');
+  const next=await post('sign-in/email',{email,password:newPassword});
+  assert.ok(next.ok,'new password login status '+next.status);
  }finally{await db.end();}
 });

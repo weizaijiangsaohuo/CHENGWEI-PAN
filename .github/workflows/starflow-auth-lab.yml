@@ -64,3 +64,4 @@ jobs:
             psql -v ON_ERROR_STOP=1 -f ../migrations/$i.sql
           done
       - run: node --test business-api.test.mjs
+      - run: node --test real-session.test.mjs
