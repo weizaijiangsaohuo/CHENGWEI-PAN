@@ -38,8 +38,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   let url;try{url=new URL(request.url);}catch{return deny();}
   const origin=env.STARFLOW_AUTH_ORIGIN;
   let target;try{target=new URL(origin);}catch{return deny();}
-  if(target.origin!==origin||target.protocol!=='https:'||!target.hostname.endsWith('.workers.dev')||
-    target.hostname.split('.')[0].split('-').length<2||url.origin!==origin||url.username||url.password)return deny();
+  if(target.origin!==origin||target.protocol!=='https:'||!/^[-a-z0-9]+-weizai\.[a-z0-9-]+\.workers\.dev$/.test(target.hostname)||url.origin!==origin||url.username||url.password)return deny();
   const route=request.method+' '+url.pathname;
   if(!authPaths.has(route)&&!businessPaths.has(route))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);

@@ -15,11 +15,15 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@better-auth/passkey": "1.7.26",
     "@opennextjs/cloudflare": "1.20.17",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.1",
+    "better-auth": "1.7.26",
+    "jose": "6.2.18",
     "lucide-react": "^0.468.0",
     "next": "15.5.29",
+    "pg": "8.23.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -35,6 +39,7 @@
     "undici@^6": "6.29.1",
     "undici@^7": "7.30.1",
     "glob": "14.0.6",
-    "minimatch": "11.0.8"
+    "minimatch": "11.0.8",
+    "@better-auth/core": "1.7.26"
   }
 }
