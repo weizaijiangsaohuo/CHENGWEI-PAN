@@ -162,7 +162,11 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal(ar.status,'created');assert.equal(br.status,'created');
   a=ar.principal;b=br.principal;
   assert.notEqual(a,b);assert.notEqual(a,alice.subject);assert.notEqual(b,bob.subject);
-  assert.equal((await initialize(alice)).status,'not_permitted');
+  // 030: a lost initialization response must not lock out a fresh account.
+  const retried=await Promise.all([initialize(alice),initialize(alice)]);
+  for(const result of retried)assert.deepEqual(result,{status:'created',principal:a});
+  assert.equal((await owner.query('SELECT count(*) AS n FROM sf_core.auth_bindings WHERE auth_subject=$1',[alice.subject])).rows[0].n,'1');
+  assert.equal((await (await viaPreview('GET','/api/v2/me',alice.cookie)).json()).profile.id,a);
   const fresh=await owner.query('SELECT id,handle,bio,avatar_url FROM sf_core.profiles WHERE id IN ($1,$2) ORDER BY handle',[a,b]);
   assert.deepEqual(fresh.rows,[{id:a,handle:'integration_alice',bio:'',avatar_url:null},{id:b,handle:'integration_bob',bio:'',avatar_url:null}]);
   for(const table of ['staff_roles','identity_evidence_reviewers','account_recovery_policy']){
