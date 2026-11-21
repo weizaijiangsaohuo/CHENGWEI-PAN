@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import Link from 'next/link';
 import { ArrowRight, Check, Eye, EyeOff, Globe2, Lock, Mail, ShieldCheck, Sparkles, Users, Zap } from 'lucide-react';
 import { Brand } from './Brand';
 import { TurnstileChallenge } from './TurnstileChallenge';
@@ -204,9 +205,9 @@ export function AuthPortal(){
           {mode==='login'&&<button disabled={busy} className="forgot-link" onClick={()=>change('forgot')}>{t('forgotLink')}</button>}</div>
         {!configured&&<p className="configuration-note">{t('configNeeded')}</p>}
         
-<a href="/support" style={{display:'block',textAlign:'center',padding:'14px',margin:'16px 0',borderRadius:16,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</a>
+<Link href="/support" style={{display:'block',textAlign:'center',padding:'14px',margin:'16px 0',borderRadius:16,background:'#f3e7ff',color:'#703b87',fontWeight:700,textDecoration:'none'}}>✦ AI 客服中心 · 无需登录 →</Link>
 
-        <p className="legal-text">{t('legalLead')} <a href="/terms">{t('terms')}</a> {t('and')} <a href="/privacy">{t('privacy')}</a>{t('legalTail')}</p>
+        <p className="legal-text">{t('legalLead')} <Link href="/terms">{t('terms')}</Link> {t('and')} <Link href="/privacy">{t('privacy')}</Link>{t('legalTail')}</p>
       </div><div className="bottom-credit"><Globe2 size={14}/>{t('authFooter')}</div></section>
     </div>
   </div>;
