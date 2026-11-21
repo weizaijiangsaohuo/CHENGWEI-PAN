@@ -119,3 +119,9 @@ jobs:
       - run: node --test fresh-account.test.mjs
 
       - run: node --test registration-admission.test.mjs
+      - run: node --test deployed-preview-smoke.test.mjs
+      - name: Read-only deployed preview readiness (existing authorization only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/neon-backend-foundation-20261120'
+        env:
+          STARFLOW_PREVIEW_OWNER_KEY: ${{ secrets.STARFLOW_PREVIEW_OWNER_KEY }}
+        run: node deployed-preview-smoke.mjs
