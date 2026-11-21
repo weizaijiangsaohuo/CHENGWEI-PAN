@@ -27,7 +27,7 @@ test('preview guard denies production, unauthorized, signup, review, passkey, re
  assert.equal(n,0);
 });
 test('real request dispatcher separates pools, preserves session cookie and closes on success and failure',async()=>{
- const instances=[];class Pool{constructor(cfg){this.cfg=cfg;this.closed=false;instances.push(this);}async end(){this.closed=true;}}
+ const instances=[];class Pool{constructor(cfg){this.cfg=cfg;this.closed=false;instances.push(this);}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){this.closed=true;}}
  let authCalls=0;const authFactory=({database})=>{assert.equal(database.cfg.user,'sf_auth_runtime');return {handler:async()=>{authCalls++;return Response.json({ok:true},{headers:{'Set-Cookie':'fixture=1; Secure; HttpOnly'}});},api:{getSession:async()=>null}};};
  const h=createPreviewHandler({env,authorizePreview:async()=>true,Pool,authFactory});
  const r=await h(req('/api/identity/auth/get-session'));assert.equal(r.status,200);assert.match(r.headers.get('set-cookie'),/HttpOnly/);assert.equal(r.headers.get('cache-control'),'private, no-store');
@@ -69,7 +69,7 @@ test('owner-only readiness checks both pool identities without exposing credenti
 test('owner-key mode preserves disabled and production guards; forwards no owner key',async()=>{
  const key='c'.repeat(64),cfg={...env,STARFLOW_PREVIEW_OWNER_KEY:key};
  let pools=0,calls=0;
- class Pool{constructor(){pools++;}async end(){}}
+ class Pool{constructor(cfg){pools++;this.cfg=cfg;}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){}}
  const make=(bindings)=>createPreviewHandler({env:bindings,authorizePreview:createConfiguredPreviewVerifier(bindings),Pool,authFactory:()=>({handler:async request=>{calls++;assert.equal(request.headers.get('x-starflow-preview-key'),null);assert.equal(request.headers.get('origin'),origin);assert.deepEqual(await request.json(),{email:'fixture@example.invalid',password:'fixture-only'});return Response.json({ok:true});}})});
  const path='/api/identity/auth/sign-in/email';
  const input={method:'POST',headers:{origin,'content-type':'application/json','x-starflow-preview-key':key},body:JSON.stringify({email:'fixture@example.invalid',password:'fixture-only'})};
@@ -128,4 +128,23 @@ test('preview authentication rejects extra fields, invalid factors and reset byp
  for(const data of [{email:'fixture@example.invalid',password:'fixture',callbackURL:'https://other.invalid'},{email:'fixture@example.invalid',password:'fixture',rememberMe:1},{email:'fixture@example.invalid',password:'fixture',rememberMe:true},{email:['fixture@example.invalid'],password:'fixture'}])assert.equal((await call('sign-in/email',data)).status,400);
  for(const path of ['request-password-reset','reset-password','two-factor/disable','two-factor/verify-backup-code','passkey/verify-authentication'])assert.equal((await call(path,{})).status,404);
  assert.equal(pools,0);
+});
+
+test('enabled preview operations recheck role privileges and fail before auth or business dispatch',async()=>{
+ let calls=0;const pools=[];
+ class Pool{
+  constructor(cfg){this.cfg=cfg;pools.push(this);}
+  async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:this.cfg.user!=='sf_business_connect'}]};}
+  async end(){this.closed=true;}
+ }
+ const h=createPreviewHandler({env,authorizePreview:async()=>true,Pool,authFactory:()=>{calls++;return {handler:async()=>Response.json({ok:true})};}});
+ assert.equal((await h(req('/api/identity/auth/get-session'))).status,200);
+ assert.equal(pools.length,1);assert.equal(calls,1);
+ const denied=await h(req('/api/v2/me'));assert.equal(denied.status,503);
+ assert.deepEqual(await denied.json(),{error:'unavailable'});assert.equal(calls,1);
+ assert.ok(pools.every(p=>p.closed));
+ class UnsafeAuth extends Pool{async query(){return {rows:[{role:'neondb_owner',login:'neondb_owner',db:'neondb',restricted:false}]};}}
+ const unsafe=createPreviewHandler({env,authorizePreview:async()=>true,Pool:UnsafeAuth,authFactory:()=>{calls++;throw Error('unexpected dispatch');}});
+ assert.equal((await unsafe(req('/api/identity/auth/get-session'))).status,503);
+ assert.equal(calls,1);
 });

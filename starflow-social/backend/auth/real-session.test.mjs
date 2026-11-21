@@ -77,7 +77,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
     super({...db,user:config.user,password:config.password});
    }
   }
-  const guarded=createPreviewHandler({env:previewEnv,authorizePreview:async req=>req.headers.get('x-starflow-preview-key')===previewKey,Pool:FixturePool});
+  const guarded=createPreviewHandler({env:previewEnv,authorizePreview:async req=>req.headers.get('x-starflow-preview-key')===previewKey,Pool:FixturePool,attestationDatabase:db.database});
   const viaPreview=(method,path,cookie,data,key=previewKey,ip='192.0.2.33')=>guarded(new Request(origin+path,{method,headers:{origin,'content-type':'application/json','cf-connecting-ip':ip,'x-starflow-preview-key':key,...(cookie?{cookie}:{})},...(data?{body:JSON.stringify(data)}:{})}));
   const register=async(label,ip)=>{
    const email=label+'@example.invalid',password='synthetic-strong-password-'+label+'-2026';

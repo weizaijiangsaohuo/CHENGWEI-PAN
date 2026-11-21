@@ -91,21 +91,24 @@ const businessPrivilegeSql = `
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind='r'
  AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
+async function roleFailure(pool,role,sql,label,database){
+ let rows;
+ try{({rows}=await pool.query(roleIdentitySql));}catch(e){return label+(e?.code==='28P01'||e?.code==='28000'?'_credentials':'_connection');}
+ if(!Array.isArray(rows)||rows.length!==1||rows[0].role!==role||rows[0].login!==role||rows[0].db!==database||rows[0].restricted!==true)return label+'_role';
+ try{const g=await pool.query(sql);return g.rows.length===1&&g.rows[0].safe===true?null:label+'_permissions';}
+ catch{return label+'_query';}
+}
 async function readinessFailures(authPool,businessPool,database='neondb'){
- const probes=[[authPool,'sf_auth_runtime',authPrivilegeSql,'auth'],[businessPool,'sf_business_connect',businessPrivilegeSql,'business']];
- return await Promise.all(probes.map(async([pool,role,sql,label])=>{
-  let rows;
-  try{({rows}=await pool.query(roleIdentitySql));}catch(e){return label+(e?.code==='28P01'||e?.code==='28000'?'_credentials':'_connection');}
-  if(rows.length!==1||rows[0].role!==role||rows[0].login!==role||rows[0].db!==database||rows[0].restricted!==true)return label+'_role';
-  try{const g=await pool.query(sql);return g.rows.length===1&&g.rows[0].safe===true?null:label+'_permissions';}
-  catch{return label+'_query';}
- }));
+ return Promise.all([
+  roleFailure(authPool,'sf_auth_runtime',authPrivilegeSql,'auth',database),
+  roleFailure(businessPool,'sf_business_connect',businessPrivilegeSql,'business',database)
+ ]);
 }
 export async function verifyPreviewDatabaseRoles(authPool,businessPool,database='neondb'){
  return (await readinessFailures(authPool,businessPool,database)).every(x=>x===null);
 }
 
-export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab}){
+export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab,attestationDatabase='neondb'}){
  return async request=>{
   // No production access, no fall-through to legacy auth, no DB connection on disabled paths.
   if(env?.STARFLOW_V2_PREVIEW_ONLY!=='true'||
@@ -157,18 +160,23 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     stage='business_connection';
     businessPool=new Pool(b);
     stage='runtime';
-    const failures=await readinessFailures(authPool,businessPool);
+    const failures=await readinessFailures(authPool,businessPool,attestationDatabase);
     const failed=failures.find(Boolean);
     if(failed)return unavailable(failed);
     return Response.json({ready:true},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
    }
-   const auth=authFactory({database:authPool,origin,secret:env.BETTER_AUTH_SECRET});
-   let response;
-   if(authPaths.has(route))response=await auth.handler(request);
-   else{
+   // Re-attest each request-scoped pool before exposing any enabled preview operation.
+   // Auth-only requests do not open a business connection.
+   if(authPaths.has(route)){
+    const failure=await roleFailure(authPool,'sf_auth_runtime',authPrivilegeSql,'auth',attestationDatabase);
+    if(failure)return unavailable(failure);
+   }else{
     businessPool=new Pool(b);
-    response=await createBusinessHandler({auth,pool:businessPool,origin})(request);
+    const failure=(await readinessFailures(authPool,businessPool,attestationDatabase)).find(Boolean);
+    if(failure)return unavailable(failure);
    }
+   const auth=authFactory({database:authPool,origin,secret:env.BETTER_AUTH_SECRET});
+   const response=authPaths.has(route)?await auth.handler(request):await createBusinessHandler({auth,pool:businessPool,origin})(request);
    const headers=new Headers(response.headers);headers.set('Cache-Control','private, no-store');
    return new Response(response.body,{status:response.status,headers});
   }catch{return unavailable(stage);}
