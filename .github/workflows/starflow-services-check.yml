@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test starflow-social/backend/services/services.test.mjs
+      - run: node --test starflow-social/backend/services/services.test.mjs starflow-social/backend/services/mail-dispatch.test.mjs
       - run: |
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/001_core_profiles.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/002_email_budget.sql
