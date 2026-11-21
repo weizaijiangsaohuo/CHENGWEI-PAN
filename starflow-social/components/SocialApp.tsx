@@ -7,7 +7,6 @@ import type { User } from '@supabase/supabase-js';
 import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, ChevronRight, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Share2, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import {optimizeImageForPost} from '@/lib/optimize-upload-image';
-import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
 import { useLanguage } from './LanguageProvider';
@@ -164,9 +163,6 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     });
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
-  useEffect(()=>{
-    if(user?.email_confirmed_at || user?.confirmed_at) void ensureWelcomeEmail(user.id);
-  },[user?.id, user?.email_confirmed_at, user?.confirmed_at]);
   useEffect(()=>{if(!user){setIsAdmin(false);return;}
     db().rpc('is_platform_admin').then(({data,error})=>{setIsAdmin(!error&&data===true)},()=>setIsAdmin(false));
   },[user?.id]);

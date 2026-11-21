@@ -39,3 +39,13 @@ test('link callback cannot silently switch into a different Starflow account',()
 test('other sessions may be revoked while retaining the current session',()=>{
  assert.match(ui,/signOut\(\{scope:'others'\}\)/);
 });
+
+test('retired Google provider cannot start login or linking, while existing identity remains visible',()=>{
+ assert.match(provider,/key:'google',label:'Google',provider:'google',enabled:false/);
+ assert.doesNotMatch(provider,/NEXT_PUBLIC_GOOGLE_ENABLED/);
+ assert.match(ui,/p.enabled\|\|identities.some\(i=>i.provider===p.provider\)/);
+ assert.match(ui,/旧授权已停用/);
+ const portal=readFileSync(new URL('../components/AuthPortal.tsx',import.meta.url),'utf8');
+ assert.doesNotMatch(portal,/provider:'google'|NEXT_PUBLIC_GOOGLE_ENABLED/);
+ assert.match(portal,/Retired · use existing account credentials/);
+});
