@@ -33,6 +33,21 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: starflow-social/package-lock.json
+      # Independent, credential-free public probe. Never an authenticated release gate.
+      - name: Observe existing online preview public guards
+        if: github.event_name == 'pull_request' && github.head_ref == 'feature-neon-backend-foundation-20261120'
+        continue-on-error: true
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {verifyPreview} from './scripts/verify-preview.mjs';
+          const result=await verifyPreview();
+          const expected=result.code==='public_guards_verified_owner_readiness_required';
+          console.log('ONLINE PUBLIC OBSERVATION: '+result.code);
+          console.log('Authenticated readiness and deployed revision: NOT VERIFIED');
+          if(!expected)process.exitCode=1;
+          JS
       - run: npm ci --no-audit --no-fund
       - run: node --test backend/auth/preview-access.test.mjs backend/auth/preview-runtime.test.mjs backend/auth/inbox-sync.test.mjs backend/migration/compare-inventory.test.mjs backend/migration/legacy-post-plan.test.mjs scripts/verify-preview.test.mjs
       - run: npm run check
