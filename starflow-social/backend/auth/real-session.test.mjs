@@ -60,22 +60,22 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   }
   assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
   // Actual isolated provisioning connection, with no inherited privileges: disposable CI only.
-  await owner.query("CREATE ROLE sf_fresh_account_connect LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-fresh-fixture-only'");
-  await owner.query('GRANT sf_fresh_account_gateway TO sf_fresh_account_connect WITH SET TRUE, INHERIT FALSE');
+  assert.equal((await owner.query('SELECT rolcanlogin FROM pg_roles WHERE rolname=$1',['sf_fresh_account_connect'])).rows[0].rolcanlogin,false);
+  await owner.query("ALTER ROLE sf_fresh_account_connect LOGIN PASSWORD 'synthetic-local-fresh-fixture-only'");
   freshPool=new pg.Pool({...db,user:'sf_fresh_account_connect',password:'synthetic-local-fresh-fixture-only'});
   await assert.rejects(freshPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(freshPool.query('SELECT * FROM sf_core.staff_roles LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(pool.query('SET ROLE sf_fresh_account_gateway'),e=>e.code==='42501');
   await assert.rejects(authPool.query('SET ROLE sf_fresh_account_gateway'),e=>e.code==='42501');
-  await owner.query("CREATE ROLE sf_registration_connect LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-admission-ci-only'");
-  await owner.query('GRANT sf_registration_issuer TO sf_registration_connect WITH SET TRUE, INHERIT FALSE');
+  assert.equal((await owner.query('SELECT rolcanlogin FROM pg_roles WHERE rolname=$1',['sf_registration_connect'])).rows[0].rolcanlogin,false);
+  await owner.query("ALTER ROLE sf_registration_connect LOGIN PASSWORD 'synthetic-local-admission-ci-only'");
   issuerPool=new pg.Pool({...db,user:'sf_registration_connect',password:'synthetic-local-admission-ci-only'});
   const admissions=createRegistrationAdmission(issuerPool);
   await assert.rejects(issuerPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
   // Exercise the real fresh-registration mail composition with a separate budget login.
   // Only the provider responses are synthetic; no network or paid calls.
-  await owner.query("CREATE ROLE sf_mail_budget_connect LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-mail-fixture-only'");
-  await owner.query('GRANT sf_mail_budget_gateway TO sf_mail_budget_connect WITH SET TRUE, INHERIT FALSE');
+  assert.equal((await owner.query('SELECT rolcanlogin FROM pg_roles WHERE rolname=$1',['sf_mail_budget_connect'])).rows[0].rolcanlogin,false);
+  await owner.query("ALTER ROLE sf_mail_budget_connect LOGIN PASSWORD 'synthetic-mail-fixture-only'");
   mailPool=new pg.Pool({...db,user:'sf_mail_budget_connect',password:'synthetic-mail-fixture-only'});
   await assert.rejects(mailPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
   const deliveries=[];
@@ -228,6 +228,9 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
    if(fixtureRolesEnabled){
     await owner.query("ALTER ROLE sf_auth_runtime NOLOGIN PASSWORD NULL");
     await owner.query("ALTER ROLE sf_business_connect NOLOGIN PASSWORD NULL");
+    await owner.query("ALTER ROLE sf_fresh_account_connect NOLOGIN PASSWORD NULL");
+    await owner.query("ALTER ROLE sf_registration_connect NOLOGIN PASSWORD NULL");
+    await owner.query("ALTER ROLE sf_mail_budget_connect NOLOGIN PASSWORD NULL");
    }
   }finally{await owner.end();}
  }
