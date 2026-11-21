@@ -1,3 +1,4 @@
+import {compareInventory} from './compare-inventory.mjs';
 // Offline legacy post conversion; never connects to a database or writes an export into Git.
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const id=v=>typeof v==='string'&&uuid.test(v);
@@ -72,4 +73,27 @@ export function planLegacyPosts(source){
  return {version:1,posts:mapped,post_media:structuredClone([...media.values()]),post_polls:structuredClone([...polls.values()]),
   poll_options:structuredClone([...options.values()]),poll_votes:structuredClone(source.poll_votes),
   importReady:false,blockers:['target media/reply/poll storage and verified access policy pending','authorized source and media backup reconciliation pending']};
+}
+
+// Reconcile the six scoped source tables against exact inventory counts before any
+// conversion. Both inputs must come from the same authorized immutable snapshot.
+// Matching counts are necessary, not proof of backup completeness or content integrity.
+export function reconcileLegacyPostInventory(inventory,source){
+ const report=compareInventory(inventory);
+ ensure(report.inventoryComplete,'inventory_incomplete');
+ const names=['profiles','posts','post_media','post_polls','poll_options','poll_votes'];
+ ensure(source&&typeof source==='object'&&!Array.isArray(source)&&
+  Object.keys(source).length===names.length&&names.every(k=>Object.hasOwn(source,k)),'source_scope_invalid');
+ const byTable=new Map(report.tables.map(row=>[row.table,row.count]));
+ const counts=names.map(name=>{
+  const key='public.'+name;
+  ensure(byTable.has(key),'inventory_table_missing');
+  ensure(Array.isArray(source[name]),'source_table_missing');
+  ensure(BigInt(source[name].length)===BigInt(byTable.get(key)),'source_count_mismatch');
+  return {table:key,count:byTable.get(key)};
+ });
+ // Validate all records and relationships but never return identifiable content in this report.
+ planLegacyPosts(source);
+ return {version:1,scopedCountsMatch:true,counts,readyForImport:false,readyForCutover:false,
+  blockers:['same-snapshot provenance and source checksums require independent verification','target identity mapping, media copies, target reconciliation and restore rehearsal pending']};
 }

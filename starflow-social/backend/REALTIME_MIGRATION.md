@@ -15,3 +15,6 @@ Every successful message and notification page now includes principal, derived b
 
 ## Hint transport registry hardening
 The isolated registry now snapshots an immutable, UUID-bound session grant, accepts a socket only once, and requires finite short-lived expiry values at both attachment and delivery. Invalid or mismatched revalidation closes the socket without sending a hint. Tests cover mutated grants, duplicate socket registration and malformed expiration. This remains transport-independent; no public WebSocket endpoint, Durable Object, or existing UI deployment is enabled.
+
+## Scoped post export reconciliation
+The offline post planner now accepts a separate exact-count reconciliation call over the six scoped source tables. Missing tables, partial exports, unrecognized source scope, count mismatches, or invalid row relationships deny acceptance. The report returns only table names/counts and always blocks import and cutover. Matching counts alone cannot establish same-snapshot provenance, checksums, media integrity or recovery; an authorized immutable export, target identity mapping and restore rehearsal remain required. No source credentials, records or backup were obtained by this change.
