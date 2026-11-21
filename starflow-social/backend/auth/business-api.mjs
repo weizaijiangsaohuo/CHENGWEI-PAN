@@ -81,7 +81,7 @@ export function createBusinessHandler({auth,pool,origin}){
    await client.query('COMMIT');return response(result,status);
   }catch(e){
    if(client){try{await client.query('ROLLBACK');}catch{destroy=true;}}
-   if(e?.code==='P0001'&&e?.message==='post rate limit')return response({error:'rate_limited'},429);
+   if(e?.code==='P0001'&&['post rate limit','comment rate limit'].includes(e?.message))return response({error:'rate_limited'},429);
    return e?.code==='42501'||e?.code==='23503'||e?.code==='23514'?response({error:'not_permitted'},403):response({error:'unavailable'},503);
   }finally{client?.release(destroy);}
  };

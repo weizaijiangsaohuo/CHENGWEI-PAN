@@ -43,6 +43,7 @@ jobs:
 
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/003_social_core.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/003_social_core.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/022_post_comments.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/004_identity_sandbox.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/004_identity_sandbox.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/014_identity_atomic_reconcile.sql

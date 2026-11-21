@@ -7,7 +7,8 @@ const visibility=v=>['private','members'].includes(v);
 const routes=new Set([
  'POST /api/v2/profile','GET /api/v2/posts','POST /api/v2/posts','POST /api/v2/posts/edit',
  'POST /api/v2/posts/like','POST /api/v2/posts/bookmark','POST /api/v2/follows/request',
- 'POST /api/v2/follows/accept','POST /api/v2/follows/remove'
+ 'POST /api/v2/follows/accept','POST /api/v2/follows/remove',
+ 'GET /api/v2/comments','POST /api/v2/comments','POST /api/v2/comments/edit'
 ]);
 export const isSocialRoute=route=>routes.has(route);
 export function validateSocialInput(route,input,url){
@@ -15,10 +16,16 @@ export function validateSocialInput(route,input,url){
   const before=url.searchParams.get('before');
   return [...url.searchParams.keys()].every(k=>k==='before')&&url.searchParams.getAll('before').length<=1&&(before===null||uuid(before));
  }
+ if(route==='GET /api/v2/comments'){
+  const post=url.searchParams.get('post'),before=url.searchParams.get('before');
+  return uuid(post)&&(before===null||uuid(before))&&url.searchParams.getAll('post').length===1&&url.searchParams.getAll('before').length<=1&&[...url.searchParams.keys()].every(k=>['post','before'].includes(k));
+ }
  if(url.search||!input)return false;
  switch(route){
  case 'POST /api/v2/profile':return exact(input,[],['displayName','bio'])&&Object.keys(input).length>0&&(!Object.hasOwn(input,'displayName')||text(input.displayName,60))&&(!Object.hasOwn(input,'bio')||typeof input.bio==='string'&&[...input.bio].length<=160&&!input.bio.includes('\u0000'));
  case 'POST /api/v2/posts':return exact(input,['content'],['visibility'])&&text(input.content,280)&&(!Object.hasOwn(input,'visibility')||visibility(input.visibility));
+ case 'POST /api/v2/comments':return exact(input,['post','content'])&&uuid(input.post)&&text(input.content,280);
+ case 'POST /api/v2/comments/edit':return exact(input,['id','content'])&&uuid(input.id)&&text(input.content,280);
  case 'POST /api/v2/posts/edit':return exact(input,['id','content','visibility'])&&uuid(input.id)&&text(input.content,280)&&visibility(input.visibility);
  case 'POST /api/v2/posts/like':case 'POST /api/v2/posts/bookmark':return exact(input,['id','enabled'])&&uuid(input.id)&&typeof input.enabled==='boolean';
  case 'POST /api/v2/follows/request':case 'POST /api/v2/follows/accept':case 'POST /api/v2/follows/remove':return exact(input,['id'])&&uuid(input.id);
@@ -40,6 +47,22 @@ export async function runSocialRoute({route,input,url,client,id}){
  case 'POST /api/v2/posts':{
   const r=await q('INSERT INTO sf_core.posts(author_id,content,visibility) VALUES($1,$2,$3) RETURNING id,author_id,content,visibility,created_at',[id,input.content,input.visibility??'private']);
   return {result:{post:r.rows[0]},status:201};
+ }
+ case 'GET /api/v2/comments':{
+  const post=url.searchParams.get('post'),before=url.searchParams.get('before');
+  if(!(await q('SELECT id FROM sf_core.posts WHERE id=$1',[post])).rowCount)return missing;
+  const r=await q('SELECT c.id,c.post_id,c.author_id,c.content,c.created_at FROM sf_core.post_comments c WHERE c.post_id=$1 AND ($2::uuid IS NULL OR (c.created_at,c.id)<(SELECT created_at,id FROM sf_core.post_comments WHERE id=$2 AND post_id=$1)) ORDER BY c.created_at DESC,c.id DESC LIMIT 51',[post,before]);
+  const comments=r.rows.slice(0,50);
+  return {result:{principal:id,post,comments,next:r.rows.length>50?comments.at(-1).id:null,hasMore:r.rows.length>50}};
+ }
+ case 'POST /api/v2/comments':{
+  if(!(await q('SELECT id FROM sf_core.posts WHERE id=$1',[input.post])).rowCount)return missing;
+  const r=await q('INSERT INTO sf_core.post_comments(post_id,author_id,content) VALUES($1,$2,$3) RETURNING id,post_id,author_id,content,created_at',[input.post,id,input.content]);
+  return {result:{comment:r.rows[0]},status:201};
+ }
+ case 'POST /api/v2/comments/edit':{
+  const r=await q('UPDATE sf_core.post_comments SET content=$2 WHERE id=$1 AND author_id=$3 RETURNING id,post_id,author_id,content,created_at',[input.id,input.content,id]);
+  return r.rowCount?{result:{comment:r.rows[0]}}:missing;
  }
  case 'POST /api/v2/posts/edit':{
   const r=await q('UPDATE sf_core.posts SET content=$2,visibility=$3 WHERE id=$1 AND author_id=$4 RETURNING id,author_id,content,visibility,created_at',[input.id,input.content,input.visibility,id]);
