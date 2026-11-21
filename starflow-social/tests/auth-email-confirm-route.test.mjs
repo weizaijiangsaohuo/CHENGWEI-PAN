@@ -118,3 +118,13 @@ test('signup UI exposes a rate-limited confirmation resend without repeating sig
   assert.match(auth, /Date\.now\(\)\+60_000/);
   assert.match(auth, /重新发送注册验证邮件/);
 });
+
+
+test('email-success navigation requires a freshly confirmed session', () => {
+  const verified = readFileSync(new URL('../app/auth/verified/page.tsx', import.meta.url), 'utf8');
+  assert.match(verified, /await db\(\)\.auth\.getUser\(\)/);
+  assert.match(verified, /if \(error \|\| !data\.user \|\| !data\.user\.email_confirmed_at\) \{\s*setState\('unavailable'\);\s*return;/);
+  assert.match(verified, /setState\('ready'\);\s*router\.replace\('\/'\)/);
+  assert.doesNotMatch(verified, /window\.location\.replace|setTimeout/);
+  assert.match(verified, /setAttempt\(n => n \+ 1\)/);
+});
