@@ -10,6 +10,7 @@ import {createBusinessHandler} from './business-api.mjs';
 import {provisionFreshAccount} from './fresh-account.mjs';
 import {createRegistrationAdmission} from './registration-admission.mjs';
 import {createFreshRegistrationMail} from './auth-mail.mjs';
+import {createFreshSignupHandler} from './fresh-signup-handler.mjs';
 import {authorizeUpgrade,syncHint} from '../services/realtime-policy.mjs';
 const origin='https://integration-weizai.example.workers.dev';
 const secret='synthetic-real-session-test-only-not-a-production-secret';
@@ -93,9 +94,11 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
     deliveries.push(recipient);pending.set(recipient,link);
     return Response.json({messageId:'synthetic'},{status:201});
    }});
-  const o=authOptions({database:authPool,origin,secret});
-  const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
-   emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async data=>{assert.equal(await admissions.issueForNewSignup(data.user),true,'new signup admission');await mail.sendVerificationEmail(data);}}});
+  const auth=betterAuth(authOptions({database:authPool,origin,secret}));
+  const registration=createFreshSignupHandler({enabled:true,database:authPool,origin,secret,admissions,mail,authorizePreview:async request=>request.headers.get('x-starflow-preview-key')==='c'.repeat(64)});
+  assert.equal((await registration(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{origin}}))).status,403);
+  assert.equal((await registration(new Request(origin+'/api/identity/auth/request-password-reset',{method:'POST',headers:{origin,'x-starflow-preview-key':'c'.repeat(64)}}))).status,404);
+  assert.equal((await registration(new Request(origin+'/api/identity/auth/verify-email?token=fixture&callbackURL=https://example.invalid',{headers:{'x-starflow-preview-key':'c'.repeat(64)}}))).status,400);
   // Exercise the same guarded dispatcher as the deployed Worker, using only the disposable CI service.
   const previewHost='ep-fixture.example.neon.tech';
   const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_INBOX_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
@@ -115,10 +118,10 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
    const email=label+'@example.invalid',password='synthetic-strong-password-'+label+'-2026';
    const headers={origin,'content-type':'application/json','cf-connecting-ip':ip};
    const post=(path,data,cookie)=>auth.handler(new Request(origin+'/api/identity/auth/'+path,{method:'POST',headers:{...headers,...(cookie?{cookie}:{})},body:JSON.stringify(data)}));
-   const signup=await post('sign-up/email',{email,password,name:label,username:label});
+   const signup=await registration(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{...headers,'x-starflow-preview-key':previewKey},body:JSON.stringify({email,password,name:label,username:label})}));
    assert.ok(signup.ok,'signup '+signup.status);
    const verify=pending.get(email);assert.ok(verify);
-   const confirmed=await auth.handler(new Request(verify,{headers}));assert.ok(confirmed.ok||confirmed.status===302);
+   const confirmed=await registration(new Request(verify,{headers:{...headers,'x-starflow-preview-key':previewKey}}));assert.ok(confirmed.ok||confirmed.status===302);
    const login=await viaPreview('POST','/api/identity/auth/sign-in/email',null,{email,password},previewKey,ip);assert.ok(login.ok,'login '+login.status);
    const cookie=login.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
    const session=await auth.api.getSession({headers:new Headers({cookie})});
