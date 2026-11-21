@@ -121,7 +121,13 @@ jobs:
       - run: node --test registration-admission.test.mjs
       - run: node --test deployed-preview-smoke.test.mjs
       - name: Read-only deployed preview readiness (existing authorization only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/neon-backend-foundation-20261120'
+        # Same-repository trusted preview branch only; never use secrets on fork PRs.
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/feature/neon-backend-foundation-20261120') ||
+          (github.event_name == 'pull_request' && github.event.pull_request.number == 59 &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.head.ref == 'feature/neon-backend-foundation-20261120' &&
+          github.event.pull_request.base.ref == 'main')
         env:
           STARFLOW_PREVIEW_OWNER_KEY: ${{ secrets.STARFLOW_PREVIEW_OWNER_KEY }}
         run: node deployed-preview-smoke.mjs
