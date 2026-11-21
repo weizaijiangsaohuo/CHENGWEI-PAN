@@ -11,4 +11,6 @@ test('same-origin verified session only, bounded expiry and no data in hints',as
  assert.equal(syncHint(grant,{...grant,sessionId:subject},now),null);
  assert.equal(syncHint(grant,grant,now+60000),null);
  assert.equal(syncHint(grant,null,now),null);
+ for(const expiresAt of [NaN,Infinity,undefined,'61000',now+60001])assert.equal(syncHint(grant,{...grant,expiresAt},now),null);
+ assert.equal(await authorizeUpgrade({...config,now:NaN}),null);
 });
