@@ -9,3 +9,6 @@ The existing GET /api/v2/readiness now accepts an explicitly disabled STARFLOW_V
 
 ## Preview configuration synchronization
 Pin only non-secret staging origin, host and disabled flags in the Wrangler previews.vars block. Cloudflare Previews Base secrets are copied when a Preview is created; updating Base does not update an already active Preview. Update encrypted credentials on the existing named branch Preview itself, not Production; never commit secrets or reuse disclosed passwords. A rebuild can synchronize non-secret Wrangler configuration but does not by itself establish that individual Preview secrets have been updated. See https://developers.cloudflare.com/workers/previews/configuration/ .
+
+## Mobile read-only connectivity troubleshooting
+The exact named staging readiness GET mirrors its existing error HTTP status into the JSON body so clients that hide response codes can distinguish 404 (route/context or preview configuration guard), 403 (access or origin rejected), and 503 (runtime configuration or restricted DB attestation unavailable). The response exposes no new diagnostic detail beyond the existing HTTP status, no secrets, and no exception text. Other routes, production and successful readiness are unchanged. No bypass of the owner gate or disabled-service switch.

@@ -99,5 +99,6 @@ jobs:
       - run: node --test passkey-ceremony.test.mjs
       - run: node --test email-otp-lab.test.mjs
       - run: node --test preview-runtime.test.mjs
+      - run: node --test readiness-response.test.mjs
       - run: node --test auth-mail-ceremony.test.mjs
       - run: node --test account-recovery-policy.test.mjs
