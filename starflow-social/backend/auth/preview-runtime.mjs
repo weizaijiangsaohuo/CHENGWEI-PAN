@@ -262,12 +262,13 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
    if(registration){
     // No default live transport or static assertion of free billing. Production
     // integration must inject an independently verified provider configuration.
-    if(typeof registrationMail?.verifyBilling!=='function'||typeof registrationMail?.transport!=='function'||
+    const isSignup=route==='POST /api/identity/auth/sign-up/email';
+    if(isSignup&&(typeof registrationMail?.verifyBilling!=='function'||typeof registrationMail?.transport!=='function'||
      typeof registrationMail.apiKey!=='string'||!registrationMail.apiKey||
      typeof registrationMail.sender!=='string'||!registrationMail.sender||
      typeof registrationMail.recipientSecret!=='string'||registrationMail.recipientSecret.length<32||
      [env.BETTER_AUTH_SECRET,registrationMail.apiKey].includes(registrationMail.recipientSecret)||
-     await registrationMail.verifyBilling()!==true)return deny(503);
+     await registrationMail.verifyBilling()!==true))return deny(503);
     const f=restrictedPoolConfig(env.STARFLOW_FRESH_DB_URL,'sf_fresh_account_connect',env.STARFLOW_PREVIEW_DB_HOST);
     const i=restrictedPoolConfig(env.STARFLOW_REGISTRATION_DB_URL,'sf_registration_connect',env.STARFLOW_PREVIEW_DB_HOST);
     const m=restrictedPoolConfig(env.STARFLOW_MAIL_DB_URL,'sf_mail_budget_connect',env.STARFLOW_PREVIEW_DB_HOST);
@@ -281,9 +282,12 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     if(failures.some(Boolean))return deny(503);
     // New signup must not write an auth account if the free mail plan is unavailable.
     // Verify existing email links without requiring another provider request.
-    if(route==='POST /api/identity/auth/sign-up/email'&&await createBrevoFreePlanCheck(registrationMail)()!==true)return deny(503);
+    if(isSignup&&await createBrevoFreePlanCheck(registrationMail)()!==true)return deny(503);
     const admissions=createRegistrationAdmission(issuerPool);
-    const mail=createFreshRegistrationMail({...registrationMail,enabled:true,pool:mailPool,origin,allowRecipient:admissions.allowRecipient});
+    // A signed existing email link must not depend on the provider being available.
+    // Verification cannot send an email, even if the downstream auth library tries.
+    const mail=isSignup?createFreshRegistrationMail({...registrationMail,enabled:true,pool:mailPool,origin,allowRecipient:admissions.allowRecipient}):
+     Object.freeze({sendVerificationEmail:async()=>{throw Error('mail disabled during verification');}});
     // Exactly this request was already authorized above; the signup handler
     // independently validates its route and removes Access/owner credentials.
     return await createFreshSignupHandler({enabled:true,database:authPool,origin,secret:env.BETTER_AUTH_SECRET,admissions,mail,authorizePreview:async candidate=>candidate===request})(request);

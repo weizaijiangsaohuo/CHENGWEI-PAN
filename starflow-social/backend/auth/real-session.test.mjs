@@ -140,7 +140,10 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
    const signup=await guarded(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{...headers,'cf-access-jwt-assertion':validJWT},body:JSON.stringify({email,password,name:label,username:label})}));
    assert.ok(signup.ok,'signup '+signup.status);
    const verify=pending.get(email);assert.ok(verify);
-   const confirmed=await guarded(new Request(verify,{headers:{...headers,'cf-access-jwt-assertion':validJWT}}));assert.ok(confirmed.ok||confirmed.status===302);
+   // Even a disabled provider must not strand an already-issued verification link.
+   const verifyOnly=createPreviewHandler({env:signedEnv,authorizePreview:verifier,Pool:FixturePool,attestationDatabase:db.database,
+    registrationMail:{verifyBilling:async()=>{throw Error('verification must not check billing');},transport:async()=>{throw Error('verification must not send mail');}}});
+   const confirmed=await verifyOnly(new Request(verify,{headers:{...headers,'cf-access-jwt-assertion':validJWT}}));assert.ok(confirmed.ok||confirmed.status===302);
    const login=await viaPreview('POST','/api/identity/auth/sign-in/email',null,{email,password},validJWT,ip);assert.ok(login.ok,'login '+login.status);
    const cookie=login.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
    const session=await auth.api.getSession({headers:new Headers({cookie})});
