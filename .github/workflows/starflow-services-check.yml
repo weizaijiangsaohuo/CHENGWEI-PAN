@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test starflow-social/backend/services/services.test.mjs starflow-social/backend/services/mail-dispatch.test.mjs starflow-social/backend/services/identity-vault.test.mjs starflow-social/backend/auth/identity-queue.test.mjs starflow-social/backend/auth/ui/identity-workbench.test.mjs
+      - run: node --test starflow-social/backend/services/services.test.mjs starflow-social/backend/services/mail-dispatch.test.mjs starflow-social/backend/services/identity-vault.test.mjs starflow-social/backend/auth/identity-queue.test.mjs starflow-social/backend/auth/ui/identity-workbench.test.mjs starflow-social/backend/auth/identity-stepup.test.mjs
       - run: |
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/001_core_profiles.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/002_email_budget.sql
@@ -64,6 +64,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/016_identity_evidence_lifecycle.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/017_identity_case_queue.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/017_identity_case_queue.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/018_identity_queue_mfa.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/018_identity_queue_mfa.sql
       - run: node --test starflow-social/backend/services/realtime-policy.test.mjs
       - run: node --test starflow-social/backend/services/realtime-registry.test.mjs
       - run: |
