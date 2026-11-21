@@ -4,6 +4,7 @@ import pg from 'pg';
 import {createStarflowAuthLab} from './auth.mjs';
 import {isSocialRoute} from './social-api.mjs';
 import {createBusinessHandler} from './business-api.mjs';
+import {createInboxSync} from './inbox-sync.mjs';
 
 const authPaths=new Set([
  'POST /api/identity/auth/sign-in/email',
@@ -26,6 +27,7 @@ function validAuthInput(route,data){
   (!Object.hasOwn(data,'rememberMe')||data.rememberMe===false);
 }
 const readinessRoute='GET /api/v2/readiness';
+const inboxPreviewRoute='GET /api/v2/inbox-preview';
 const businessPaths=new Set([
  'GET /api/v2/me','GET /api/v2/messages','GET /api/v2/notifications',
  'POST /api/v2/messages','POST /api/v2/notifications/read'
@@ -121,8 +123,10 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   // Owner-only read-only connection probe may run with the explicit disabled flag.
   // No auth or business routes are reachable before the feature switch is enabled.
   if(env.STARFLOW_V2_ENABLED!=='true'&&!(env.STARFLOW_V2_ENABLED==='false'&&route===readinessRoute))return deny();
-  if(route===readinessRoute&&url.search)return deny(400);
-  if(route!==readinessRoute&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
+  if((route===readinessRoute||route===inboxPreviewRoute)&&url.search)return deny(400);
+  // Browser-facing page is independently opt-in and cannot use owner-key mode.
+  if(route===inboxPreviewRoute&&(env.STARFLOW_INBOX_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
+  if(route!==readinessRoute&&route!==inboxPreviewRoute&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
@@ -176,7 +180,19 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     if(failure)return unavailable(failure);
    }
    const auth=authFactory({database:authPool,origin,secret:env.BETTER_AUTH_SECRET});
-   const response=authPaths.has(route)?await auth.handler(request):await createBusinessHandler({auth,pool:businessPool,origin})(request);
+   const business=authPaths.has(route)?null:createBusinessHandler({auth,pool:businessPool,origin});
+   let response;
+   if(route===inboxPreviewRoute){
+    // Isolated HTML diagnostic: no legacy layout, scripts, credentials or message content.
+    const read=path=>business(new Request(new URL(path,origin),{headers:request.headers,signal:request.signal}));
+    const me=await read('/api/v2/me');
+    if(!me.ok)return me;
+    const principal=(await me.json())?.profile?.id;
+    const snapshot=await createInboxSync({request:read,pageBudget:1}).refresh(principal);
+    const count=(n,more)=>String(n)+(more?'+':'');
+    const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>星流 · 消息联调</title></head><body><main><h1>星流 · 消息联调</h1><p>仅限授权测试环境。当前账户可见的消息与通知（最多读取各 50 条）。</p><p>消息：'+count(snapshot.messages.length,snapshot.hasMoreMessages)+'</p><p>通知：'+count(snapshot.notifications.length,snapshot.hasMoreNotifications)+'</p><p><a href="/api/v2/inbox-preview">重新验证并刷新</a></p></main></body></html>';
+    response=new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer'}});
+   }else response=authPaths.has(route)?await auth.handler(request):await business(request);
    const headers=new Headers(response.headers);headers.set('Cache-Control','private, no-store');
    return new Response(response.body,{status:response.status,headers});
   }catch{return unavailable(stage);}

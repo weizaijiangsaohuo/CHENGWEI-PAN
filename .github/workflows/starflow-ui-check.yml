@@ -57,7 +57,7 @@ jobs:
           if ! node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           const origin='http://127.0.0.1:8787';
-          const paths=['/api/v2/readiness','/api/v2/me','/api/identity/auth/get-session','/api/v2/messages','/api/v2/notifications','/api/v2/posts'];
+          const paths=['/api/v2/readiness','/api/v2/me','/api/identity/auth/get-session','/api/v2/messages','/api/v2/notifications','/api/v2/posts','/api/v2/inbox-preview'];
           let ready=false;
           for(let i=0;i<60;i++){
             try {

@@ -148,3 +148,15 @@ test('enabled preview operations recheck role privileges and fail before auth or
  assert.equal((await unsafe(req('/api/identity/auth/get-session'))).status,503);
  assert.equal(calls,1);
 });
+
+test('isolated inbox HTML preview is opt-in, does not accept owner-key mode, and denies before opening pools',async()=>{
+ let opened=0;class Pool{constructor(){opened++;throw Error('unexpected pool');}}
+ const run=(cfg,authorizePreview=async()=>true,path='/api/v2/inbox-preview')=>createPreviewHandler({env:cfg,authorizePreview,Pool})(req(path));
+ assert.equal((await run(env)).status,404);
+ const enabled={...env,STARFLOW_INBOX_PREVIEW_ENABLED:'true'};
+ assert.equal((await run({...enabled,STARFLOW_V2_ENABLED:'false'})).status,404);
+ assert.equal((await run({...enabled,STARFLOW_PREVIEW_OWNER_KEY:'c'.repeat(64)})).status,404);
+ assert.equal((await run(enabled,async()=>false)).status,403);
+ assert.equal((await run(enabled,async()=>true,'/api/v2/inbox-preview?principal=arbitrary')).status,400);
+ assert.equal(opened,0);
+});

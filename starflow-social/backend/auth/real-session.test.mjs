@@ -66,7 +66,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
    emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{assert.equal(await admissions.issueForNewSignup(user),true,'new signup admission');assert.equal(await admissions.allowRecipient({...user,purpose:'verify'}),true);pending.set(user.email,url);}}});
   // Exercise the same guarded dispatcher as the deployed Worker, using only the disposable CI service.
   const previewHost='ep-fixture.example.neon.tech';
-  const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
+  const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_INBOX_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
    STARFLOW_AUTH_DB_URL:'postgresql://sf_auth_runtime:synthetic-local-auth-fixture-only@'+previewHost+'/neondb?sslmode=require',
    STARFLOW_BUSINESS_DB_URL:'postgresql://sf_business_connect:synthetic-local-business-fixture-only@'+previewHost+'/neondb?sslmode=require'};
   const previewKey='c'.repeat(64);
