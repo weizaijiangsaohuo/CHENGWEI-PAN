@@ -7,7 +7,9 @@ export async function handleStarflowPreview(request: Request): Promise<Response>
   try {
     const {env}=getCloudflareContext();
     const bindings=env as unknown as Record<string,string|undefined>;
-    if(bindings.STARFLOW_V2_ENABLED!=='true'||bindings.STARFLOW_V2_PREVIEW_ONLY!=='true')return disabled();
+    if(bindings.STARFLOW_V2_PREVIEW_ONLY!=='true')return disabled();
+    // The shared handler keeps media, identity and all business/auth routes disabled.
+    // Only the owner-authenticated readiness probe is exempt when the switch is false.
     const authorizePreview=createConfiguredPreviewVerifier(bindings);
     return await createPreviewHandler({env:bindings,authorizePreview})(request);
   } catch { return disabled(); }

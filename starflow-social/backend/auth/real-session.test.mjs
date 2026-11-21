@@ -41,6 +41,11 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   try{assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),false);}
   finally{await owner.query('REVOKE SELECT ON public."user" FROM sf_business_connect');}
   assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
+  // Rehearse a privilege drift in disposable CI only. Never grant these roles in staging.
+  await owner.query('GRANT sf_didit_reconcile_gateway TO sf_business_connect WITH SET TRUE, INHERIT FALSE');
+  try{assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),false);}
+  finally{await owner.query('REVOKE sf_didit_reconcile_gateway FROM sf_business_connect');}
+  assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
   const o=authOptions({database:authPool,origin,secret});
   const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
    emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{pending.set(user.email,url);}}});

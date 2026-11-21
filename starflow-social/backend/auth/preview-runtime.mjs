@@ -38,6 +38,12 @@ const roleIdentitySql = `
  NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR rolinherit)
  AND rolcanlogin AND NOT has_schema_privilege(current_user,'public','CREATE') AS restricted
  FROM pg_roles WHERE rolname=current_user`;
+const privilegedMembershipSql = `
+ AND NOT EXISTS (
+ SELECT 1 FROM pg_roles r
+ WHERE r.rolname IN ('sf_review_gateway','sf_identity_queue_gateway','sf_identity_proof_issuer','sf_didit_reconcile_gateway','sf_mail_budget_gateway','sf_account_recovery_gateway','neon_superuser')
+ AND pg_has_role(current_user,r.oid,'MEMBER')
+ )`;
 const authPrivilegeSql = `
  SELECT
  count(*)=7 AND bool_and(
@@ -48,7 +54,8 @@ const authPrivilegeSql = `
  AND NOT has_table_privilege(current_user,c.oid,'TRUNCATE,REFERENCES,TRIGGER')
  ) AND NOT has_schema_privilege(current_user,'sf_core','USAGE')
  AND NOT pg_has_role(current_user,'sf_session_gateway','MEMBER')
- AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER') AS safe
+ AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER')
+ ${privilegedMembershipSql} AS safe
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind='r'
  AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
@@ -61,6 +68,7 @@ const businessPrivilegeSql = `
  AND NOT pg_has_role(current_user,'sf_profile_runtime','USAGE')
  AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER')
  AND NOT pg_has_role(current_user,'sf_auth_runtime','MEMBER')
+ ${privilegedMembershipSql}
  AND EXISTS (
  SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace ns ON ns.oid=p.pronamespace
  WHERE ns.nspname='sf_core' AND p.proname='open_review_queue'
@@ -84,13 +92,17 @@ export async function verifyPreviewDatabaseRoles(authPool,businessPool,database=
 export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab}){
  return async request=>{
   // No production access, no fall-through to legacy auth, no DB connection on disabled paths.
-  if(env?.STARFLOW_V2_ENABLED!=='true'||env.STARFLOW_V2_PREVIEW_ONLY!=='true'||
+  if(env?.STARFLOW_V2_PREVIEW_ONLY!=='true'||
     typeof authorizePreview!=='function')return deny();
   let url;try{url=new URL(request.url);}catch{return deny();}
   const origin=env.STARFLOW_AUTH_ORIGIN;
   let target;try{target=new URL(origin);}catch{return deny();}
   if(target.origin!==origin||target.protocol!=='https:'||!/^[-a-z0-9]+-weizai\.[a-z0-9-]+\.workers\.dev$/.test(target.hostname)||url.origin!==origin||url.username||url.password)return deny();
   const route=request.method+' '+url.pathname;
+  // Owner-only read-only connection probe may run with the explicit disabled flag.
+  // No auth or business routes are reachable before the feature switch is enabled.
+  if(env.STARFLOW_V2_ENABLED!=='true'&&!(env.STARFLOW_V2_ENABLED==='false'&&route===readinessRoute))return deny();
+  if(route===readinessRoute&&url.search)return deny(400);
   if(route!==readinessRoute&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);

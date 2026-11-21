@@ -88,3 +88,19 @@ test('new social preview routes require explicit flag plus owner access',async()
  assert.equal((await make(enabled,async()=>false)(req('/api/v2/posts'))).status,403);assert.equal(pools,0);
  assert.equal((await make(enabled,async()=>true)(req('/api/v2/posts'))).status,401);assert.equal(pools,2);
 });
+
+test('owner-only readiness works with business explicitly disabled, never on production',async()=>{
+ const pools=[];class Pool{constructor(cfg){this.cfg=cfg;pools.push(this);}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){this.closed=true;}}
+ let authCalls=0;
+ const make=(cfg,verify=async()=>true)=>createPreviewHandler({env:cfg,authorizePreview:verify,Pool,authFactory:()=>{authCalls++;throw Error('must not instantiate auth');}});
+ const off={...env,STARFLOW_V2_ENABLED:'false',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true'};
+ assert.equal((await make(off,async()=>false)(req('/api/v2/readiness'))).status,403);
+ assert.equal((await make(off)(req('/api/v2/readiness?x=1'))).status,400);
+ assert.equal((await make(off)(new Request('https://weizai.example.workers.dev/api/v2/readiness'))).status,404);
+ assert.equal((await make({...off,STARFLOW_V2_PREVIEW_ONLY:'false'})(req('/api/v2/readiness'))).status,404);
+ assert.equal((await make({...off,STARFLOW_V2_ENABLED:undefined})(req('/api/v2/readiness'))).status,404);
+ for(const path of ['/api/v2/posts','/api/v2/me','/api/identity/auth/get-session'])assert.equal((await make(off)(req(path))).status,404);
+ assert.equal(pools.length,0);
+ const ready=await make(off)(req('/api/v2/readiness'));assert.equal(ready.status,200);assert.deepEqual(await ready.json(),{ready:true});
+ assert.equal(pools.length,2);assert.ok(pools.every(p=>p.closed));assert.equal(authCalls,0);
+});
