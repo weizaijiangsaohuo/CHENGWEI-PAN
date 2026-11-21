@@ -12,6 +12,9 @@ BEGIN
  INSERT INTO sf_core.identity_evidence VALUES(i,'face_photo','fixture',decode(repeat('00',12),'hex'),decode(repeat('11',17),'hex'),clock_timestamp());
  INSERT INTO sf_core.identity_evidence_proofs(id,principal_id,session_id,attempt_id,method,expires_at) VALUES(p,a,s,i,'totp',clock_timestamp()+interval '4 minutes'),(q,a,s,i,'totp',clock_timestamp()+interval '4 minutes');
  BEGIN PERFORM sf_core.identity_case_metadata(a,gen_random_uuid(),p,i);RAISE EXCEPTION 'wrong session accepted';EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+ BEGIN PERFORM sf_core.identity_case_metadata(b,s,p,i);RAISE EXCEPTION 'wrong actor accepted';EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+ BEGIN PERFORM sf_core.identity_case_metadata(a,s,p,gen_random_uuid());RAISE EXCEPTION 'wrong case accepted';EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+ IF EXISTS(SELECT 1 FROM sf_core.identity_evidence_proofs WHERE id=p AND consumed_at IS NOT NULL) THEN RAISE EXCEPTION 'denied request consumed proof';END IF;
  SELECT evidence_kinds INTO got FROM sf_core.identity_case_metadata(a,s,p,i);
  IF got IS DISTINCT FROM ARRAY['face_photo']::text[] THEN RAISE EXCEPTION 'metadata missing';END IF;
  BEGIN PERFORM sf_core.identity_case_metadata(a,s,p,i);RAISE EXCEPTION 'replayed proof';EXCEPTION WHEN insufficient_privilege THEN NULL;END;

@@ -49,9 +49,9 @@ BEGIN
  PERFORM 1 FROM sf_core.staff_roles s JOIN sf_core.identity_evidence_reviewers r ON r.principal_id=s.principal_id
  WHERE s.principal_id=p_actor AND s.enabled AND r.enabled AND s.role IN ('founder','super_admin','verification_reviewer') FOR UPDATE OF s,r;
  IF NOT FOUND THEN RAISE EXCEPTION 'not authorized' USING ERRCODE='42501'; END IF;
- UPDATE sf_core.identity_evidence_proofs SET consumed_at=clock_timestamp()
- WHERE id=p_proof AND principal_id=p_actor AND session_id=p_session AND attempt_id=p_attempt
- AND consumed_at IS NULL AND issued_at<=clock_timestamp() AND expires_at>clock_timestamp();
+ UPDATE sf_core.identity_evidence_proofs AS proof SET consumed_at=clock_timestamp()
+ WHERE proof.id=p_proof AND proof.principal_id=p_actor AND proof.session_id=p_session AND proof.attempt_id=p_attempt
+ AND proof.consumed_at IS NULL AND proof.issued_at<=clock_timestamp() AND proof.expires_at>clock_timestamp();
  IF NOT FOUND THEN RAISE EXCEPTION 'not authorized' USING ERRCODE='42501'; END IF;
  INSERT INTO sf_core.staff_audit(actor_id,action,target_id) VALUES(p_actor,'identity_case_metadata',p_attempt);
  RETURN QUERY SELECT a.id,a.principal_id,a.state,a.created_at,
