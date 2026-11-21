@@ -9,6 +9,7 @@ import {provisionFreshAccount} from './fresh-account.mjs';
 import {createFreshSignupHandler} from './fresh-signup-handler.mjs';
 import {createRegistrationAdmission} from './registration-admission.mjs';
 import {createFreshRegistrationMail} from './auth-mail.mjs';
+import {createBrevoFreePlanCheck} from '../services/brevo-free.mjs';
 
 const authPaths=new Set([
  'POST /api/identity/auth/sign-in/email',
@@ -278,6 +279,9 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
      roleFailure(issuerPool,'sf_registration_connect',issuerPrivilegeSql,'issuer',attestationDatabase),
      roleFailure(mailPool,'sf_mail_budget_connect',mailPrivilegeSql,'mail',attestationDatabase)]);
     if(failures.some(Boolean))return deny(503);
+    // New signup must not write an auth account if the free mail plan is unavailable.
+    // Verify existing email links without requiring another provider request.
+    if(route==='POST /api/identity/auth/sign-up/email'&&await createBrevoFreePlanCheck(registrationMail)()!==true)return deny(503);
     const admissions=createRegistrationAdmission(issuerPool);
     const mail=createFreshRegistrationMail({...registrationMail,enabled:true,pool:mailPool,origin,allowRecipient:admissions.allowRecipient});
     // Exactly this request was already authorized above; the signup handler

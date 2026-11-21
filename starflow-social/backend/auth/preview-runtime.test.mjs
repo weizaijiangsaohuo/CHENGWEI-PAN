@@ -199,3 +199,15 @@ test('registration fails before signup when business or provisioning privileges 
   assert.ok(pools.every(p=>p.closed));
  }
 });
+
+test('registration refuses an unavailable or non-free mail plan before creating an auth account',async()=>{
+ const cfg={...env,STARFLOW_REGISTRATION_PREVIEW_ENABLED:'true',STARFLOW_FRESH_PREVIEW_ENABLED:'true',
+ STARFLOW_FRESH_DB_URL:url('sf_fresh_account_connect','fresh-only'),STARFLOW_REGISTRATION_DB_URL:url('sf_registration_connect','issuer-only'),STARFLOW_MAIL_DB_URL:url('sf_mail_budget_connect','mail-only')};
+ for(const response of [()=>Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'free',creditsType:'sendLimit',credits:0}]}),()=>Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'paid',creditsType:'sendLimit',credits:100}]}),()=>new Response('',{status:503})]){
+  const pools=[];let checks=0;
+  class Pool{constructor(cfg){this.cfg=cfg;pools.push(this);}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async connect(){throw Error('signup must never start');}async end(){this.closed=true;}}
+  const h=createPreviewHandler({env:cfg,authorizePreview:async()=>true,Pool,registrationMail:{verifyBilling:async()=>true,transport:async(target,options)=>{checks++;assert.equal(target,'https://api.brevo.com/v3/account');assert.equal(options.method,'GET');return response();},apiKey:'fixture-key',sender:'fixture@example.invalid',recipientSecret:'fixture-only-secret-not-real-32chars'}});
+  const result=await h(req('/api/identity/auth/sign-up/email',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({email:'fixture@example.invalid',name:'Fixture',username:'fixture',password:'synthetic-test-password'})}));
+  assert.equal(result.status,503);assert.equal(checks,1);assert.equal(pools.length,5);assert.ok(pools.every(p=>p.closed));
+ }
+});

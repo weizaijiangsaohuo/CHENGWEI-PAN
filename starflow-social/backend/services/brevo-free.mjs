@@ -8,7 +8,7 @@ export function freeMailPlan(value){
  if(value.planVerticals!==undefined&&(!Array.isArray(value.planVerticals)||value.planVerticals.length>20||!value.planVerticals.every(p=>p?.planType==='free'&&p.status==='active')))return false;
  return true;
 }
-export function createBrevoFreeDispatcher({verifyBilling,transport,apiKey,...config}={}){
+export function createBrevoFreePlanCheck({verifyBilling,transport,apiKey}={}){
  // Plan response alone cannot attest paid credits, auto-upgrade or payment settings.
  // verifyBilling must independently confirm those on the same authenticated account.
  const confirmFreePlan=async()=>{
@@ -23,6 +23,9 @@ export function createBrevoFreeDispatcher({verifyBilling,transport,apiKey,...con
    return freeMailPlan(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));
   }catch{return false;}
  };
+ return confirmFreePlan;
+}
+export function createBrevoFreeDispatcher({verifyBilling,transport,apiKey,...config}={}){
  // Override any caller-supplied confirmFreePlan with the actual composed check.
- return createMailDispatcher({...config,apiKey,transport,confirmFreePlan});
+ return createMailDispatcher({...config,apiKey,transport,confirmFreePlan:createBrevoFreePlanCheck({verifyBilling,transport,apiKey})});
 }
