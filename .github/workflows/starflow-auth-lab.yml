@@ -102,3 +102,5 @@ jobs:
       - run: node --test readiness-response.test.mjs
       - run: node --test auth-mail-ceremony.test.mjs
       - run: node --test account-recovery-policy.test.mjs
+
+      - run: node --test recovery-ceremony.test.mjs
