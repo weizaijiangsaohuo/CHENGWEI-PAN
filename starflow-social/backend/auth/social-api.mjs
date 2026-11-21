@@ -5,13 +5,17 @@ const text=(v,n)=>typeof v==='string'&&v.trim().length>0&&[...v].length<=n&&!v.i
 const exact=(x,required,optional=[])=>required.every(k=>Object.hasOwn(x,k))&&Object.keys(x).every(k=>required.includes(k)||optional.includes(k));
 const visibility=v=>['private','members'].includes(v);
 const routes=new Set([
- 'POST /api/v2/profile','GET /api/v2/posts','POST /api/v2/posts','POST /api/v2/posts/edit',
+ 'GET /api/v2/blocks','POST /api/v2/blocks','POST /api/v2/profile','GET /api/v2/posts','POST /api/v2/posts','POST /api/v2/posts/edit',
  'POST /api/v2/posts/like','POST /api/v2/posts/bookmark','POST /api/v2/follows/request',
  'POST /api/v2/follows/accept','POST /api/v2/follows/remove',
  'GET /api/v2/comments','POST /api/v2/comments','POST /api/v2/comments/edit','POST /api/v2/comments/withdraw'
 ]);
 export const isSocialRoute=route=>routes.has(route);
 export function validateSocialInput(route,input,url){
+ if(route==='GET /api/v2/blocks'){
+  const before=url.searchParams.get('before');
+  return [...url.searchParams.keys()].every(k=>k==='before')&&url.searchParams.getAll('before').length<=1&&(before===null||uuid(before));
+ }
  if(route==='GET /api/v2/posts'){
   const before=url.searchParams.get('before');
   return [...url.searchParams.keys()].every(k=>k==='before')&&url.searchParams.getAll('before').length<=1&&(before===null||uuid(before));
@@ -22,6 +26,7 @@ export function validateSocialInput(route,input,url){
  }
  if(url.search||!input)return false;
  switch(route){
+ case 'POST /api/v2/blocks':return exact(input,['id','enabled'])&&uuid(input.id)&&typeof input.enabled==='boolean';
  case 'POST /api/v2/profile':return exact(input,[],['displayName','bio'])&&Object.keys(input).length>0&&(!Object.hasOwn(input,'displayName')||text(input.displayName,60))&&(!Object.hasOwn(input,'bio')||typeof input.bio==='string'&&[...input.bio].length<=160&&!input.bio.includes('\u0000'));
  case 'POST /api/v2/posts':return exact(input,['content'],['visibility'])&&text(input.content,280)&&(!Object.hasOwn(input,'visibility')||visibility(input.visibility));
  case 'POST /api/v2/comments':return exact(input,['post','content'],['replyTo'])&&uuid(input.post)&&text(input.content,280)&&(!Object.hasOwn(input,'replyTo')||uuid(input.replyTo));
@@ -37,6 +42,16 @@ export async function runSocialRoute({route,input,url,client,id}){
  const q=(sql,args)=>client.query(sql,args);
  const missing={result:{error:'not_found'},status:404};
  switch(route){
+ case 'GET /api/v2/blocks':{
+  const r=await q('SELECT blocked_id,created_at FROM sf_core.blocks WHERE blocker_id=$1 AND ($2::uuid IS NULL OR (created_at,blocked_id)<(SELECT created_at,blocked_id FROM sf_core.blocks WHERE blocker_id=$1 AND blocked_id=$2)) ORDER BY created_at DESC,blocked_id DESC LIMIT 51',[id,url.searchParams.get('before')]);
+  const blocks=r.rows.slice(0,50);return {result:{principal:id,blocks,next:r.rows.length>50?blocks.at(-1).blocked_id:null,hasMore:r.rows.length>50}};
+ }
+ case 'POST /api/v2/blocks':{
+  if(input.id.toLowerCase()===id)return {result:{error:'invalid_target'},status:400};
+  if(input.enabled)await q('INSERT INTO sf_core.blocks(blocker_id,blocked_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,input.id]);
+  else await q('DELETE FROM sf_core.blocks WHERE blocker_id=$1 AND blocked_id=$2',[id,input.id]);
+  return {result:{id:input.id,enabled:input.enabled}};
+ }
  case 'POST /api/v2/profile':{
   const r=await q('UPDATE sf_core.profiles SET display_name=COALESCE($2,display_name),bio=COALESCE($3,bio) WHERE id=$1 RETURNING id,handle,display_name,bio',[id,input.displayName??null,input.bio??null]);
   return r.rowCount?{result:{profile:r.rows[0]}}:missing;

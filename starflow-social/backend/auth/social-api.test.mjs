@@ -37,11 +37,25 @@ test('HTTP social routes enforce own profile, private posts, blocking, interacti
   assert.equal((await call('POST','follows/accept','a',{id:b})).status,404);
   assert.equal((await call('POST','follows/accept','b',{id:a})).status,200);
   assert.equal((await (await call('POST','follows/request','a',{id:b})).json()).accepted,true);
-  await owner.query('INSERT INTO sf_core.blocks(blocker_id,blocked_id) VALUES($1,$2)',[b,a]);
+  assert.equal((await call('POST','blocks','b',{id:b,enabled:true})).status,400);
+  assert.equal((await call('POST','blocks','b',{id:a,enabled:true,blocker:a})).status,400);
+  assert.equal((await call('POST','blocks','none',{id:a,enabled:true})).status,401);
+  assert.equal((await call('POST','blocks','b',{id:a,enabled:true})).status,200);
+  assert.equal((await call('POST','blocks','b',{id:a,enabled:true})).status,200);
+  const blocked=await (await call('GET','blocks','b')).json();
+  assert.equal(blocked.principal,b);assert.deepEqual(blocked.blocks.map(r=>r.blocked_id),[a]);
+  assert.deepEqual((await (await call('GET','blocks','a')).json()).blocks,[]);
+  assert.equal((await call('GET','blocks?before=bad','b')).status,400);
+  assert.equal((await call('POST','blocks','a',{id:b,enabled:false})).status,200);
   assert.ok(!(await feed('b')).posts.some(x=>x.id===post.id));
   assert.deepEqual((await feed('b','?before='+post.id)).posts,[]);
   assert.equal((await call('POST','posts/bookmark','b',{id:post.id,enabled:true})).status,404);
   assert.equal((await call('POST','follows/request','a',{id:b})).status,403);
   assert.equal((await call('POST','follows/remove','a',{id:b})).status,200);
+  assert.equal((await call('POST','blocks','b',{id:a,enabled:false})).status,200);
+  assert.equal((await call('POST','blocks','b',{id:a,enabled:false})).status,200);
+  assert.deepEqual((await (await call('GET','blocks','b')).json()).blocks,[]);
+  assert.ok((await feed('b')).posts.some(x=>x.id===post.id));
+  assert.equal((await (await call('POST','follows/request','a',{id:b})).json()).accepted,false,'unblocking must not restore follow consent');
  }finally{if(pool)await pool.end();await owner.end();}
 });
