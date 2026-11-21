@@ -116,7 +116,15 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
     super({...db,user:config.user,password:config.password});
    }
   }
-  const guarded=createPreviewHandler({env:previewEnv,authorizePreview:async req=>req.headers.get('x-starflow-preview-key')===previewKey,Pool:FixturePool,attestationDatabase:db.database,registrationMail});
+  // Exercise signed browser Access mode throughout the actual registration ceremony.
+  const issuer='https://starflow-fixture.cloudflareaccess.com',aud='a'.repeat(64),email='owner@example.invalid';
+  const signedEnv={...previewEnv,STARFLOW_ACCESS_ISSUER:issuer,STARFLOW_ACCESS_AUD:aud,STARFLOW_ACCESS_OWNER_EMAIL:email};
+  const {publicKey,privateKey}=await generateKeyPair('RS256',{extractable:true});
+  const jwk=await exportJWK(publicKey);jwk.kid='fixture';jwk.alg='RS256';
+  const token=async(overrides={})=>new SignJWT({iss:issuer,aud:[aud],sub:'synthetic-owner',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+300,type:'app',email,...overrides}).setProtectedHeader({alg:'RS256',kid:'fixture'}).sign(privateKey);
+  const verifier=createConfiguredPreviewVerifier(signedEnv,{keyset:createLocalJWKSet({keys:[jwk]})});
+  const validJWT=await token();
+  const guarded=createPreviewHandler({env:signedEnv,authorizePreview:verifier,Pool:FixturePool,attestationDatabase:db.database,registrationMail});
   const disabledReadiness=createPreviewHandler({env:{...previewEnv,STARFLOW_V2_ENABLED:'false',STARFLOW_REGISTRATION_PREVIEW_ENABLED:'false'},authorizePreview:async()=>true,Pool:FixturePool,attestationDatabase:db.database});
   const registrationReadiness=()=>disabledReadiness(new Request(origin+'/api/v2/registration-readiness'));
   const ready=await registrationReadiness();assert.equal(ready.status,200);
@@ -124,27 +132,31 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   await owner.query('GRANT SELECT ON public."user" TO sf_mail_budget_gateway');
   try{const denied=await registrationReadiness();assert.equal(denied.status,503);assert.deepEqual(await denied.json(),{databaseReady:false,stage:'mail_permissions'});}
   finally{await owner.query('REVOKE SELECT ON public."user" FROM sf_mail_budget_gateway');}
-  const viaPreview=(method,path,cookie,data,key=previewKey,ip='192.0.2.33')=>guarded(new Request(origin+path,{method,headers:{origin,'content-type':'application/json','cf-connecting-ip':ip,'x-starflow-preview-key':key,...(cookie?{cookie}:{})},...(data?{body:JSON.stringify(data)}:{})}));
+  const viaPreview=(method,path,cookie,data,key=validJWT,ip='192.0.2.33')=>guarded(new Request(origin+path,{method,headers:{origin,'content-type':'application/json','cf-connecting-ip':ip,'cf-access-jwt-assertion':key,...(cookie?{cookie}:{})},...(data?{body:JSON.stringify(data)}:{})}));
   const register=async(label,ip)=>{
    const email=label+'@example.invalid',password='synthetic-strong-password-'+label+'-2026';
    const headers={origin,'content-type':'application/json','cf-connecting-ip':ip};
    const post=(path,data,cookie)=>auth.handler(new Request(origin+'/api/identity/auth/'+path,{method:'POST',headers:{...headers,...(cookie?{cookie}:{})},body:JSON.stringify(data)}));
-   const signup=await guarded(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{...headers,'x-starflow-preview-key':previewKey},body:JSON.stringify({email,password,name:label,username:label})}));
+   const signup=await guarded(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{...headers,'cf-access-jwt-assertion':validJWT},body:JSON.stringify({email,password,name:label,username:label})}));
    assert.ok(signup.ok,'signup '+signup.status);
    const verify=pending.get(email);assert.ok(verify);
-   const confirmed=await guarded(new Request(verify,{headers:{...headers,'x-starflow-preview-key':previewKey}}));assert.ok(confirmed.ok||confirmed.status===302);
-   const login=await viaPreview('POST','/api/identity/auth/sign-in/email',null,{email,password},previewKey,ip);assert.ok(login.ok,'login '+login.status);
+   const confirmed=await guarded(new Request(verify,{headers:{...headers,'cf-access-jwt-assertion':validJWT}}));assert.ok(confirmed.ok||confirmed.status===302);
+   const login=await viaPreview('POST','/api/identity/auth/sign-in/email',null,{email,password},validJWT,ip);assert.ok(login.ok,'login '+login.status);
    const cookie=login.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
    const session=await auth.api.getSession({headers:new Headers({cookie})});
    assert.equal(session.user.email,email);assert.equal(session.user.emailVerified,true);
    return {cookie,subject:session.user.id,logout:()=>post('sign-out',{},cookie)};
   };
-  const signupProbe=new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{origin,'x-starflow-preview-key':previewKey}});
+  const signupProbe=new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{origin,'cf-access-jwt-assertion':validJWT}});
   const noMail=createPreviewHandler({env:previewEnv,authorizePreview:async()=>true,Pool:FixturePool,attestationDatabase:db.database});
   assert.equal((await noMail(signupProbe)).status,503);
   await owner.query('GRANT SELECT ON public."user" TO sf_registration_issuer');
   try{assert.equal((await guarded(signupProbe)).status,503);}
   finally{await owner.query('REVOKE SELECT ON public."user" FROM sf_registration_issuer');}
+  const deniedSignup=new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{origin,'content-type':'application/json','cf-access-authenticated-user-email':email,'x-starflow-preview-key':previewKey},body:JSON.stringify({email:'denied@example.invalid',password:'synthetic-denied-password',name:'Denied',username:'denied'})});
+  assert.equal((await guarded(deniedSignup)).status,403);
+  assert.equal(deliveries.length,0);
+  assert.equal((await owner.query("SELECT count(*) AS n FROM public.\"user\" WHERE email='denied@example.invalid'")).rows[0].n,'0');
   const alice=await register('integration_alice','192.0.2.31');
   const bob=await register('integration_bob','192.0.2.32');
   assert.deepEqual(deliveries,['integration_alice@example.invalid','integration_bob@example.invalid']);
@@ -198,15 +210,8 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal((await call('POST','/api/v2/notifications/read',bob.cookie,{id:inbox.notifications[0].id})).status,200);
   // Real signature verification plus real restricted database session in one request.
   // The local signing key is synthetic and never used with Cloudflare or Neon.
-  const issuer='https://starflow-fixture.cloudflareaccess.com',aud='a'.repeat(64),email='owner@example.invalid';
-  const signedEnv={...previewEnv,STARFLOW_ACCESS_ISSUER:issuer,STARFLOW_ACCESS_AUD:aud,STARFLOW_ACCESS_OWNER_EMAIL:email};
-  const {publicKey,privateKey}=await generateKeyPair('RS256',{extractable:true});
-  const jwk=await exportJWK(publicKey);jwk.kid='fixture';jwk.alg='RS256';
-  const token=async(overrides={})=>new SignJWT({iss:issuer,aud:[aud],sub:'synthetic-owner',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+300,type:'app',email,...overrides}).setProtectedHeader({alg:'RS256',kid:'fixture'}).sign(privateKey);
-  const verifier=createConfiguredPreviewVerifier(signedEnv,{keyset:createLocalJWKSet({keys:[jwk]})});
   const signedHandler=createPreviewHandler({env:signedEnv,authorizePreview:verifier,Pool:FixturePool,attestationDatabase:db.database});
   const signedInbox=(jwt,cookie)=>signedHandler(new Request(origin+'/api/v2/inbox-preview',{headers:{...(jwt?{'cf-access-jwt-assertion':jwt}:{}),...(cookie?{cookie}:{}),'cf-access-authenticated-user-email':email}}));
-  const validJWT=await token();
   assert.equal((await signedInbox(null,bob.cookie)).status,403);
   assert.equal((await signedInbox(await token({aud:['b'.repeat(64)]}),bob.cookie)).status,403);
   assert.equal((await signedInbox(validJWT,null)).status,401);
