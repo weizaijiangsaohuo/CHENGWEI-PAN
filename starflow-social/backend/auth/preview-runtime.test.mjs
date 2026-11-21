@@ -81,7 +81,7 @@ test('owner-key mode preserves disabled and production guards; forwards no owner
 });
 
 test('new social preview routes require explicit flag plus owner access',async()=>{
- let pools=0;class Pool{constructor(){pools++;}async end(){}}
+ let pools=0;class Pool{constructor(cfg){pools++;this.cfg=cfg;}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){}}
  const make=(bindings,authorizePreview)=>createPreviewHandler({env:bindings,authorizePreview,Pool,authFactory:()=>({api:{getSession:async()=>null}})});
  assert.equal((await make(env,async()=>true)(req('/api/v2/posts'))).status,404);
  const enabled={...env,STARFLOW_SOCIAL_PREVIEW_ENABLED:'true'};
