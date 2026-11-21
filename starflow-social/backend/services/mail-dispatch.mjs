@@ -5,7 +5,7 @@
 // These callbacks are server-only; never construct them from request input.
 import {prepareBrevoRequest,prepareBrevoOtpRequest} from './brevo.mjs';
 import {createHmac} from 'node:crypto';
-export function createMailDispatcher({enabled=false,apiKey,sender,origin,recipientSecret,reserve,authorize,confirmFreePlan,transport}={}){
+export function createMailDispatcher({enabled=false,apiKey,sender,origin,recipientSecret,reserve,authorize,confirmFreePlan,transport,recheckRecipient=false}={}){
  const configured=enabled===true&&typeof recipientSecret==='string'&&recipientSecret.length>=32&&recipientSecret!==apiKey&&
   [reserve,authorize,confirmFreePlan,transport].every(fn=>typeof fn==='function');
  return async function dispatch(event){
@@ -22,6 +22,9 @@ export function createMailDispatcher({enabled=false,apiKey,sender,origin,recipie
    if(await confirmFreePlan()!==true)return {status:'disabled'};
    const recipientKey=createHmac('sha256',recipientSecret).update('starflow-security-mail:'+recipient.trim().toLowerCase()).digest('hex');
    if(await reserve({eventId:event.eventId,recipientKey,purpose:event.purpose})!==true)return {status:'quota_denied'};
+   // A fresh-registration admission may expire or be revoked during billing/quota checks.
+   // Recheck after committing the budget; never refund a reserved attempt on denial.
+   if(recheckRecipient===true&&await authorize(event)!==recipient)return {status:'rejected'};
    // One committed attempt. Never refund on timeout or uncertain provider response.
    const response=await transport(request.url,{...request.options,signal:AbortSignal.timeout(10000)});
    // An accepted provider request is NOT proof of mailbox delivery.

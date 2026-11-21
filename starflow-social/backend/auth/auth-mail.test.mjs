@@ -42,7 +42,7 @@ test('fresh registration connects canonical Better Auth verification to free-pla
  const mail=createFreshRegistrationMail(cfg);
  assert.deepEqual(Object.keys(mail),['sendVerificationEmail']);
  await mail.sendVerificationEmail(verify);
- assert.deepEqual(calls,['admission','billing','plan','BEGIN','SET','SELECT','COMMIT','release','send']);
+ assert.deepEqual(calls,['admission','billing','plan','BEGIN','SET','SELECT','COMMIT','release','admission','send']);
  calls.length=0;
  await mail.sendVerificationEmail({...verify,user:{...user,emailVerified:true}});
  assert.deepEqual(calls,[]);
@@ -52,4 +52,37 @@ test('fresh registration connects canonical Better Auth verification to free-pla
  assert.deepEqual(calls,[]);
  await createFreshRegistrationMail({...cfg,verifyBilling:async()=>false,confirmFreePlan:async()=>true}).sendVerificationEmail(verify);
  assert.deepEqual(calls,['admission']);
+});
+
+test('fresh registration retry respects committed quota and rechecks current admission before any send',async()=>{
+ let eligible=true,quota=true,failTransport=true,commits=0,attempts=0,checks=0;
+ const ids=[],keys=[];
+ const pool={connect:async()=>({query:async(sql,args)=>{
+  if(sql.startsWith('SELECT')){ids.push(args[0]);keys.push(args[1]);return {rows:[{allowed:quota}]};}
+  if(sql==='COMMIT')commits++;
+ },release(){}})};
+ const cfg={pool,origin,enabled:true,apiKey:'fixture-only',sender:'security@fixture.invalid',recipientSecret:'independent-synthetic-recipient-key',
+  allowRecipient:async s=>{checks++;return eligible&&s.id===user.id&&s.email===user.email&&s.purpose==='verify';},
+  verifyBilling:async()=>true,
+  transport:async(url,opts)=>{
+   if(opts.method==='GET')return Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'free',creditsType:'sendLimit',credits:200}]});
+   attempts++;if(failTransport)throw Error('synthetic timeout');
+   return Response.json({messageId:'fixture'},{status:201});
+  }};
+ const mail=createFreshRegistrationMail(cfg);
+ // No automatic retry or refund after uncertain provider delivery.
+ assert.equal(await mail.sendVerificationEmail(verify),undefined);
+ assert.equal(attempts,1);assert.equal(commits,1);
+ quota=false;await mail.sendVerificationEmail(verify);
+ assert.equal(attempts,1);assert.equal(commits,1);
+ // A new trusted callback may retry only when the database budget allows it.
+ quota=true;failTransport=false;await mail.sendVerificationEmail(verify);
+ assert.equal(attempts,2);assert.equal(commits,2);
+ assert.equal(new Set(ids).size,3);assert.equal(new Set(keys).size,1);
+ // Simulate expiration between budget commit and transport.
+ const expired=createFreshRegistrationMail({...cfg,allowRecipient:async()=>++checks%2===1});
+ checks=0;await expired.sendVerificationEmail(verify);
+ assert.equal(commits,3);assert.equal(attempts,2);
+ eligible=false;await mail.sendVerificationEmail(verify);
+ assert.equal(commits,3);assert.equal(attempts,2);
 });

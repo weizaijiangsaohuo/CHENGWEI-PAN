@@ -54,6 +54,6 @@ export function createAuthMailCallbacks(config){
 // Requires trusted admission-recipient eligibility and independently verified free billing.
 // No public handler, live credentials or default provider transport.
 export function createFreshRegistrationMail(config){
- const {sendVerificationEmail}=composeCallbacks(config,createBrevoFreeDispatcher);
+ const {sendVerificationEmail}=composeCallbacks({...config,recheckRecipient:true},createBrevoFreeDispatcher);
  return Object.freeze({sendVerificationEmail});
 }
