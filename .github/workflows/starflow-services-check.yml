@@ -71,6 +71,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/018_identity_queue_mfa.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/019_didit_reconcile_gateway.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/019_didit_reconcile_gateway.sql
+      - run: node --test starflow-social/backend/auth/inbox-sync.test.mjs starflow-social/backend/migration/compare-inventory.test.mjs starflow-social/backend/migration/legacy-post-plan.test.mjs
       - run: node --test starflow-social/backend/services/realtime-policy.test.mjs
       - run: node --test starflow-social/backend/services/realtime-registry.test.mjs
       - run: |

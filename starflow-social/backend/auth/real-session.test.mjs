@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import {betterAuth} from 'better-auth';
 import {authOptions} from './auth.mjs';
-import {verifyPreviewDatabaseRoles} from './preview-runtime.mjs';
+import {createPreviewHandler,verifyPreviewDatabaseRoles} from './preview-runtime.mjs';
 import {createBusinessHandler} from './business-api.mjs';
 import {authorizeUpgrade,syncHint} from '../services/realtime-policy.mjs';
-const origin='https://integration.example.invalid';
+const origin='https://integration-weizai.example.workers.dev';
 const secret='synthetic-real-session-test-only-not-a-production-secret';
 test('real Better Auth session -> restricted business SQL -> realtime policy; logout invalidates access',async()=>{
  const db={host:'127.0.0.1',port:5432,database:'starflow_auth_test',max:1};
@@ -49,6 +49,21 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   const o=authOptions({database:authPool,origin,secret});
   const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
    emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{pending.set(user.email,url);}}});
+  // Exercise the same guarded dispatcher as the deployed Worker, using only the disposable CI service.
+  const previewHost='ep-fixture.example.neon.tech';
+  const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
+   STARFLOW_AUTH_DB_URL:'postgresql://sf_auth_runtime:synthetic-local-auth-fixture-only@'+previewHost+'/neondb?sslmode=require',
+   STARFLOW_BUSINESS_DB_URL:'postgresql://sf_business_connect:synthetic-local-business-fixture-only@'+previewHost+'/neondb?sslmode=require'};
+  const previewKey='c'.repeat(64);
+  class FixturePool extends pg.Pool{
+   constructor(config){
+    assert.equal(config.host,previewHost);
+    assert.ok(['sf_auth_runtime','sf_business_connect'].includes(config.user));
+    super({...db,user:config.user,password:config.password});
+   }
+  }
+  const guarded=createPreviewHandler({env:previewEnv,authorizePreview:async req=>req.headers.get('x-starflow-preview-key')===previewKey,Pool:FixturePool});
+  const viaPreview=(method,path,cookie,data,key=previewKey,ip='192.0.2.33')=>guarded(new Request(origin+path,{method,headers:{origin,'content-type':'application/json','cf-connecting-ip':ip,'x-starflow-preview-key':key,...(cookie?{cookie}:{})},...(data?{body:JSON.stringify(data)}:{})}));
   const register=async(label,ip)=>{
    const email=label+'@example.invalid',password='synthetic-strong-password-'+label+'-2026';
    const headers={origin,'content-type':'application/json','cf-connecting-ip':ip};
@@ -57,7 +72,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
    assert.ok(signup.ok,'signup '+signup.status);
    const verify=pending.get(email);assert.ok(verify);
    const confirmed=await auth.handler(new Request(verify,{headers}));assert.ok(confirmed.ok||confirmed.status===302);
-   const login=await post('sign-in/email',{email,password});assert.ok(login.ok,'login '+login.status);
+   const login=await viaPreview('POST','/api/identity/auth/sign-in/email',null,{email,password},previewKey,ip);assert.ok(login.ok,'login '+login.status);
    const cookie=login.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
    const session=await auth.api.getSession({headers:new Headers({cookie})});
    assert.equal(session.user.email,email);assert.equal(session.user.emailVerified,true);
@@ -69,6 +84,19 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   await owner.query("INSERT INTO sf_core.profiles(id,handle) VALUES($1,'integration_a'),($2,'integration_b')",[a,b]);
   await owner.query('INSERT INTO sf_core.auth_bindings(principal_id,auth_subject) VALUES($1,$2),($3,$4)',[a,alice.subject,b,bob.subject]);
   await owner.query('INSERT INTO sf_core.follows(follower_id,target_id,accepted) VALUES($1,$2,true),($2,$1,true)',[a,b]);
+  assert.equal((await viaPreview('GET','/api/v2/me',alice.cookie,null,'wrong')).status,403);
+  assert.equal((await viaPreview('GET','/api/v2/me',null)).status,401);
+  assert.equal((await (await viaPreview('GET','/api/v2/me',alice.cookie)).json()).profile.id,a);
+  const published=await viaPreview('POST','/api/v2/posts',alice.cookie,{content:'guarded integration fixture',visibility:'members'});
+  assert.equal(published.status,201);const post=(await published.json()).post;
+  assert.equal(post.author_id,a);
+  assert.equal((await viaPreview('POST','/api/v2/posts/like',bob.cookie,{id:post.id,enabled:true})).status,200);
+  const comment=await viaPreview('POST','/api/v2/comments',bob.cookie,{post:post.id,content:'guarded comment fixture'});
+  assert.equal(comment.status,201);
+  const comments=await viaPreview('GET','/api/v2/comments?post='+post.id,alice.cookie);
+  assert.equal(comments.status,200);assert.ok((await comments.json()).comments.some(x=>x.author_id===b));
+  assert.equal((await viaPreview('POST','/api/v2/admin/identity/cases',alice.cookie,{})).status,404);
+  assert.equal((await viaPreview('POST','/api/identity/auth/passkey/verify-authentication',null,{})).status,404);
   const handle=createBusinessHandler({auth,pool,origin});
   const call=(method,path,cookie,data)=>handle(new Request(origin+path,{method,headers:{origin,cookie,'content-type':'application/json','x-user-id':b},...(data?{body:JSON.stringify(data)}:{})}));
   assert.equal((await (await call('GET','/api/v2/me',alice.cookie)).json()).profile.id,a);
@@ -91,6 +119,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.ok((await bob.logout()).ok);
   assert.equal(await upgrade(),null);assert.equal(syncHint(grant,await upgrade()),null);
   assert.equal((await call('GET','/api/v2/notifications',bob.cookie)).status,401);
+  assert.equal((await viaPreview('GET','/api/v2/posts',bob.cookie)).status,401);
  }finally{
   try{
    await Promise.allSettled([pool,authPool].filter(Boolean).map(p=>p.end()));

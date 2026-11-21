@@ -5,7 +5,7 @@ const isUuid=v=>typeof v==='string'&&uuid.test(v);
 const response=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'}});
 const cursor=v=>typeof v==='string'&&/^\d{1,19}$/.test(v)&&BigInt(v)<=9223372036854775807n;
 async function body(request){
- if(!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')||!request.body)throw Error('invalid body');
+ if(!(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()==='application/json')||!request.body)throw Error('invalid body');
  const reader=request.body.getReader();let size=0;const chunks=[];
  try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>20000){await reader.cancel();throw Error('too large');}chunks.push(value);}}
  finally{reader.releaseLock();}
@@ -31,7 +31,7 @@ export function createBusinessHandler({auth,pool,origin}){
   }else if(url.search&&!isSocialRoute(route))return response({error:'invalid_query'},400);
   if(request.method==='POST'){
    try{input=await body(request);}catch{return response({error:'invalid_body'},400);}
-   if(route==='POST /api/v2/messages'&&(!isUuid(input.recipient)||typeof input.body!=='string'||!input.body.trim()||[...input.body].length>4000||(Object.hasOwn(input,'requestId')&&!isUuid(input.requestId))||Object.keys(input).some(k=>!['recipient','body','requestId'].includes(k))))return response({error:'invalid_message'},400);
+   if(route==='POST /api/v2/messages'&&(!isUuid(input.recipient)||typeof input.body!=='string'||!input.body.trim()||input.body.includes('\u0000')||[...input.body].length>4000||(Object.hasOwn(input,'requestId')&&!isUuid(input.requestId))||Object.keys(input).some(k=>!['recipient','body','requestId'].includes(k))))return response({error:'invalid_message'},400);
    if(route==='POST /api/v2/notifications/read'&&(!isUuid(input.id)||Object.keys(input).length!==1))return response({error:'invalid_notice'},400);
   }
   if(isSocialRoute(route)&&!validateSocialInput(route,input,url))return response({error:'invalid_input'},400);

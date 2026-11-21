@@ -20,6 +20,11 @@ test('real SQL through HTTP requests, distinct sessions and private notification
   const me=await call('GET','/api/v2/me','fixture-a');assert.equal((await me.json()).profile.id,a);
   assert.equal((await call('POST','/api/v2/messages','fixture-a',{recipient:b,body:'hi'},'https://evil.invalid')).status,403);
   assert.equal((await call('POST','/api/v2/messages','fixture-a',{recipient:b,body:'hi',sender:b})).status,400);
+  for(const type of ['application/jsonx','application/json-patch+json','text/plain']){
+   const invalid=await handle(new Request(origin+'/api/v2/messages',{method:'POST',headers:{origin,cookie:'fixture-a','content-type':type},body:JSON.stringify({recipient:b,body:'fixture'})}));
+   assert.equal(invalid.status,400);
+  }
+  assert.equal((await call('POST','/api/v2/messages','fixture-a',{recipient:b,body:'a\u0000b'})).status,400);
   const requestId='55555555-5555-4555-8555-555555555555';
   const send={recipient:b,body:'hi',requestId};
   assert.equal((await call('POST','/api/v2/messages','fixture-a',{...send,requestId:['55555555-5555-4555-8555-555555555555']})).status,400);
