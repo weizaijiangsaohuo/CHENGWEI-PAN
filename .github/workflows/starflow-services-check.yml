@@ -1,0 +1,81 @@
+name: Starflow service safety laboratory
+on:
+  push:
+    branches: [feature/neon-backend-foundation-20261120]
+    paths: ['starflow-social/backend/**', '.github/workflows/starflow-services-check.yml']
+  pull_request:
+    branches: [main]
+    paths: ['starflow-social/backend/**', '.github/workflows/starflow-services-check.yml']
+permissions:
+  contents: read
+jobs:
+  service-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: starflow_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d starflow_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: ephemeral-ci-only
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGDATABASE: starflow_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --experimental-strip-types --test starflow-social/tests/didit-identity.test.mjs
+      - run: node --test starflow-social/backend/services/services.test.mjs starflow-social/backend/services/mail-dispatch.test.mjs starflow-social/backend/services/brevo-free.test.mjs starflow-social/backend/services/identity-vault.test.mjs starflow-social/backend/auth/identity-queue.test.mjs starflow-social/backend/auth/ui/identity-workbench.test.mjs starflow-social/backend/auth/identity-stepup.test.mjs starflow-social/backend/auth/mail-budget.test.mjs starflow-social/backend/auth/auth-mail.test.mjs
+      - run: |
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/001_core_profiles.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/002_email_budget.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/002_email_budget.sql
+
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/003_social_core.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/003_social_core.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/022_post_comments.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/023_comment_replies.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/004_identity_sandbox.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/004_identity_sandbox.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/014_identity_atomic_reconcile.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/014_identity_atomic_reconcile.sql
+
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/006_social_private.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/006_social_private.sql
+
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/007_review_mfa.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/007_review_mfa.sql
+
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/008_dm_sync.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/008_dm_sync.sql
+
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/009_notifications_queue.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/009_notifications_queue.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/015_identity_evidence_vault.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/015_identity_evidence_vault.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/016_identity_evidence_lifecycle.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/017_identity_case_queue.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/017_identity_case_queue.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/018_identity_queue_mfa.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/018_identity_queue_mfa.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/019_didit_reconcile_gateway.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/019_didit_reconcile_gateway.sql
+      - run: node --test starflow-social/backend/auth/inbox-sync.test.mjs starflow-social/backend/migration/compare-inventory.test.mjs starflow-social/backend/migration/legacy-post-plan.test.mjs
+      - run: node --test starflow-social/backend/services/realtime-policy.test.mjs
+      - run: node --test starflow-social/backend/services/realtime-registry.test.mjs
+      - run: |
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/011_otp_mail_budget.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/011_otp_mail_budget.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/020_unified_security_mail.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/020_unified_security_mail.sql

@@ -59,12 +59,14 @@ function elements(node) {
 function find(tree,predicate){return elements(tree).find(predicate);}
 function portal() {
   const calls=[];
+  const navigation=[];
   let finish;
   const service=new Promise(resolve=>{finish=resolve;});
   const auth=Object.fromEntries(['signUp','signInWithPassword','resetPasswordForEmail','signInWithOAuth'].map(name=>[
     name,(...args)=>{calls.push({name,args});return service;}
   ]));
   const h=harness('AuthPortal',{
+    'next/navigation':{useRouter:()=>({replace:path=>navigation.push(path)})},
     '@/lib/supabase':{db:()=>({auth}),hasConfig:()=>true},
     './LanguageProvider':{useLanguage:()=>({t:key=>key,lang:'zh'})},
     '@/lib/i18n':{isEnglishLocale:()=>false},
@@ -80,7 +82,7 @@ function portal() {
   }
   function challenge(){return find(render(),n=>n.type==='Challenge');}
   function submit(tree=render()){return find(tree,n=>n.type==='form').props.onSubmit({preventDefault(){}});}
-  return {calls,finish,render,switchMode,fill,challenge,submit};
+  return {calls,navigation,finish,render,switchMode,fill,challenge,submit};
 }
 
 for(const [mode,method,label] of [
@@ -175,4 +177,44 @@ test('login UI shows exact failure code and retry while still requiring a valid 
  assert.match(source,/setCaptchaFailureCode\(code\|\|'UNKNOWN'\)/);
  assert.match(source,/onClick=\{\(\)=>\{setError\(''\);resetCaptcha\(\);\}\}/);
  assert.match(source,/siteKey&&!captchaToken/);
+});
+
+
+test('signup confirmation pending prevents another signup even with a fresh CAPTCHA', async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('initial-test-token');
+  const pending=p.submit();
+  p.finish({data:{session:null},error:null});await pending;
+  p.challenge().props.onToken('fresh-test-token');
+  assert.equal(find(p.render(),n=>n.props.className?.includes('auth-submit')).props.disabled,true);
+  await p.submit();
+  assert.equal(p.calls.length,1);
+  p.switchMode('signIn');p.switchMode('signUp');
+  p.challenge().props.onToken('another-test-token');
+  await p.submit();
+  assert.equal(p.calls.length,1);
+});
+
+test('failed signup has a same-email retry cooldown even with a fresh CAPTCHA', async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('initial-test-token');
+  const pending=p.submit();
+  p.finish({data:{session:null},error:new Error('Mock mail delivery failed')});await pending;
+  p.challenge().props.onToken('fresh-test-token');
+  await p.submit();
+  assert.equal(p.calls.length,1);
+});
+
+test('successful signup with a session enters the site without a document reload',async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({data:{session:{access_token:'mock-session'}},error:null});await pending;
+  assert.deepEqual(p.navigation,['/']);
+});
+test('signup awaiting confirmation does not navigate',async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({data:{session:null},error:null});await pending;
+  assert.deepEqual(p.navigation,[]);
+});
+test('successful email sign-in uses client navigation',async()=>{
+  const p=portal();p.switchMode('signIn');p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({data:{session:{access_token:'mock-session'}},error:null});await pending;
+  assert.deepEqual(p.navigation,['/']);
 });

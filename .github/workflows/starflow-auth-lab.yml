@@ -1,0 +1,136 @@
+name: Starflow Better Auth laboratory
+on:
+  push:
+    branches: [feature/neon-backend-foundation-20261120]
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/migrations/004_identity_sandbox.sql', 'starflow-social/backend/migrations/015_identity_evidence_vault.sql', 'starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql', 'starflow-social/backend/migrations/017_identity_case_queue.sql', 'starflow-social/backend/migrations/018_identity_queue_mfa.sql', 'starflow-social/backend/migrations/014_identity_atomic_reconcile.sql', 'starflow-social/backend/migrations/019_didit_reconcile_gateway.sql', 'starflow-social/backend/tests/012_backend_roles.sql', 'starflow-social/backend/migrations/021_account_recovery_policy.sql', 'starflow-social/backend/tests/021_account_recovery_policy.sql', 'starflow-social/backend/migrations/022_post_comments.sql', 'starflow-social/backend/migrations/023_comment_replies.sql', 'starflow-social/backend/migrations/024_fresh_account_provision.sql', 'starflow-social/backend/migrations/025_registration_admission.sql', 'starflow-social/backend/migrations/026_registration_connection_roles.sql', 'starflow-social/backend/migrations/027_fresh_recovery_boundary.sql', 'starflow-social/backend/tests/027_fresh_recovery_boundary.sql', 'starflow-social/backend/migrations/028_recovery_replay_lab.sql', 'starflow-social/backend/tests/028_recovery_replay_lab.sql', 'starflow-social/backend/migrations/029_recovery_grant_lab.sql', 'starflow-social/backend/tests/029_recovery_grant_lab.sql', 'starflow-social/backend/migrations/030_fresh_account_retry.sql', 'starflow-social/backend/tests/030_fresh_account_retry.sql', 'starflow-social/backend/tests/031_recovery_reset_atomicity_lab.sql', 'starflow-social/backend/tests/025_registration_admission.sql', 'starflow-social/backend/tests/024_fresh_account_provision.sql', '.github/workflows/starflow-auth-lab.yml']
+  pull_request:
+    branches: [main]
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/migrations/004_identity_sandbox.sql', 'starflow-social/backend/migrations/015_identity_evidence_vault.sql', 'starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql', 'starflow-social/backend/migrations/017_identity_case_queue.sql', 'starflow-social/backend/migrations/018_identity_queue_mfa.sql', 'starflow-social/backend/migrations/014_identity_atomic_reconcile.sql', 'starflow-social/backend/migrations/019_didit_reconcile_gateway.sql', 'starflow-social/backend/tests/012_backend_roles.sql', 'starflow-social/backend/migrations/021_account_recovery_policy.sql', 'starflow-social/backend/tests/021_account_recovery_policy.sql', 'starflow-social/backend/migrations/022_post_comments.sql', 'starflow-social/backend/migrations/023_comment_replies.sql', 'starflow-social/backend/migrations/024_fresh_account_provision.sql', 'starflow-social/backend/migrations/025_registration_admission.sql', 'starflow-social/backend/migrations/026_registration_connection_roles.sql', 'starflow-social/backend/migrations/027_fresh_recovery_boundary.sql', 'starflow-social/backend/tests/027_fresh_recovery_boundary.sql', 'starflow-social/backend/migrations/028_recovery_replay_lab.sql', 'starflow-social/backend/tests/028_recovery_replay_lab.sql', 'starflow-social/backend/migrations/029_recovery_grant_lab.sql', 'starflow-social/backend/tests/029_recovery_grant_lab.sql', 'starflow-social/backend/migrations/030_fresh_account_retry.sql', 'starflow-social/backend/tests/030_fresh_account_retry.sql', 'starflow-social/backend/tests/031_recovery_reset_atomicity_lab.sql', 'starflow-social/backend/tests/025_registration_admission.sql', 'starflow-social/backend/tests/024_fresh_account_provision.sql', '.github/workflows/starflow-auth-lab.yml']
+permissions:
+  contents: read
+jobs:
+  auth-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: starflow_auth_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d starflow_auth_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: starflow-social/backend/auth
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve experimental dependency lock
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auth-lab-lock
+          path: starflow-social/backend/auth/package-lock.json
+      - name: Audit resolved dependencies
+        run: npm audit --audit-level=low
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile and apply generated authentication schema in disposable CI
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          node export-auth-schema.mjs
+          psql -v ON_ERROR_STOP=1 -f auth-schema-staging.sql
+      - uses: actions/upload-artifact@v4
+        with:
+          name: starflow-auth-schema-staging
+          path: starflow-social/backend/auth/auth-schema-staging.sql
+          retention-days: 3
+      - name: Install isolated core and gateway schema
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -f ../migrations/001_core_profiles.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/005_session_gateway.sql
+      - run: npm test
+      - run: node --test profile-gateway.test.mjs
+      - name: Prepare business API test database
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "DELETE FROM sf_core.principals"
+          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue 010_review_gateway 013_dm_idempotency 004_identity_sandbox 015_identity_evidence_vault 016_identity_evidence_lifecycle 017_identity_case_queue 018_identity_queue_mfa 014_identity_atomic_reconcile 019_didit_reconcile_gateway 002_email_budget 011_otp_mail_budget 020_unified_security_mail 022_post_comments 023_comment_replies; do
+            psql -v ON_ERROR_STOP=1 -f ../migrations/$i.sql
+          done
+      - name: Validate reproducible backend role grants
+        env:
+          PGPASSWORD: ephemeral-ci-only
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: starflow_auth_test
+        run: |
+          psql -v ON_ERROR_STOP=1 -f ../migrations/012_backend_roles.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/012_backend_roles.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/021_account_recovery_policy.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/021_account_recovery_policy.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/024_fresh_account_provision.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/024_fresh_account_provision.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/025_registration_admission.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/025_registration_admission.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/026_registration_connection_roles.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/027_fresh_recovery_boundary.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/027_fresh_recovery_boundary.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/028_recovery_replay_lab.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/028_recovery_replay_lab.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/029_recovery_grant_lab.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/029_recovery_grant_lab.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/030_fresh_account_retry.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/030_fresh_account_retry.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/031_recovery_reset_atomicity_lab.sql
+      - run: node --test business-api.test.mjs
+      - run: node --test social-api.test.mjs
+      - run: node --test comments-api.test.mjs
+      - run: node --test comment-replies.test.mjs
+      - run: node --test real-session.test.mjs
+      - run: node --test review-api.test.mjs
+      - run: node --test totp-ceremony.test.mjs
+      - run: node --experimental-strip-types --test didit-reconcile.test.mjs
+      - run: node --test passkey-ceremony.test.mjs
+      - run: node --test email-otp-lab.test.mjs
+      - run: node --test preview-runtime.test.mjs
+      - run: node --test readiness-response.test.mjs
+      - run: node --test auth-mail-ceremony.test.mjs
+      - run: node --test account-recovery-policy.test.mjs
+
+      - run: node --test recovery-ceremony.test.mjs
+
+      - run: node --test fresh-account.test.mjs
+
+      - run: node --test registration-admission.test.mjs
+      - run: node --test deployed-preview-smoke.test.mjs
+      - name: Read-only deployed preview readiness (existing authorization only)
+        # Same-repository trusted preview branch only; never use secrets on fork PRs.
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/feature/neon-backend-foundation-20261120') ||
+          (github.event_name == 'pull_request' && github.event.pull_request.number == 59 &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.head.ref == 'feature/neon-backend-foundation-20261120' &&
+          github.event.pull_request.base.ref == 'main')
+        env:
+          STARFLOW_PREVIEW_OWNER_KEY: ${{ secrets.STARFLOW_PREVIEW_OWNER_KEY }}
+        run: node deployed-preview-smoke.mjs

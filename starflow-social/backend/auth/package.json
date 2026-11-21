@@ -1,0 +1,17 @@
+{
+  "name": "starflow-auth-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test.mjs"
+  },
+  "dependencies": {
+    "better-auth": "1.7.26",
+    "@better-auth/passkey": "1.7.26",
+    "pg": "8.23.1"
+  },
+  "overrides": {
+    "@better-auth/core": "1.7.26"
+  }
+}

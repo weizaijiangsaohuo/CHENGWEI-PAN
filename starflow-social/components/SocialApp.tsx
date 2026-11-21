@@ -7,7 +7,6 @@ import type { User } from '@supabase/supabase-js';
 import { Bell, Bookmark, LayoutDashboard, BarChart3, Camera, Check, ChevronLeft, ChevronRight, Compass, Ellipsis, Eye, Heart, Home, ImagePlus, Video, LogOut, MessageCircle, PenLine, Repeat2, Search, Send, Settings, Shield, Share2, Sparkles, Trash2, UserRound, UserPlus, X } from 'lucide-react';
 import { db, hasConfig } from '@/lib/supabase';
 import {optimizeImageForPost} from '@/lib/optimize-upload-image';
-import { ensureWelcomeEmail } from '@/lib/welcome';
 import { Avatar, Brand } from './Brand';
 import { AuthPortal } from './AuthPortal';
 import { useLanguage } from './LanguageProvider';
@@ -135,38 +134,38 @@ export function SocialApp({view,target}:{view:View;target?:string}){
     if(!hasConfig()){rememberVerifiedRouteUser(null);setChecking(false);return;}
     let active=true;
     let signedOut=false;
+    let sessionChanged=false;
     const client=db();
     // Keep the page shell visible while the cached, *previously verified*
     // identity is rechecked in the background. Never cache an unverified JWT.
     client.auth.getUser().then(({data:{user},error})=>{
-      if(!active||signedOut)return;
+      if(!active||signedOut||sessionChanged)return;
       const next=error?null:user;
       rememberVerifiedRouteUser(next);
       setUser(next);setChecking(false);
     }).catch(()=>{
-      if(!active||signedOut)return;
+      if(!active||signedOut||sessionChanged)return;
       rememberVerifiedRouteUser(null);
       setUser(null);setChecking(false);
     });
     const {data:{subscription}}=client.auth.onAuthStateChange((event,session)=>{
       if(!active)return;
       if(event==='SIGNED_OUT'){
-        signedOut=true;rememberVerifiedRouteUser(null);
+        signedOut=true;sessionChanged=true;rememberVerifiedRouteUser(null);
         setUser(null);setChecking(false);
       }else if(event==='SIGNED_IN'&&session?.user){
+        signedOut=false;sessionChanged=true;
         // Account switching invalidates the verified cross-route cache.
         if(verifiedRouteUser?.user.id!==session.user.id)rememberVerifiedRouteUser(null);
         setUser(session.user);setChecking(false);
       }else if(event==='USER_UPDATED'){
+        sessionChanged=true;
         rememberVerifiedRouteUser(null);
         setUser(session?.user??null);
       }
     });
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
-  useEffect(()=>{
-    if(user?.email_confirmed_at || user?.confirmed_at) void ensureWelcomeEmail(user.id);
-  },[user?.id, user?.email_confirmed_at, user?.confirmed_at]);
   useEffect(()=>{if(!user){setIsAdmin(false);return;}
     db().rpc('is_platform_admin').then(({data,error})=>{setIsAdmin(!error&&data===true)},()=>setIsAdmin(false));
   },[user?.id]);
