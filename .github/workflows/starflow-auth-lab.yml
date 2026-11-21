@@ -2,10 +2,10 @@ name: Starflow Better Auth laboratory
 on:
   push:
     branches: [feature/neon-backend-foundation-20261120]
-    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/migrations/004_identity_sandbox.sql', 'starflow-social/backend/migrations/015_identity_evidence_vault.sql', 'starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql', 'starflow-social/backend/migrations/017_identity_case_queue.sql', 'starflow-social/backend/migrations/018_identity_queue_mfa.sql', 'starflow-social/backend/migrations/014_identity_atomic_reconcile.sql', 'starflow-social/backend/migrations/019_didit_reconcile_gateway.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/migrations/004_identity_sandbox.sql', 'starflow-social/backend/migrations/015_identity_evidence_vault.sql', 'starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql', 'starflow-social/backend/migrations/017_identity_case_queue.sql', 'starflow-social/backend/migrations/018_identity_queue_mfa.sql', 'starflow-social/backend/migrations/014_identity_atomic_reconcile.sql', 'starflow-social/backend/migrations/019_didit_reconcile_gateway.sql', 'starflow-social/backend/tests/012_backend_roles.sql', 'starflow-social/backend/migrations/021_account_recovery_policy.sql', 'starflow-social/backend/tests/021_account_recovery_policy.sql', '.github/workflows/starflow-auth-lab.yml']
   pull_request:
     branches: [main]
-    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/migrations/004_identity_sandbox.sql', 'starflow-social/backend/migrations/015_identity_evidence_vault.sql', 'starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql', 'starflow-social/backend/migrations/017_identity_case_queue.sql', 'starflow-social/backend/migrations/018_identity_queue_mfa.sql', 'starflow-social/backend/migrations/014_identity_atomic_reconcile.sql', 'starflow-social/backend/migrations/019_didit_reconcile_gateway.sql', 'starflow-social/backend/tests/012_backend_roles.sql', '.github/workflows/starflow-auth-lab.yml']
+    paths: ['starflow-social/backend/auth/**', 'starflow-social/backend/migrations/001_core_profiles.sql', 'starflow-social/backend/migrations/005_session_gateway.sql', 'starflow-social/backend/migrations/012_backend_roles.sql', 'starflow-social/backend/migrations/013_dm_idempotency.sql', 'starflow-social/backend/migrations/004_identity_sandbox.sql', 'starflow-social/backend/migrations/015_identity_evidence_vault.sql', 'starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql', 'starflow-social/backend/migrations/017_identity_case_queue.sql', 'starflow-social/backend/migrations/018_identity_queue_mfa.sql', 'starflow-social/backend/migrations/014_identity_atomic_reconcile.sql', 'starflow-social/backend/migrations/019_didit_reconcile_gateway.sql', 'starflow-social/backend/tests/012_backend_roles.sql', 'starflow-social/backend/migrations/021_account_recovery_policy.sql', 'starflow-social/backend/tests/021_account_recovery_policy.sql', '.github/workflows/starflow-auth-lab.yml']
 permissions:
   contents: read
 jobs:
@@ -86,6 +86,8 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f ../migrations/012_backend_roles.sql
           psql -v ON_ERROR_STOP=1 -f ../tests/012_backend_roles.sql
+          psql -v ON_ERROR_STOP=1 -f ../migrations/021_account_recovery_policy.sql
+          psql -v ON_ERROR_STOP=1 -f ../tests/021_account_recovery_policy.sql
       - run: node --test business-api.test.mjs
       - run: node --test real-session.test.mjs
       - run: node --test review-api.test.mjs
@@ -95,3 +97,4 @@ jobs:
       - run: node --test email-otp-lab.test.mjs
       - run: node --test preview-runtime.test.mjs
       - run: node --test auth-mail-ceremony.test.mjs
+      - run: node --test account-recovery-policy.test.mjs
