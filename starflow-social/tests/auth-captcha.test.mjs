@@ -59,12 +59,14 @@ function elements(node) {
 function find(tree,predicate){return elements(tree).find(predicate);}
 function portal() {
   const calls=[];
+  const navigation=[];
   let finish;
   const service=new Promise(resolve=>{finish=resolve;});
   const auth=Object.fromEntries(['signUp','signInWithPassword','resetPasswordForEmail','signInWithOAuth'].map(name=>[
     name,(...args)=>{calls.push({name,args});return service;}
   ]));
   const h=harness('AuthPortal',{
+    'next/navigation':{useRouter:()=>({replace:path=>navigation.push(path)})},
     '@/lib/supabase':{db:()=>({auth}),hasConfig:()=>true},
     './LanguageProvider':{useLanguage:()=>({t:key=>key,lang:'zh'})},
     '@/lib/i18n':{isEnglishLocale:()=>false},
@@ -80,7 +82,7 @@ function portal() {
   }
   function challenge(){return find(render(),n=>n.type==='Challenge');}
   function submit(tree=render()){return find(tree,n=>n.type==='form').props.onSubmit({preventDefault(){}});}
-  return {calls,finish,render,switchMode,fill,challenge,submit};
+  return {calls,navigation,finish,render,switchMode,fill,challenge,submit};
 }
 
 for(const [mode,method,label] of [
@@ -199,4 +201,20 @@ test('failed signup has a same-email retry cooldown even with a fresh CAPTCHA', 
   p.challenge().props.onToken('fresh-test-token');
   await p.submit();
   assert.equal(p.calls.length,1);
+});
+
+test('successful signup with a session enters the site without a document reload',async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({data:{session:{access_token:'mock-session'}},error:null});await pending;
+  assert.deepEqual(p.navigation,['/']);
+});
+test('signup awaiting confirmation does not navigate',async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({data:{session:null},error:null});await pending;
+  assert.deepEqual(p.navigation,[]);
+});
+test('successful email sign-in uses client navigation',async()=>{
+  const p=portal();p.switchMode('signIn');p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({data:{session:{access_token:'mock-session'}},error:null});await pending;
+  assert.deepEqual(p.navigation,['/']);
 });
