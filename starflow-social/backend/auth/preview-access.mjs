@@ -1,5 +1,6 @@
 // Verify the signed Cloudflare Access application token, not client identity headers.
 import {createRemoteJWKSet,jwtVerify} from 'jose';
+import {timingSafeEqual} from 'node:crypto';
 export function createPreviewAccessVerifier(env,{keyset}={}){
  const issuer=env?.STARFLOW_ACCESS_ISSUER,audience=env?.STARFLOW_ACCESS_AUD,owner=env?.STARFLOW_ACCESS_OWNER_EMAIL;
  if(typeof issuer!=='string'||!/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.cloudflareaccess\.com$/.test(issuer)||
@@ -15,5 +16,22 @@ export function createPreviewAccessVerifier(env,{keyset}={}){
    return payload.type==='app'&&typeof payload.sub==='string'&&payload.sub.length>0&&
     typeof payload.email==='string'&&payload.email.toLowerCase()===owner.toLowerCase();
   }catch{return false;}
+ };
+}
+
+// Optional owner-controlled alternative; no Zero Trust service required.
+// Only an independently generated 256-bit runtime secret can enable this mode.
+// No query parameter, cookie, browser identity flag or fallback on bad credentials.
+export function createConfiguredPreviewVerifier(env,options={}){
+ const key=env?.STARFLOW_PREVIEW_OWNER_KEY;
+ if(key===undefined)return createPreviewAccessVerifier(env,options);
+ const signingSecret=env?.BETTER_AUTH_SECRET;
+ const valid=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
+ if(!valid(key)||typeof signingSecret!=='string'||signingSecret.length<32||key===signingSecret.toLowerCase())return async()=>false;
+ const encoder=new TextEncoder();
+ const expected=encoder.encode(key);
+ return async request=>{
+  const supplied=request.headers.get('x-starflow-preview-key');
+  return valid(supplied)&&timingSafeEqual(expected,encoder.encode(supplied));
  };
 }

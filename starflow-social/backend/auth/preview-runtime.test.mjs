@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createPreviewHandler,restrictedPoolConfig} from './preview-runtime.mjs';
+import {createConfiguredPreviewVerifier} from './preview-access.mjs';
 const origin='https://preview-weizai.example.workers.dev',host='ep-fixture.c-1.ap-southeast-1.aws.neon.tech';
 const url=(role,pwd)=>'postgresql://'+role+':'+pwd+'@'+host+'/neondb?sslmode=require&channel_binding=require';
 const env={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:host,
@@ -58,4 +59,18 @@ test('owner-only readiness checks both pool identities without exposing credenti
  const offline=await make(async()=>true,{Pool:OfflinePool})(req('/api/v2/readiness'));
  assert.equal(offline.status,503);assert.deepEqual(await offline.json(),{error:'unavailable'});
  assert.ok(pools.every(p=>p.closed));
+});
+
+test('owner-key mode preserves disabled and production guards; forwards no owner key',async()=>{
+ const key='c'.repeat(64),cfg={...env,STARFLOW_PREVIEW_OWNER_KEY:key};
+ let pools=0,calls=0;
+ class Pool{constructor(){pools++;}async end(){}}
+ const make=(bindings)=>createPreviewHandler({env:bindings,authorizePreview:createConfiguredPreviewVerifier(bindings),Pool,authFactory:()=>({handler:async request=>{calls++;assert.equal(request.headers.get('x-starflow-preview-key'),null);assert.equal(request.headers.get('origin'),origin);assert.deepEqual(await request.json(),{email:'fixture@example.invalid',password:'fixture-only'});return Response.json({ok:true});}})});
+ const path='/api/identity/auth/sign-in/email';
+ const input={method:'POST',headers:{origin,'content-type':'application/json','x-starflow-preview-key':key},body:JSON.stringify({email:'fixture@example.invalid',password:'fixture-only'})};
+ assert.equal((await make({...cfg,STARFLOW_V2_ENABLED:'false'})(req(path,input))).status,404);
+ assert.equal((await make(cfg)(new Request('https://weizai.example.workers.dev'+path,input))).status,404);
+ assert.equal((await make(cfg)(req(path,{...input,headers:{...input.headers,'x-starflow-preview-key':'d'.repeat(64)}}))).status,403);
+ assert.equal(pools,0);
+ assert.equal((await make(cfg)(req(path,input))).status,200);assert.equal(pools,1);assert.equal(calls,1);
 });

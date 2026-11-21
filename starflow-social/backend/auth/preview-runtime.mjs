@@ -46,6 +46,11 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
   try{if(await authorizePreview(request)!==true)return deny(403);}catch{return deny(403);}
+  // The preview-specific credential must never reach authentication or business handlers.
+  if(request.headers.has('x-starflow-preview-key')){
+   const headers=new Headers(request.headers);headers.delete('x-starflow-preview-key');
+   request=new Request(request,{headers});
+  }
   // No trusted-device bypass in this preview. Reject malformed/oversized request bodies.
   if(route==='POST /api/identity/auth/two-factor/verify-totp'||
     route==='POST /api/identity/auth/sign-in/email'||route==='POST /api/identity/auth/sign-in/username'){
