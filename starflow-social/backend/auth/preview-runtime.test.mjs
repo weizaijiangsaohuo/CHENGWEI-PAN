@@ -40,7 +40,7 @@ test('owner-only readiness checks both pool identities without exposing credenti
  const pools=[];
  class Pool{
   constructor(cfg){this.cfg=cfg;this.closed=false;this.queries=[];pools.push(this);}
-  async query(sql){this.queries.push(sql);return {rows:[{role:this.cfg.user,login:this.cfg.user,db:'neondb'}]};}
+  async query(sql){this.queries.push(sql);return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}
   async end(){this.closed=true;}
  }
  const make=(authorizePreview,options={})=>createPreviewHandler({env,authorizePreview,Pool,authFactory:()=>{throw Error('must not invoke auth handler');},...options});
@@ -51,10 +51,15 @@ test('owner-only readiness checks both pool identities without exposing credenti
  assert.equal(result.status,200);assert.deepEqual(await result.json(),{ready:true});
  assert.equal(result.headers.get('cache-control'),'private, no-store');
  assert.deepEqual(pools.map(p=>p.cfg.user),['sf_auth_runtime','sf_business_connect']);
- assert.ok(pools.every(p=>p.closed&&p.queries.length===1));
+ assert.ok(pools.every(p=>p.closed&&p.queries.length===2));
  class WrongPool extends Pool{async query(){return {rows:[{role:'neondb_owner',login:'neondb_owner',db:'neondb'}]};}}
  const wrong=await make(async()=>true,{Pool:WrongPool})(req('/api/v2/readiness'));
  assert.equal(wrong.status,503);assert.deepEqual(await wrong.json(),{error:'unavailable'});
+ class ExcessPrivilegesPool extends Pool{async query(sql){if(sql.includes('session_user'))return super.query(sql);return {rows:[{safe:false}]};}}
+ const excess=await make(async()=>true,{Pool:ExcessPrivilegesPool})(req('/api/v2/readiness'));
+ assert.equal(excess.status,503);assert.deepEqual(await excess.json(),{error:'unavailable'});
+ class UnrestrictedPool extends Pool{async query(){return {rows:[{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:false}]};}}
+ assert.equal((await make(async()=>true,{Pool:UnrestrictedPool})(req('/api/v2/readiness'))).status,503);
  class OfflinePool extends Pool{async query(){throw Error('synthetic private connection error');}}
  const offline=await make(async()=>true,{Pool:OfflinePool})(req('/api/v2/readiness'));
  assert.equal(offline.status,503);assert.deepEqual(await offline.json(),{error:'unavailable'});

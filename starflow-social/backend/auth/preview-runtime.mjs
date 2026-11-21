@@ -31,6 +31,50 @@ export function restrictedPoolConfig(value,expectedRole,expectedHost){
   ssl:{rejectUnauthorized:true},enableChannelBinding:true,max:1,connectionTimeoutMillis:5000,
   statement_timeout:8000,query_timeout:10000,idleTimeoutMillis:5000,allowExitOnIdle:true};
 }
+// Read-only runtime attestation. No customer rows or credentials are returned.
+const roleIdentitySql = `
+ SELECT current_user::text AS role, session_user::text AS login, current_database() AS db,
+ NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR rolinherit)
+ AND rolcanlogin AND NOT has_schema_privilege(current_user,'public','CREATE') AS restricted
+ FROM pg_roles WHERE rolname=current_user`;
+const authPrivilegeSql = `
+ SELECT
+ count(*)=7 AND bool_and(
+ has_table_privilege(current_user,c.oid,'SELECT')
+ AND has_table_privilege(current_user,c.oid,'INSERT')
+ AND has_table_privilege(current_user,c.oid,'UPDATE')
+ AND has_table_privilege(current_user,c.oid,'DELETE')
+ AND NOT has_table_privilege(current_user,c.oid,'TRUNCATE,REFERENCES,TRIGGER')
+ ) AND NOT has_schema_privilege(current_user,'sf_core','USAGE')
+ AND NOT pg_has_role(current_user,'sf_session_gateway','MEMBER')
+ AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER') AS safe
+ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relkind='r'
+ AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
+const businessPrivilegeSql = `
+ SELECT count(*)=7 AND bool_and(
+ NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ AND NOT has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+ ) AND pg_has_role(current_user,'sf_session_gateway','SET')
+ AND pg_has_role(current_user,'sf_profile_runtime','SET')
+ AND NOT pg_has_role(current_user,'sf_profile_runtime','USAGE')
+ AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER')
+ AND NOT pg_has_role(current_user,'sf_auth_runtime','MEMBER')
+ AND NOT has_function_privilege(current_user,'sf_core.open_review_queue(uuid,uuid,uuid,integer)','EXECUTE') AS safe
+ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relkind='r'
+ AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
+export async function verifyPreviewDatabaseRoles(authPool,businessPool,database='neondb'){
+ const probes=[[authPool,'sf_auth_runtime',authPrivilegeSql],[businessPool,'sf_business_connect',businessPrivilegeSql]];
+ const results=await Promise.allSettled(probes.map(async([pool,role,sql])=>{
+  const {rows}=await pool.query(roleIdentitySql);
+  if(rows.length!==1||rows[0].role!==role||rows[0].login!==role||rows[0].db!==database||rows[0].restricted!==true)return false;
+  const grants=await pool.query(sql);
+  return grants.rows.length===1&&grants.rows[0].safe===true;
+ }));
+ return results.every(result=>result.status==='fulfilled'&&result.value===true);
+}
+
 export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab}){
  return async request=>{
   // No production access, no fall-through to legacy auth, no DB connection on disabled paths.
@@ -71,11 +115,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
    authPool=new Pool(a);
    if(route===readinessRoute){
     businessPool=new Pool(b);
-    const sql="SELECT current_user::text AS role, session_user::text AS login, current_database() AS db";
-    const results=await Promise.allSettled([authPool.query(sql),businessPool.query(sql)]);
-    const expected=[a.user,b.user];
-    if(!results.every((result,i)=>result.status==='fulfilled'&&result.value.rows.length===1&&
-      result.value.rows[0].role===expected[i]&&result.value.rows[0].login===expected[i]&&result.value.rows[0].db==='neondb'))return deny(503);
+    if(!await verifyPreviewDatabaseRoles(authPool,businessPool))return deny(503);
     return Response.json({ready:true},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
    }
    const auth=authFactory({database:authPool,origin,secret:env.BETTER_AUTH_SECRET});

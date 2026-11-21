@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import {betterAuth} from 'better-auth';
 import {authOptions} from './auth.mjs';
+import {verifyPreviewDatabaseRoles} from './preview-runtime.mjs';
 import {createBusinessHandler} from './business-api.mjs';
 import {authorizeUpgrade,syncHint} from '../services/realtime-policy.mjs';
 const origin='https://integration.example.invalid';
@@ -34,6 +35,12 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   await assert.rejects(authPool.query('SELECT id FROM sf_core.profiles LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(pool.query('SELECT id FROM public."user" LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(pool.query('SET ROLE sf_review_gateway'),e=>e.code==='42501');
+  assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
+  // An unsafe permission change must prevent readiness even though both roles can connect.
+  await owner.query('GRANT SELECT ON public."user" TO sf_business_connect');
+  try{assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),false);}
+  finally{await owner.query('REVOKE SELECT ON public."user" FROM sf_business_connect');}
+  assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
   const o=authOptions({database:authPool,origin,secret});
   const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
    emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{pending.set(user.email,url);}}});
