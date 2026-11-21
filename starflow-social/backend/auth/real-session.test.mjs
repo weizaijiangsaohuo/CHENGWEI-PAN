@@ -67,20 +67,20 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   await assert.rejects(freshPool.query('SELECT * FROM sf_core.staff_roles LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(pool.query('SET ROLE sf_fresh_account_gateway'),e=>e.code==='42501');
   await assert.rejects(authPool.query('SET ROLE sf_fresh_account_gateway'),e=>e.code==='42501');
-  await owner.query("CREATE ROLE sf_registration_ci_fixture LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-admission-ci-only'");
-  await owner.query('GRANT sf_registration_issuer TO sf_registration_ci_fixture WITH SET TRUE, INHERIT FALSE');
-  issuerPool=new pg.Pool({...db,user:'sf_registration_ci_fixture',password:'synthetic-local-admission-ci-only'});
+  await owner.query("CREATE ROLE sf_registration_connect LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-admission-ci-only'");
+  await owner.query('GRANT sf_registration_issuer TO sf_registration_connect WITH SET TRUE, INHERIT FALSE');
+  issuerPool=new pg.Pool({...db,user:'sf_registration_connect',password:'synthetic-local-admission-ci-only'});
   const admissions=createRegistrationAdmission(issuerPool);
   await assert.rejects(issuerPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
   // Exercise the real fresh-registration mail composition with a separate budget login.
   // Only the provider responses are synthetic; no network or paid calls.
-  await owner.query("CREATE ROLE sf_registration_mail_fixture LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-mail-fixture-only'");
-  await owner.query('GRANT sf_mail_budget_gateway TO sf_registration_mail_fixture WITH SET TRUE, INHERIT FALSE');
-  mailPool=new pg.Pool({...db,user:'sf_registration_mail_fixture',password:'synthetic-mail-fixture-only'});
+  await owner.query("CREATE ROLE sf_mail_budget_connect LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-mail-fixture-only'");
+  await owner.query('GRANT sf_mail_budget_gateway TO sf_mail_budget_connect WITH SET TRUE, INHERIT FALSE');
+  mailPool=new pg.Pool({...db,user:'sf_mail_budget_connect',password:'synthetic-mail-fixture-only'});
   await assert.rejects(mailPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
   const deliveries=[];
-  const mail=createFreshRegistrationMail({enabled:true,pool:mailPool,origin,apiKey:'synthetic',sender:'security@example.invalid',recipientSecret:'independent-registration-mail-synthetic-secret',
-   allowRecipient:admissions.allowRecipient,verifyBilling:async()=>true,transport:async(url,options)=>{
+  const registrationMail={apiKey:'synthetic',sender:'security@example.invalid',recipientSecret:'independent-registration-mail-synthetic-secret',
+   verifyBilling:async()=>true,transport:async(url,options)=>{
     if(url==='https://api.brevo.com/v3/account'){
      assert.equal(options.method,'GET');
      return Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'free',creditsType:'sendLimit',credits:100}]});
@@ -93,7 +93,8 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
     assert.equal(new URL(link).origin,origin);assert.equal(new URL(link).pathname,'/api/identity/auth/verify-email');
     deliveries.push(recipient);pending.set(recipient,link);
     return Response.json({messageId:'synthetic'},{status:201});
-   }});
+   }};
+  const mail=createFreshRegistrationMail({...registrationMail,enabled:true,pool:mailPool,origin,allowRecipient:admissions.allowRecipient});
   const auth=betterAuth(authOptions({database:authPool,origin,secret}));
   const registration=createFreshSignupHandler({enabled:true,database:authPool,origin,secret,admissions,mail,authorizePreview:async request=>request.headers.get('x-starflow-preview-key')==='c'.repeat(64)});
   assert.equal((await registration(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{origin}}))).status,403);
@@ -101,34 +102,42 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal((await registration(new Request(origin+'/api/identity/auth/verify-email?token=fixture&callbackURL=https://example.invalid',{headers:{'x-starflow-preview-key':'c'.repeat(64)}}))).status,400);
   // Exercise the same guarded dispatcher as the deployed Worker, using only the disposable CI service.
   const previewHost='ep-fixture.example.neon.tech';
-  const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_INBOX_PREVIEW_ENABLED:'true',STARFLOW_FRESH_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
+  const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_INBOX_PREVIEW_ENABLED:'true',STARFLOW_FRESH_PREVIEW_ENABLED:'true',STARFLOW_REGISTRATION_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
    STARFLOW_AUTH_DB_URL:'postgresql://sf_auth_runtime:synthetic-local-auth-fixture-only@'+previewHost+'/neondb?sslmode=require',
    STARFLOW_BUSINESS_DB_URL:'postgresql://sf_business_connect:synthetic-local-business-fixture-only@'+previewHost+'/neondb?sslmode=require',
-   STARFLOW_FRESH_DB_URL:'postgresql://sf_fresh_account_connect:synthetic-local-fresh-fixture-only@'+previewHost+'/neondb?sslmode=require'};
+   STARFLOW_FRESH_DB_URL:'postgresql://sf_fresh_account_connect:synthetic-local-fresh-fixture-only@'+previewHost+'/neondb?sslmode=require',
+   STARFLOW_REGISTRATION_DB_URL:'postgresql://sf_registration_connect:synthetic-local-admission-ci-only@'+previewHost+'/neondb?sslmode=require',
+   STARFLOW_MAIL_DB_URL:'postgresql://sf_mail_budget_connect:synthetic-mail-fixture-only@'+previewHost+'/neondb?sslmode=require'};
   const previewKey='c'.repeat(64);
   class FixturePool extends pg.Pool{
    constructor(config){
     assert.equal(config.host,previewHost);
-    assert.ok(['sf_auth_runtime','sf_business_connect','sf_fresh_account_connect'].includes(config.user));
+    assert.ok(['sf_auth_runtime','sf_business_connect','sf_fresh_account_connect','sf_registration_connect','sf_mail_budget_connect'].includes(config.user));
     super({...db,user:config.user,password:config.password});
    }
   }
-  const guarded=createPreviewHandler({env:previewEnv,authorizePreview:async req=>req.headers.get('x-starflow-preview-key')===previewKey,Pool:FixturePool,attestationDatabase:db.database});
+  const guarded=createPreviewHandler({env:previewEnv,authorizePreview:async req=>req.headers.get('x-starflow-preview-key')===previewKey,Pool:FixturePool,attestationDatabase:db.database,registrationMail});
   const viaPreview=(method,path,cookie,data,key=previewKey,ip='192.0.2.33')=>guarded(new Request(origin+path,{method,headers:{origin,'content-type':'application/json','cf-connecting-ip':ip,'x-starflow-preview-key':key,...(cookie?{cookie}:{})},...(data?{body:JSON.stringify(data)}:{})}));
   const register=async(label,ip)=>{
    const email=label+'@example.invalid',password='synthetic-strong-password-'+label+'-2026';
    const headers={origin,'content-type':'application/json','cf-connecting-ip':ip};
    const post=(path,data,cookie)=>auth.handler(new Request(origin+'/api/identity/auth/'+path,{method:'POST',headers:{...headers,...(cookie?{cookie}:{})},body:JSON.stringify(data)}));
-   const signup=await registration(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{...headers,'x-starflow-preview-key':previewKey},body:JSON.stringify({email,password,name:label,username:label})}));
+   const signup=await guarded(new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{...headers,'x-starflow-preview-key':previewKey},body:JSON.stringify({email,password,name:label,username:label})}));
    assert.ok(signup.ok,'signup '+signup.status);
    const verify=pending.get(email);assert.ok(verify);
-   const confirmed=await registration(new Request(verify,{headers:{...headers,'x-starflow-preview-key':previewKey}}));assert.ok(confirmed.ok||confirmed.status===302);
+   const confirmed=await guarded(new Request(verify,{headers:{...headers,'x-starflow-preview-key':previewKey}}));assert.ok(confirmed.ok||confirmed.status===302);
    const login=await viaPreview('POST','/api/identity/auth/sign-in/email',null,{email,password},previewKey,ip);assert.ok(login.ok,'login '+login.status);
    const cookie=login.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
    const session=await auth.api.getSession({headers:new Headers({cookie})});
    assert.equal(session.user.email,email);assert.equal(session.user.emailVerified,true);
    return {cookie,subject:session.user.id,logout:()=>post('sign-out',{},cookie)};
   };
+  const signupProbe=new Request(origin+'/api/identity/auth/sign-up/email',{method:'POST',headers:{origin,'x-starflow-preview-key':previewKey}});
+  const noMail=createPreviewHandler({env:previewEnv,authorizePreview:async()=>true,Pool:FixturePool,attestationDatabase:db.database});
+  assert.equal((await noMail(signupProbe)).status,503);
+  await owner.query('GRANT SELECT ON public."user" TO sf_registration_issuer');
+  try{assert.equal((await guarded(signupProbe)).status,503);}
+  finally{await owner.query('REVOKE SELECT ON public."user" FROM sf_registration_issuer');}
   const alice=await register('integration_alice','192.0.2.31');
   const bob=await register('integration_bob','192.0.2.32');
   assert.deepEqual(deliveries,['integration_alice@example.invalid','integration_bob@example.invalid']);

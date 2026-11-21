@@ -6,6 +6,9 @@ import {isSocialRoute} from './social-api.mjs';
 import {createBusinessHandler} from './business-api.mjs';
 import {createInboxSync} from './inbox-sync.mjs';
 import {provisionFreshAccount} from './fresh-account.mjs';
+import {createFreshSignupHandler} from './fresh-signup-handler.mjs';
+import {createRegistrationAdmission} from './registration-admission.mjs';
+import {createFreshRegistrationMail} from './auth-mail.mjs';
 
 const authPaths=new Set([
  'POST /api/identity/auth/sign-in/email',
@@ -29,6 +32,7 @@ function validAuthInput(route,data){
 }
 const readinessRoute='GET /api/v2/readiness';
 const freshRoute='POST /api/v2/account/initialize';
+const registrationRoutes=new Set(['POST /api/identity/auth/sign-up/email','GET /api/identity/auth/verify-email']);
 const inboxPreviewRoute='GET /api/v2/inbox-preview';
 const businessPaths=new Set([
  'GET /api/v2/me','GET /api/v2/messages','GET /api/v2/notifications',
@@ -118,7 +122,7 @@ const businessPrivilegeSql = `
  AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
 // Separate NOINHERIT login may SET only the provisioning gateway; neither may
 // directly read or write account/business tables or execute other definer functions.
-const freshPrivilegeSql = `
+const gatewayPrivilegeSql = (gateway,allowed,count) => `
  SELECT pg_has_role(current_user,'sf_fresh_account_gateway','SET')
  AND NOT pg_has_role(current_user,'sf_fresh_account_gateway','USAGE')
  AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname NOT IN (current_user,'sf_fresh_account_gateway')
@@ -137,10 +141,14 @@ const freshPrivilegeSql = `
  ${noDirectDefinerSql}
  AND NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='sf_core' AND p.prosecdef AND has_function_privilege('sf_fresh_account_gateway',p.oid,'EXECUTE')
- AND NOT (p.proname='provision_fresh_account' AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, uuid'))
- AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
- WHERE n.nspname='sf_core' AND p.prosecdef AND p.proname='provision_fresh_account'
- AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, uuid' AND has_function_privilege('sf_fresh_account_gateway',p.oid,'EXECUTE')) AS safe`;
+ AND NOT (${allowed}))
+ AND (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='sf_core' AND p.prosecdef AND (${allowed})
+ AND has_function_privilege('sf_fresh_account_gateway',p.oid,'EXECUTE'))=${count} AS safe`.replaceAll('sf_fresh_account_gateway',gateway);
+// Only these fixed internal literals may compose the catalog query.
+const freshPrivilegeSql=gatewayPrivilegeSql('sf_fresh_account_gateway',"p.proname='provision_fresh_account' AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, uuid'",1);
+const issuerPrivilegeSql=gatewayPrivilegeSql('sf_registration_issuer',"p.proname IN ('issue_registration_admission','registration_mail_allowed') AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, text'",2);
+const mailPrivilegeSql=gatewayPrivilegeSql('sf_mail_budget_gateway',"p.proname='reserve_recipient_mail' AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, text, text'",1);
 async function roleFailure(pool,role,sql,label,database){
  let rows;
  try{({rows}=await pool.query(roleIdentitySql));}catch(e){return label+(e?.code==='28P01'||e?.code==='28000'?'_credentials':'_connection');}
@@ -158,7 +166,7 @@ export async function verifyPreviewDatabaseRoles(authPool,businessPool,database=
  return (await readinessFailures(authPool,businessPool,database)).every(x=>x===null);
 }
 
-export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab,attestationDatabase='neondb'}){
+export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab,attestationDatabase='neondb',registrationMail}){
  return async request=>{
   // No production access, no fall-through to legacy auth, no DB connection on disabled paths.
   if(env?.STARFLOW_V2_PREVIEW_ONLY!=='true'||
@@ -174,15 +182,17 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   if((route===readinessRoute||route===inboxPreviewRoute)&&url.search)return deny(400);
   // Browser-facing page is independently opt-in and cannot use owner-key mode.
   if(route===inboxPreviewRoute&&(env.STARFLOW_INBOX_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
+  const registration=registrationRoutes.has(route);
+  if(registration&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED!=='true')return deny();
   if(route===freshRoute&&(env.STARFLOW_FRESH_PREVIEW_ENABLED!=='true'))return deny();
   if(route===freshRoute&&(url.search||request.body!==null))return deny(400);
-  if(route!==readinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
+  if(route!==readinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!registration&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
   try{if(await authorizePreview(request)!==true)return deny(403);}catch{return deny(403);}
   // The preview-specific credential must never reach authentication or business handlers.
-  if(request.headers.has('x-starflow-preview-key')){
+  if(!registration&&request.headers.has('x-starflow-preview-key')){
    const headers=new Headers(request.headers);headers.delete('x-starflow-preview-key');
    request=new Request(request,{headers});
   }
@@ -197,7 +207,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     if(!validAuthInput(route,data))return deny(400);
    }catch{return deny(400);}
   }
-  let authPool,businessPool,freshPool;
+  let authPool,businessPool,freshPool,issuerPool,mailPool;
   // Only reached after the existing owner authorization. Fixed labels, never exception text.
   const unavailable=stage=>route===readinessRoute?Response.json({error:'unavailable'},{status:503,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Starflow-Readiness-Stage':stage}}):deny(503);
   let stage='signing_config';
@@ -218,6 +228,29 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     const failed=failures.find(Boolean);
     if(failed)return unavailable(failed);
     return Response.json({ready:true},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+   }
+   if(registration){
+    // No default live transport or static assertion of free billing. Production
+    // integration must inject an independently verified provider configuration.
+    if(typeof registrationMail?.verifyBilling!=='function'||typeof registrationMail?.transport!=='function'||
+     typeof registrationMail.apiKey!=='string'||!registrationMail.apiKey||
+     typeof registrationMail.sender!=='string'||!registrationMail.sender||
+     typeof registrationMail.recipientSecret!=='string'||registrationMail.recipientSecret.length<32||
+     [env.BETTER_AUTH_SECRET,registrationMail.apiKey].includes(registrationMail.recipientSecret)||
+     await registrationMail.verifyBilling()!==true)return deny(503);
+    const i=restrictedPoolConfig(env.STARFLOW_REGISTRATION_DB_URL,'sf_registration_connect',env.STARFLOW_PREVIEW_DB_HOST);
+    const m=restrictedPoolConfig(env.STARFLOW_MAIL_DB_URL,'sf_mail_budget_connect',env.STARFLOW_PREVIEW_DB_HOST);
+    if(new Set([a.password,b.password,i.password,m.password]).size!==4)return deny(503);
+    issuerPool=new Pool(i);mailPool=new Pool(m);
+    const failures=await Promise.all([roleFailure(authPool,'sf_auth_runtime',authPrivilegeSql,'auth',attestationDatabase),
+     roleFailure(issuerPool,'sf_registration_connect',issuerPrivilegeSql,'issuer',attestationDatabase),
+     roleFailure(mailPool,'sf_mail_budget_connect',mailPrivilegeSql,'mail',attestationDatabase)]);
+    if(failures.some(Boolean))return deny(503);
+    const admissions=createRegistrationAdmission(issuerPool);
+    const mail=createFreshRegistrationMail({...registrationMail,enabled:true,pool:mailPool,origin,allowRecipient:admissions.allowRecipient});
+    // Exactly this request was already authorized above; the signup handler
+    // independently validates its route and removes Access/owner credentials.
+    return await createFreshSignupHandler({enabled:true,database:authPool,origin,secret:env.BETTER_AUTH_SECRET,admissions,mail,authorizePreview:async candidate=>candidate===request})(request);
    }
    if(route===freshRoute){
     const failure=await roleFailure(authPool,'sf_auth_runtime',authPrivilegeSql,'auth',attestationDatabase);
@@ -259,7 +292,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   }catch{return unavailable(stage);}
   finally{
    // Worker I/O resources are request scoped; never reuse pg sockets across requests.
-   await Promise.allSettled([authPool,businessPool,freshPool].filter(Boolean).map(p=>p.end()));
+   await Promise.allSettled([authPool,businessPool,freshPool,issuerPool,mailPool].filter(Boolean).map(p=>p.end()));
   }
  };
 }
