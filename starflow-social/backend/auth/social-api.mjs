@@ -8,7 +8,7 @@ const routes=new Set([
  'POST /api/v2/profile','GET /api/v2/posts','POST /api/v2/posts','POST /api/v2/posts/edit',
  'POST /api/v2/posts/like','POST /api/v2/posts/bookmark','POST /api/v2/follows/request',
  'POST /api/v2/follows/accept','POST /api/v2/follows/remove',
- 'GET /api/v2/comments','POST /api/v2/comments','POST /api/v2/comments/edit'
+ 'GET /api/v2/comments','POST /api/v2/comments','POST /api/v2/comments/edit','POST /api/v2/comments/withdraw'
 ]);
 export const isSocialRoute=route=>routes.has(route);
 export function validateSocialInput(route,input,url){
@@ -24,7 +24,8 @@ export function validateSocialInput(route,input,url){
  switch(route){
  case 'POST /api/v2/profile':return exact(input,[],['displayName','bio'])&&Object.keys(input).length>0&&(!Object.hasOwn(input,'displayName')||text(input.displayName,60))&&(!Object.hasOwn(input,'bio')||typeof input.bio==='string'&&[...input.bio].length<=160&&!input.bio.includes('\u0000'));
  case 'POST /api/v2/posts':return exact(input,['content'],['visibility'])&&text(input.content,280)&&(!Object.hasOwn(input,'visibility')||visibility(input.visibility));
- case 'POST /api/v2/comments':return exact(input,['post','content'])&&uuid(input.post)&&text(input.content,280);
+ case 'POST /api/v2/comments':return exact(input,['post','content'],['replyTo'])&&uuid(input.post)&&text(input.content,280)&&(!Object.hasOwn(input,'replyTo')||uuid(input.replyTo));
+ case 'POST /api/v2/comments/withdraw':return exact(input,['id'])&&uuid(input.id);
  case 'POST /api/v2/comments/edit':return exact(input,['id','content'])&&uuid(input.id)&&text(input.content,280);
  case 'POST /api/v2/posts/edit':return exact(input,['id','content','visibility'])&&uuid(input.id)&&text(input.content,280)&&visibility(input.visibility);
  case 'POST /api/v2/posts/like':case 'POST /api/v2/posts/bookmark':return exact(input,['id','enabled'])&&uuid(input.id)&&typeof input.enabled==='boolean';
@@ -51,18 +52,25 @@ export async function runSocialRoute({route,input,url,client,id}){
  case 'GET /api/v2/comments':{
   const post=url.searchParams.get('post'),before=url.searchParams.get('before');
   if(!(await q('SELECT id FROM sf_core.posts WHERE id=$1',[post])).rowCount)return missing;
-  const r=await q('SELECT c.id,c.post_id,c.author_id,c.content,c.created_at FROM sf_core.post_comments c WHERE c.post_id=$1 AND ($2::uuid IS NULL OR (c.created_at,c.id)<(SELECT created_at,id FROM sf_core.post_comments WHERE id=$2 AND post_id=$1)) ORDER BY c.created_at DESC,c.id DESC LIMIT 51',[post,before]);
+  const r=await q('SELECT c.id,c.post_id,c.author_id,c.content,c.created_at,c.withdrawn_at,CASE WHEN EXISTS(SELECT 1 FROM sf_core.post_comments r WHERE r.id=c.reply_to AND r.post_id=c.post_id) THEN c.reply_to ELSE NULL END AS reply_to FROM sf_core.post_comments c WHERE c.post_id=$1 AND ($2::uuid IS NULL OR (c.created_at,c.id)<(SELECT created_at,id FROM sf_core.post_comments WHERE id=$2 AND post_id=$1)) ORDER BY c.created_at DESC,c.id DESC LIMIT 51',[post,before]);
   const comments=r.rows.slice(0,50);
   return {result:{principal:id,post,comments,next:r.rows.length>50?comments.at(-1).id:null,hasMore:r.rows.length>50}};
  }
  case 'POST /api/v2/comments':{
   if(!(await q('SELECT id FROM sf_core.posts WHERE id=$1',[input.post])).rowCount)return missing;
-  const r=await q('INSERT INTO sf_core.post_comments(post_id,author_id,content) VALUES($1,$2,$3) RETURNING id,post_id,author_id,content,created_at',[input.post,id,input.content]);
+  if(input.replyTo&&!(await q('SELECT id FROM sf_core.post_comments WHERE id=$1 AND post_id=$2 AND reply_to IS NULL AND withdrawn_at IS NULL',[input.replyTo,input.post])).rowCount)return missing;
+  const r=await q('INSERT INTO sf_core.post_comments(post_id,author_id,content,reply_to) VALUES($1,$2,$3,$4) RETURNING id,post_id,author_id,content,created_at,reply_to,withdrawn_at',[input.post,id,input.content,input.replyTo??null]);
   return {result:{comment:r.rows[0]},status:201};
  }
  case 'POST /api/v2/comments/edit':{
-  const r=await q('UPDATE sf_core.post_comments SET content=$2 WHERE id=$1 AND author_id=$3 RETURNING id,post_id,author_id,content,created_at',[input.id,input.content,id]);
+  const r=await q('UPDATE sf_core.post_comments SET content=$2 WHERE id=$1 AND author_id=$3 AND withdrawn_at IS NULL RETURNING id,post_id,author_id,content,created_at,withdrawn_at',[input.id,input.content,id]);
   return r.rowCount?{result:{comment:r.rows[0]}}:missing;
+ }
+ case 'POST /api/v2/comments/withdraw':{
+  const r=await q('UPDATE sf_core.post_comments SET withdrawn_at=clock_timestamp() WHERE id=$1 AND author_id=$2 AND withdrawn_at IS NULL RETURNING id,withdrawn_at',[input.id,id]);
+  if(r.rowCount)return {result:{id:r.rows[0].id,withdrawn:true}};
+  const old=await q('SELECT id FROM sf_core.post_comments WHERE id=$1 AND author_id=$2 AND withdrawn_at IS NOT NULL',[input.id,id]);
+  return old.rowCount?{result:{id:old.rows[0].id,withdrawn:true}}:missing;
  }
  case 'POST /api/v2/posts/edit':{
   const r=await q('UPDATE sf_core.posts SET content=$2,visibility=$3 WHERE id=$1 AND author_id=$4 RETURNING id,author_id,content,visibility,created_at',[input.id,input.content,input.visibility,id]);
