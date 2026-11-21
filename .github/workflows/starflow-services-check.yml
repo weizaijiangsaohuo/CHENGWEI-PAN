@@ -60,6 +60,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/009_notifications_queue.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/015_identity_evidence_vault.sql
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/015_identity_evidence_vault.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/016_identity_evidence_lifecycle.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/016_identity_evidence_lifecycle.sql
       - run: node --test starflow-social/backend/services/realtime-policy.test.mjs
       - run: node --test starflow-social/backend/services/realtime-registry.test.mjs
       - run: |
