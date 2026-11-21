@@ -30,10 +30,10 @@ BEGIN
  THEN RAISE EXCEPTION 'ineligible signup'; END IF;
  IF NOT sf_core.issue_registration_admission(sid,'fresh025@example.invalid')
  THEN RAISE EXCEPTION 'admission issuance failed'; END IF;
-END $;
+END $$;
 -- The SQL STABLE mail gate uses statement_timestamp(). Issue and check must
 -- be separate top-level statements, just like the runtime's separate transactions.
-DO $
+DO $$
 DECLARE sid uuid:='00000000-0000-4000-8000-000000002501';
 BEGIN
  IF NOT sf_core.registration_mail_allowed(sid,'fresh025@example.invalid')
