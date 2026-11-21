@@ -10,3 +10,11 @@ test('only existing HTTP status is shown on the exact staging GET; no private fi
   const r=Response.json({fixture:true},{status});assert.equal(readinessResponse(new Request(u,{method}),r),r);
  }
 });
+
+test('only allowlisted post-authorization failure stage is serialized',async()=>{
+ const target='https://feature-neon-backend-foundation-20261120-weizai.weizai.workers.dev/api/v2/readiness';
+ for(const [status,stage,expected] of [[503,'business_missing',true],[503,'secret fixture',false],[403,'business_missing',false]]){
+  const r=readinessResponse(new Request(target),Response.json({secret:'never'},{status,headers:{'X-Starflow-Readiness-Stage':stage}}));
+  const body=await r.json();assert.equal(body.stage,expected?stage:undefined);assert.equal(body.secret,undefined);assert.equal(r.headers.get('X-Starflow-Readiness-Stage'),null);
+ }
+});

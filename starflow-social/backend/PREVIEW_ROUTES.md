@@ -12,3 +12,6 @@ Pin only non-secret staging origin, host and disabled flags in the Wrangler prev
 
 ## Mobile read-only connectivity troubleshooting
 The exact named staging readiness GET mirrors its existing error HTTP status into the JSON body so clients that hide response codes can distinguish 404 (route/context or preview configuration guard), 403 (access or origin rejected), and 503 (runtime configuration or restricted DB attestation unavailable). The response exposes no new diagnostic detail beyond the existing HTTP status, no secrets, and no exception text. Other routes, production and successful readiness are unchanged. No bypass of the owner gate or disabled-service switch.
+
+### Authorized readiness diagnostics
+After the existing owner authorization only, the staging readiness response adds a fixed stage label for missing/invalid runtime bindings, independent-password check, credential/connection errors, role and privilege checks. Never return driver exceptions, credentials or SQL data. Both pool checks remain required and failure remains 503; production and the disabled service gate are unchanged. Database metadata checks do not prove that the Worker has the right secret or successful TLS connectivity.

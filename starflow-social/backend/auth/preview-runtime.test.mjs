@@ -104,3 +104,18 @@ test('owner-only readiness works with business explicitly disabled, never on pro
  const ready=await make(off)(req('/api/v2/readiness'));assert.equal(ready.status,200);assert.deepEqual(await ready.json(),{ready:true});
  assert.equal(pools.length,2);assert.ok(pools.every(p=>p.closed));assert.equal(authCalls,0);
 });
+
+test('readiness failure classification is fixed, owner-gated and preserves disabled service',async()=>{
+ const off={...env,STARFLOW_V2_ENABLED:'false'};
+ class Pool{constructor(cfg){this.cfg=cfg;}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){}}
+ const run=(cfg,PoolClass=Pool,allowed=true)=>createPreviewHandler({env:cfg,authorizePreview:async()=>allowed,Pool:PoolClass})(req('/api/v2/readiness'));
+ const check=async(p,stage)=>{const r=await p;assert.equal(r.status,503);assert.equal(r.headers.get('X-Starflow-Readiness-Stage'),stage);assert.deepEqual(await r.json(),{error:'unavailable'});};
+ await check(run({...off,STARFLOW_BUSINESS_DB_URL:undefined}),'business_missing');
+ await check(run({...off,STARFLOW_AUTH_DB_URL:undefined}),'auth_missing');
+ await check(run({...off,STARFLOW_BUSINESS_DB_URL:'bad'}),'business_config');
+ class BadPassword extends Pool{async query(sql){if(this.cfg.user==='sf_business_connect')throw Object.assign(Error('private password fixture'),{code:'28P01'});return super.query(sql);}}
+ await check(run(off,BadPassword),'business_credentials');
+ class BadRole extends Pool{async query(sql){if(this.cfg.user==='sf_auth_runtime')return {rows:[]};return super.query(sql);}}
+ await check(run(off,BadRole),'auth_role');
+ const denied=await run({...off,STARFLOW_BUSINESS_DB_URL:undefined},Pool,false);assert.equal(denied.status,403);assert.equal(denied.headers.get('X-Starflow-Readiness-Stage'),null);
+});

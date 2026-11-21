@@ -78,15 +78,18 @@ const businessPrivilegeSql = `
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind='r'
  AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
-export async function verifyPreviewDatabaseRoles(authPool,businessPool,database='neondb'){
- const probes=[[authPool,'sf_auth_runtime',authPrivilegeSql],[businessPool,'sf_business_connect',businessPrivilegeSql]];
- const results=await Promise.allSettled(probes.map(async([pool,role,sql])=>{
-  const {rows}=await pool.query(roleIdentitySql);
-  if(rows.length!==1||rows[0].role!==role||rows[0].login!==role||rows[0].db!==database||rows[0].restricted!==true)return false;
-  const grants=await pool.query(sql);
-  return grants.rows.length===1&&grants.rows[0].safe===true;
+async function readinessFailures(authPool,businessPool,database='neondb'){
+ const probes=[[authPool,'sf_auth_runtime',authPrivilegeSql,'auth'],[businessPool,'sf_business_connect',businessPrivilegeSql,'business']];
+ return await Promise.all(probes.map(async([pool,role,sql,label])=>{
+  let rows;
+  try{({rows}=await pool.query(roleIdentitySql));}catch(e){return label+(e?.code==='28P01'||e?.code==='28000'?'_credentials':'_connection');}
+  if(rows.length!==1||rows[0].role!==role||rows[0].login!==role||rows[0].db!==database||rows[0].restricted!==true)return label+'_role';
+  try{const g=await pool.query(sql);return g.rows.length===1&&g.rows[0].safe===true?null:label+'_permissions';}
+  catch{return label+'_query';}
  }));
- return results.every(result=>result.status==='fulfilled'&&result.value===true);
+}
+export async function verifyPreviewDatabaseRoles(authPool,businessPool,database='neondb'){
+ return (await readinessFailures(authPool,businessPool,database)).every(x=>x===null);
 }
 
 export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab}){
@@ -125,15 +128,25 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
    }catch{return deny(400);}
   }
   let authPool,businessPool;
+  // Only reached after the existing owner authorization. Fixed labels, never exception text.
+  const unavailable=stage=>route===readinessRoute?Response.json({error:'unavailable'},{status:503,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Starflow-Readiness-Stage':stage}}):deny(503);
+  let stage='signing_config';
   try{
-   if(typeof env.BETTER_AUTH_SECRET!=='string'||env.BETTER_AUTH_SECRET.length<32)return deny(503);
+   if(typeof env.BETTER_AUTH_SECRET!=='string'||env.BETTER_AUTH_SECRET.length<32)return unavailable(stage);
+   stage=env.STARFLOW_AUTH_DB_URL===undefined?'auth_missing':'auth_config';
    const a=restrictedPoolConfig(env.STARFLOW_AUTH_DB_URL,'sf_auth_runtime',env.STARFLOW_PREVIEW_DB_HOST);
+   stage=env.STARFLOW_BUSINESS_DB_URL===undefined?'business_missing':'business_config';
    const b=restrictedPoolConfig(env.STARFLOW_BUSINESS_DB_URL,'sf_business_connect',env.STARFLOW_PREVIEW_DB_HOST);
-   if(a.password===b.password)return deny(503);
+   if(a.password===b.password)return unavailable('credential_separation');
+   stage='auth_connection';
    authPool=new Pool(a);
    if(route===readinessRoute){
+    stage='business_connection';
     businessPool=new Pool(b);
-    if(!await verifyPreviewDatabaseRoles(authPool,businessPool))return deny(503);
+    stage='runtime';
+    const failures=await readinessFailures(authPool,businessPool);
+    const failed=failures.find(Boolean);
+    if(failed)return unavailable(failed);
     return Response.json({ready:true},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
    }
    const auth=authFactory({database:authPool,origin,secret:env.BETTER_AUTH_SECRET});
@@ -145,7 +158,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
    }
    const headers=new Headers(response.headers);headers.set('Cache-Control','private, no-store');
    return new Response(response.body,{status:response.status,headers});
-  }catch{return deny(503);}
+  }catch{return unavailable(stage);}
   finally{
    // Worker I/O resources are request scoped; never reuse pg sockets across requests.
    await Promise.allSettled([authPool,businessPool].filter(Boolean).map(p=>p.end()));
