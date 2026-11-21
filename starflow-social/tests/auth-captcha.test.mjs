@@ -176,3 +176,27 @@ test('login UI shows exact failure code and retry while still requiring a valid 
  assert.match(source,/onClick=\{\(\)=>\{setError\(''\);resetCaptcha\(\);\}\}/);
  assert.match(source,/siteKey&&!captchaToken/);
 });
+
+
+test('signup confirmation pending prevents another signup even with a fresh CAPTCHA', async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('initial-test-token');
+  const pending=p.submit();
+  p.finish({data:{session:null},error:null});await pending;
+  p.challenge().props.onToken('fresh-test-token');
+  assert.equal(find(p.render(),n=>n.props.className?.includes('auth-submit')).props.disabled,true);
+  await p.submit();
+  assert.equal(p.calls.length,1);
+  p.switchMode('signIn');p.switchMode('signUp');
+  p.challenge().props.onToken('another-test-token');
+  await p.submit();
+  assert.equal(p.calls.length,1);
+});
+
+test('failed signup has a same-email retry cooldown even with a fresh CAPTCHA', async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('initial-test-token');
+  const pending=p.submit();
+  p.finish({data:{session:null},error:new Error('Mock mail delivery failed')});await pending;
+  p.challenge().props.onToken('fresh-test-token');
+  await p.submit();
+  assert.equal(p.calls.length,1);
+});
