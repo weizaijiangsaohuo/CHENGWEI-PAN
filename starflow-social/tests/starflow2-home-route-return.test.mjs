@@ -19,3 +19,13 @@ test('home still revalidates authenticated state and preserves public unauthenti
  assert.match(social,/const VERIFIED_ROUTE_USER_TTL = 90_000/);
  assert.match(social,/if\(event==='SIGNED_OUT'\)/);
 });
+
+
+test('stale initial session lookups cannot replace newer authentication events',()=>{
+ assert.match(home,/if\(active&&!sessionChanged\)setScreen/);
+ assert.match(home,/if\(event==='SIGNED_IN'&&session\?\.user\)sessionChanged=true/);
+ assert.match(home,/if\(event==='SIGNED_OUT'\)\{\s*sessionChanged=true/);
+ assert.match(social,/if\(!active\|\|signedOut\|\|sessionChanged\)return;/);
+ assert.match(social,/signedOut=false;sessionChanged=true/);
+ assert.match(social,/signedOut=true;sessionChanged=true;rememberVerifiedRouteUser\(null\)/);
+});
