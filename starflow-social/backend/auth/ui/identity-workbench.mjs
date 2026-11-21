@@ -32,8 +32,9 @@ export function createCasePageLoader({requestProof,request=fetch,onChange}){
    if(!uuid(proof))throw Error('proof');
    const response=await request('/api/v2/admin/identity/cases',{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
     headers:{'content-type':'application/json'},body:JSON.stringify({proof,subject,before}),signal:controller.signal});
-   if(!response.ok)throw Error('denied');
+   if(!response.ok||response.redirected)throw Error('denied');
    const result=validateIdentityPage(await response.json(),subject);
+   if(before!==null&&(result.next===before||result.cases.some(row=>row.attemptId===before)))throw Error('repeated cursor');
    if(current!==generation)return;
    abort=null;onChange({status:'ready',...result});
   }catch{if(current===generation)clear('unavailable');}

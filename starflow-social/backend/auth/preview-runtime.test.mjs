@@ -119,3 +119,13 @@ test('readiness failure classification is fixed, owner-gated and preserves disab
  await check(run(off,BadRole),'auth_role');
  const denied=await run({...off,STARFLOW_BUSINESS_DB_URL:undefined},Pool,false);assert.equal(denied.status,403);assert.equal(denied.headers.get('X-Starflow-Readiness-Stage'),null);
 });
+
+test('preview authentication rejects extra fields, invalid factors and reset bypass before database access',async()=>{
+ let pools=0;class Pool{constructor(){pools++;throw Error('unexpected database');}}
+ const h=createPreviewHandler({env,authorizePreview:async()=>true,Pool});
+ const call=(path,data)=>h(req('/api/identity/auth/'+path,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(data)}));
+ for(const data of [{code:'123456',trustDevice:'true'},{code:123456},{code:'12345'},{code:'123456',userId:'fixture'},{code:'123456',rememberMe:true}])assert.equal((await call('two-factor/verify-totp',data)).status,400);
+ for(const data of [{email:'fixture@example.invalid',password:'fixture',callbackURL:'https://other.invalid'},{email:'fixture@example.invalid',password:'fixture',rememberMe:1},{email:'fixture@example.invalid',password:'fixture',rememberMe:true},{email:['fixture@example.invalid'],password:'fixture'}])assert.equal((await call('sign-in/email',data)).status,400);
+ for(const path of ['request-password-reset','reset-password','two-factor/disable','two-factor/verify-backup-code','passkey/verify-authentication'])assert.equal((await call(path,{})).status,404);
+ assert.equal(pools,0);
+});

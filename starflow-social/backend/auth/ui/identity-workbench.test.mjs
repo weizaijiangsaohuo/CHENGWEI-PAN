@@ -23,3 +23,14 @@ test('in-flight results cannot reappear after clear or next filter',async()=>{
  resolve(Response.json({cases:[row],next:null}));await load;
  assert.equal(changes.at(-1).status,'idle');assert.deepEqual(changes.at(-1).cases,[]);
 });
+
+test('redirected responses and repeated cursor rows never display identity metadata',async()=>{
+ for(const redirected of [true,false]){
+  const changes=[];
+  const response=Response.json({cases:[row],next:null});
+  if(redirected)Object.defineProperty(response,'redirected',{value:true});
+  const loader=createCasePageLoader({requestProof:async()=>id(9),request:async()=>response,onChange:v=>changes.push(v)});
+  await loader.load(id(2),redirected?null:row.attemptId);
+  assert.equal(changes.at(-1).status,'unavailable');assert.deepEqual(changes.at(-1).cases,[]);
+ }
+});

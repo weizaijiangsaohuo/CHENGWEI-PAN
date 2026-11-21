@@ -4,6 +4,9 @@ import { pathToFileURL } from 'node:url';
 const mandatory=['auth.users','public.profiles','public.posts','public.follows','public.likes','public.bookmarks','storage.objects','storage.buckets'];
 // This allowlist means "known mapping needs implementation", NOT "safe to copy".
 const planned=new Set(['auth.users','public.profiles','public.posts','public.follows','public.likes','public.bookmarks','public.dm_conversations','public.dm_messages','public.dm_read_state','public.blocks','public.notifications','public.communities','public.community_members','public.community_posts','storage.objects','storage.buckets']);
+// Fresh-account launch policy: legacy account identity and authorization are not importable.
+const retired=new Set(['public.profiles','public.platform_admins','public.sf_staff_roles','public.sf_account_restrictions','public.sf_admin_activity','public.sf_user_verifications','public.user_verifications']);
+const isRetired=(schema,key)=>schema==='auth'||retired.has(key);
 const differences={
  'public.posts':['image_url','parent_id','has_poll','has_gallery'],
  'public.follows':['following_id'],
@@ -23,13 +26,13 @@ export function compareInventory(value){
   const key=row.schema_name+'.'+row.table_name;
   if(seen.has(key))throw Error('Duplicate inventory table');
   seen.add(key);
-  tables.push({table:key,count:row.row_count,mapping:planned.has(key)?'unverified':'unsupported',knownDifferences:(differences[key]??[]).filter(c=>row.columns.includes(c))});
+  tables.push({table:key,count:row.row_count,mapping:isRetired(row.schema_name,key)?'excluded_account_reset':planned.has(key)?'unverified':'unsupported',knownDifferences:(differences[key]??[]).filter(c=>row.columns.includes(c))});
  }
  const missing=mandatory.filter(k=>!seen.has(k));
  const unsupported=tables.filter(t=>t.mapping==='unsupported'&&t.count!=='0').map(t=>t.table);
  // Inventory alone cannot verify completeness, actual target contents, identity recovery or rollback.
- return {inventoryComplete:missing.length===0,missing,unsupportedNonempty:unsupported,tables,readyForCutover:false,
-  blockers:['source backup completeness not independently verified','row-level mapping and target reconciliation pending','identity recovery, media transfer and rollback not verified']};
+ return {inventoryComplete:missing.length===0,missing,unsupportedNonempty:unsupported,accountResetExcluded:tables.filter(t=>t.mapping==='excluded_account_reset').map(t=>t.table),tables,readyForCutover:false,
+  blockers:['source backup completeness not independently verified','row-level mapping and target reconciliation pending','legacy account retirement, business data/media transfer and rollback not verified']};
 }
 if(process.argv[1]&&pathToFileURL(process.argv[1]).href===import.meta.url){
  try{

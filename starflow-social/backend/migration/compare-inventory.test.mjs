@@ -19,3 +19,11 @@ test('missing tables, malformed counts, and duplicate rows fail closed',()=>{
   assert.throws(()=>compareInventory({version:1,tables}));
  }
 });
+
+test('fresh launch excludes legacy auth, profiles and admin grants, without deleting or importing anything',()=>{
+ const r=compareInventory({version:1,tables:[...base(),row('auth','sessions','12'),row('auth','mfa_factors','2'),row('public','platform_admins','1'),row('public','sf_staff_roles','3')]});
+ for(const name of ['auth.users','auth.sessions','auth.mfa_factors','public.profiles','public.platform_admins','public.sf_staff_roles']){
+  assert.ok(r.accountResetExcluded.includes(name));assert.equal(r.tables.find(t=>t.table===name).mapping,'excluded_account_reset');
+ }
+ assert.equal(r.tables.find(t=>t.table==='public.posts').mapping,'unverified');assert.equal(r.readyForCutover,false);
+});

@@ -12,6 +12,19 @@ const authPaths=new Set([
  'POST /api/identity/auth/sign-out',
  'POST /api/identity/auth/two-factor/verify-totp'
 ]);
+// The guarded API accepts only the fields needed for the supported ceremonies.
+function validAuthInput(route,data){
+ if(!data||Array.isArray(data)||typeof data!=='object')return false;
+ if(route==='POST /api/identity/auth/two-factor/verify-totp'){
+  return Object.keys(data).every(k=>['code','trustDevice'].includes(k))&&
+   typeof data.code==='string'&&/^\d{6}$/.test(data.code)&&(!Object.hasOwn(data,'trustDevice')||data.trustDevice===false);
+ }
+ const field=route.endsWith('/email')?'email':'username';
+ return Object.keys(data).every(k=>[field,'password','rememberMe'].includes(k))&&
+  typeof data[field]==='string'&&data[field].length>0&&data[field].length<=(field==='email'?254:24)&&
+  typeof data.password==='string'&&data.password.length>0&&data.password.length<=512&&
+  (!Object.hasOwn(data,'rememberMe')||data.rememberMe===false);
+}
 const readinessRoute='GET /api/v2/readiness';
 const businessPaths=new Set([
  'GET /api/v2/me','GET /api/v2/messages','GET /api/v2/notifications',
@@ -123,8 +136,8 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     if(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json'||!request.body)return deny(400);
     const reader=request.clone().body.getReader();const chunks=[];let n=0;
     try{while(true){const {done,value}=await reader.read();if(done)break;n+=value.byteLength;if(n>4096){void reader.cancel();return deny(400);}chunks.push(value);}}finally{reader.releaseLock();}
-    const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    if(!data||Array.isArray(data)||typeof data!=='object'||data.trustDevice===true||data.rememberMe===true)return deny(400);
+    const data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
+    if(!validAuthInput(route,data))return deny(400);
    }catch{return deny(400);}
   }
   let authPool,businessPool;
