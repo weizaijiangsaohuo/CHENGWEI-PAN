@@ -9,3 +9,6 @@ Separate NOLOGIN issuer can execute only two narrowly scoped functions: issue on
 
 ## Registration mail retry safeguard
 The fresh-registration mail adapter rechecks the exact active admission after a committed mail budget and immediately before transport. If it expired, was consumed or became ineligible, it denies the send and retains the reserved attempt. Provider timeouts are not automatically retried or refunded. A later trusted verification callback uses a new event ID and the same recipient-based budget, with independent free billing verification. This does not enable a public resend route or extend expired admissions; live retry/restart remains gated.
+
+## Integrated registration mail rehearsal
+The disposable real-session CI now uses the actual fresh-registration mail callback, restricted admission issuer and a separate restricted mail budget login in the same signup/verification/provisioning flow. The provider account response and transport are synthetic; the committed recipient budget and fixed verification link are checked before the fixture records delivery. No live provider or public registration is enabled. Actual billing verification, secret provisioning, mail delivery and expired admission handling remain required.

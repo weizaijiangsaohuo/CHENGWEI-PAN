@@ -9,13 +9,14 @@ import {createPreviewHandler,verifyPreviewDatabaseRoles} from './preview-runtime
 import {createBusinessHandler} from './business-api.mjs';
 import {provisionFreshAccount} from './fresh-account.mjs';
 import {createRegistrationAdmission} from './registration-admission.mjs';
+import {createFreshRegistrationMail} from './auth-mail.mjs';
 import {authorizeUpgrade,syncHint} from '../services/realtime-policy.mjs';
 const origin='https://integration-weizai.example.workers.dev';
 const secret='synthetic-real-session-test-only-not-a-production-secret';
 test('real Better Auth session -> restricted business SQL -> realtime policy; logout invalidates access',async()=>{
  const db={host:'127.0.0.1',port:5432,database:'starflow_auth_test',max:1};
  const owner=new pg.Pool({...db,user:'postgres',password:'ephemeral-ci-only'});
- let pool,authPool,freshPool,issuerPool,fixtureRolesEnabled=false;
+ let pool,authPool,freshPool,issuerPool,mailPool,fixtureRolesEnabled=false;
  let a,b;
  const pending=new Map();
  try{
@@ -70,9 +71,31 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   issuerPool=new pg.Pool({...db,user:'sf_registration_ci_fixture',password:'synthetic-local-admission-ci-only'});
   const admissions=createRegistrationAdmission(issuerPool);
   await assert.rejects(issuerPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
+  // Exercise the real fresh-registration mail composition with a separate budget login.
+  // Only the provider responses are synthetic; no network or paid calls.
+  await owner.query("CREATE ROLE sf_registration_mail_fixture LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-mail-fixture-only'");
+  await owner.query('GRANT sf_mail_budget_gateway TO sf_registration_mail_fixture WITH SET TRUE, INHERIT FALSE');
+  mailPool=new pg.Pool({...db,user:'sf_registration_mail_fixture',password:'synthetic-mail-fixture-only'});
+  await assert.rejects(mailPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
+  const deliveries=[];
+  const mail=createFreshRegistrationMail({enabled:true,pool:mailPool,origin,apiKey:'synthetic',sender:'security@example.invalid',recipientSecret:'independent-registration-mail-synthetic-secret',
+   allowRecipient:admissions.allowRecipient,verifyBilling:async()=>true,transport:async(url,options)=>{
+    if(url==='https://api.brevo.com/v3/account'){
+     assert.equal(options.method,'GET');
+     return Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'free',creditsType:'sendLimit',credits:100}]});
+    }
+    assert.equal(url,'https://api.brevo.com/v3/smtp/email');
+    const message=JSON.parse(options.body),recipient=message.to[0].email;
+    const budget=await owner.query('SELECT purpose FROM sf_core.otp_mail_attempts WHERE event_id=$1',[message.headers.IdempotencyKey]);
+    assert.equal(budget.rowCount,1);assert.equal(budget.rows[0].purpose,'verify');
+    const link=message.textContent.split('\n')[1];
+    assert.equal(new URL(link).origin,origin);assert.equal(new URL(link).pathname,'/api/identity/auth/verify-email');
+    deliveries.push(recipient);pending.set(recipient,link);
+    return Response.json({messageId:'synthetic'},{status:201});
+   }});
   const o=authOptions({database:authPool,origin,secret});
   const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
-   emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{assert.equal(await admissions.issueForNewSignup(user),true,'new signup admission');assert.equal(await admissions.allowRecipient({...user,purpose:'verify'}),true);pending.set(user.email,url);}}});
+   emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async data=>{assert.equal(await admissions.issueForNewSignup(data.user),true,'new signup admission');await mail.sendVerificationEmail(data);}}});
   // Exercise the same guarded dispatcher as the deployed Worker, using only the disposable CI service.
   const previewHost='ep-fixture.example.neon.tech';
   const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_INBOX_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
@@ -104,6 +127,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   };
   const alice=await register('integration_alice','192.0.2.31');
   const bob=await register('integration_bob','192.0.2.32');
+  assert.deepEqual(deliveries,['integration_alice@example.invalid','integration_bob@example.invalid']);
   const initialize=account=>provisionFreshAccount({auth,pool:freshPool,headers:new Headers({cookie:account.cookie})});
   assert.equal((await viaPreview('GET','/api/v2/me',alice.cookie)).status,403);
   assert.equal(await admissions.allowRecipient({id:alice.subject,email:'integration_alice@example.invalid',purpose:'verify'}),false);
@@ -181,7 +205,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal((await viaPreview('GET','/api/v2/posts',bob.cookie)).status,401);
  }finally{
   try{
-   await Promise.allSettled([pool,authPool,freshPool,issuerPool].filter(Boolean).map(p=>p.end()));
+   await Promise.allSettled([pool,authPool,freshPool,issuerPool,mailPool].filter(Boolean).map(p=>p.end()));
    if(fixtureRolesEnabled){
     await owner.query("ALTER ROLE sf_auth_runtime NOLOGIN PASSWORD NULL");
     await owner.query("ALTER ROLE sf_business_connect NOLOGIN PASSWORD NULL");
