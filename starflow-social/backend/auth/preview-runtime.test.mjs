@@ -211,3 +211,14 @@ test('registration refuses an unavailable or non-free mail plan before creating 
   assert.equal(result.status,503);assert.equal(checks,1);assert.equal(pools.length,5);assert.ok(pools.every(p=>p.closed));
  }
 });
+
+test('verified Access assertion and service credentials never reach downstream auth',async()=>{
+ let calls=0;
+ class Pool{constructor(cfg){this.cfg=cfg;}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){}}
+ const names=['x-starflow-preview-key','cf-access-jwt-assertion','cf-access-authenticated-user-email','cf-access-client-id','cf-access-client-secret'];
+ const headers=new Headers(names.map(name=>[name,'synthetic-fixture']));
+ headers.set('cookie','session_token=fixture');headers.set('origin',origin);
+ const h=createPreviewHandler({env,Pool,authorizePreview:async request=>{assert.equal(request.headers.get('cf-access-jwt-assertion'),'synthetic-fixture');return true;},
+ authFactory:()=>({handler:async request=>{calls++;for(const name of names)assert.equal(request.headers.get(name),null);assert.equal(request.headers.get('cookie'),'session_token=fixture');assert.equal(request.headers.get('origin'),origin);return Response.json({ok:true});}})});
+ assert.equal((await h(req('/api/identity/auth/get-session',{headers}))).status,200);assert.equal(calls,1);
+});

@@ -195,9 +195,12 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
   try{if(await authorizePreview(request)!==true)return deny(403);}catch{return deny(403);}
-  // The preview-specific credential must never reach authentication or business handlers.
-  if(!registration&&request.headers.has('x-starflow-preview-key')){
-   const headers=new Headers(request.headers);headers.delete('x-starflow-preview-key');
+  // Access credentials are only for this verified outer boundary, not downstream auth/business.
+  // Registration independently sanitizes its own request.
+  const accessHeaders=['x-starflow-preview-key','cf-access-jwt-assertion','cf-access-authenticated-user-email','cf-access-client-id','cf-access-client-secret'];
+  if(!registration&&accessHeaders.some(name=>request.headers.has(name))){
+   const headers=new Headers(request.headers);
+   for(const name of accessHeaders)headers.delete(name);
    request=new Request(request,{headers});
   }
   // No trusted-device bypass in this preview. Reject malformed/oversized request bodies.

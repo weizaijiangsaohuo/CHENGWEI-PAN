@@ -39,7 +39,7 @@ export function createFreshSignupHandler({enabled=false,database,origin,secret,a
      issued=true;
      if(await admissions.issueForNewSignup(data.user)===true)await mail.sendVerificationEmail(data);
     }}});
-   const headers=new Headers(request.headers);headers.delete('x-starflow-preview-key');headers.delete('cf-access-jwt-assertion');headers.delete('cf-access-authenticated-user-email');
+   const headers=new Headers(request.headers);headers.delete('x-starflow-preview-key');headers.delete('cf-access-jwt-assertion');headers.delete('cf-access-authenticated-user-email');headers.delete('cf-access-client-id');headers.delete('cf-access-client-secret');
    const response=await auth.handler(new Request(request,{headers}));
    const out=new Headers(response.headers);out.set('Cache-Control','private, no-store');out.set('Referrer-Policy','no-referrer');out.set('X-Content-Type-Options','nosniff');
    return new Response(response.body,{status:response.status,headers:out});

@@ -211,6 +211,14 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal(inbox.notifications.length,1);
   assert.equal((await call('POST','/api/v2/notifications/read',alice.cookie,{id:inbox.notifications[0].id})).status,404);
   assert.equal((await call('POST','/api/v2/notifications/read',bob.cookie,{id:inbox.notifications[0].id})).status,200);
+  // A fully signed preview and valid account session still cannot invoke password reset.
+  // Compare counts only; no credential hash or token is logged.
+  const beforeReset=(await owner.query('SELECT count(*) AS n FROM public."session" WHERE "userId"=$1',[alice.subject])).rows[0].n;
+  for(const path of ['/api/identity/auth/request-password-reset','/api/identity/auth/reset-password','/api/v2/account/recovery/reset']){
+   assert.equal((await viaPreview('POST',path,alice.cookie,{token:'synthetic',newPassword:'synthetic-password-not-real'})).status,404);
+  }
+  assert.equal((await owner.query('SELECT count(*) AS n FROM public."session" WHERE "userId"=$1',[alice.subject])).rows[0].n,beforeReset);
+  assert.equal((await (await viaPreview('GET','/api/v2/me',alice.cookie)).json()).profile.id,a);
   // Real signature verification plus real restricted database session in one request.
   // The local signing key is synthetic and never used with Cloudflare or Neon.
   const signedHandler=createPreviewHandler({env:signedEnv,authorizePreview:verifier,Pool:FixturePool,attestationDatabase:db.database});
