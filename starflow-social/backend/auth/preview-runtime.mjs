@@ -60,7 +60,12 @@ const businessPrivilegeSql = `
  AND NOT pg_has_role(current_user,'sf_profile_runtime','USAGE')
  AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER')
  AND NOT pg_has_role(current_user,'sf_auth_runtime','MEMBER')
- AND NOT has_function_privilege(current_user,'sf_core.open_review_queue(uuid,uuid,uuid,integer)','EXECUTE') AS safe
+ AND EXISTS (
+ SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace ns ON ns.oid=p.pronamespace
+ WHERE ns.nspname='sf_core' AND p.proname='open_review_queue'
+ AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, uuid, uuid, integer'
+ AND NOT has_function_privilege(current_user,p.oid,'EXECUTE')
+ ) AS safe
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind='r'
  AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
