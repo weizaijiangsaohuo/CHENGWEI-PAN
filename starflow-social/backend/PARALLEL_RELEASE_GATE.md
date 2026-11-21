@@ -14,3 +14,6 @@ Run scripts/verify-preview.mjs using Node 22 from a trusted operator environment
 
 ## Independent public preview observation in existing CI
 The existing UI workflow now runs the read-only verifier without any credentials for this feature PR. Only fixed GET targets on the existing named preview are contacted; no deploy, provider call, secrets, or new job/runner are added. The observation is non-blocking because external network/Access barriers are not local build regressions; inspect the named step outcome and fixed result code independently. Even a successful public observation does not verify owner readiness, deployed SHA, or authorize production release. Local execution on 2026-11-21 could not resolve the preview hostname; this is a local network observation, not proof of a Worker outage.
+
+### Public observation trigger correction
+Run the credential-free observation in every existing UI workflow run, rather than relying on feature-branch event context. Run 44886264915 skipped the previous explicitly conditional step; the exact evaluation context was not exposed by the available run metadata. The fixed probe remains read-only, non-blocking, and restricted to the named staging origin, including when a main-branch UI build invokes it. It must not be mistaken for deployment or authenticated readiness.

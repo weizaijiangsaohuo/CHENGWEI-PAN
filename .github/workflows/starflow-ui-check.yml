@@ -35,7 +35,6 @@ jobs:
           cache-dependency-path: starflow-social/package-lock.json
       # Independent, credential-free public probe. Never an authenticated release gate.
       - name: Observe existing online preview public guards
-        if: github.event_name == 'pull_request' && github.head_ref == 'feature-neon-backend-foundation-20261120'
         continue-on-error: true
         timeout-minutes: 2
         shell: bash
