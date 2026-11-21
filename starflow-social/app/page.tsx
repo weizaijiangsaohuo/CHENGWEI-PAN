@@ -150,7 +150,13 @@ export default function Home(){
     });
     client.auth.getUser().then(({data:{user}})=>{
       if(active)setScreen(current=>current==='auth'?current:(user?'member':'landing'));
-    }).catch(()=>{if(active)setScreen('landing')});
+    }).catch(()=>{
+  if(active){
+    setScreen(current =>
+      current === 'auth' ? current : 'landing'
+    );
+  }
+});
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
   if(screen==='checking'&&!showInitialLogo)return <main className="sf-section-loading sf-root-auth-loading" role="status"><span className="sf-section-loading-dot"/> 正在进入星流…</main>;
