@@ -16,7 +16,7 @@ test('actual Better Auth verification and password recovery callbacks through re
     const msg=JSON.parse(opts.body);assert.equal(msg.to[0].email,email);
     const id=msg.headers.IdempotencyKey;
     const q=await owner.query('SELECT purpose FROM sf_core.otp_mail_attempts WHERE event_id=$1',[id]);assert.equal(q.rowCount,1);
-    sent.push({purpose:q.rows[0].purpose,link:msg.textContent.split('\n')[1]});
+    sent.push({eventId:id,purpose:q.rows[0].purpose,link:msg.textContent.split('\n')[1]});
     return Response.json({messageId:'synthetic'},{status:201});
    }});
   const base=authOptions({database:authPool,origin,secret:'synthetic-auth-mail-ceremony-secret-2026'});
@@ -31,8 +31,8 @@ test('actual Better Auth verification and password recovery callbacks through re
   const cookie=login.headers.getSetCookie().find(v=>v.includes('session_token=')).split(';')[0];
   assert.equal((await auth.api.getSession({headers:new Headers({cookie})})).user.emailVerified,true);
   // Only age the fixture attempt in the disposable test DB; not a production quota bypass.
-  const key=(await owner.query("SELECT recipient_key FROM sf_core.otp_mail_attempts WHERE purpose='verify'")).rows[0].recipient_key;
-  await owner.query("UPDATE sf_core.otp_mail_attempts SET reserved_at=clock_timestamp()-interval '2 minutes' WHERE recipient_key=$1",[key]);
+  const aged=await owner.query("UPDATE sf_core.otp_mail_attempts SET reserved_at=clock_timestamp()-interval '2 minutes' WHERE event_id=$1 AND purpose='verify' RETURNING event_id",[sent[0].eventId]);
+  assert.equal(aged.rowCount,1);
   const request=await post('request-password-reset',{email,redirectTo:origin+'/reset-password'});assert.ok(request.ok);
   assert.equal(sent.length,2);assert.equal(sent[1].purpose,'reset');
   const link=new URL(sent[1].link);assert.equal(link.pathname,'/reset-password');
