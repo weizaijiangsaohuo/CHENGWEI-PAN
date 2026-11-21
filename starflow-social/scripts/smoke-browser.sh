@@ -42,35 +42,79 @@ if [[ "$READY" != "1" ]]; then
   exit 1
 fi
 
-# Fresh, disposable profile; DevTools binds only to loopback and an ephemeral port.
-env -u DBUS_SESSION_BUS_ADDRESS "$CHROME" --headless=new --no-sandbox --disable-gpu \
-  --disable-dev-shm-usage --disable-background-networking --no-first-run \
-  --no-default-browser-check --no-proxy-server --lang=zh-CN --window-size=390,844 \
-  --user-data-dir="$WORK/profile" --remote-debugging-address=127.0.0.1 \
-  --remote-debugging-port=0 about:blank >"$WORK/chrome.log" 2>&1 &
-CHROME_PID=$!
-
-# Node 22 supplies fetch/WebSocket; no additional browser package or paid service.
-if ! timeout --kill-after=5s 100s node --input-type=module - "$WORK/profile" "$PORT" "$CHROME_PID" <<'JS'
+# A slow runner or a transient Chrome startup failure is not a hydration failure.
+# Retry ONLY DevTools startup, using a new profile; never retry or swallow page failures.
+TARGET=""
+for attempt in 1 2; do
+  PROFILE="$WORK/profile-$attempt"
+  CHROME_LOG="$WORK/chrome-$attempt.log"
+  env -u DBUS_SESSION_BUS_ADDRESS "$CHROME" --headless=new --no-sandbox --disable-gpu \
+    --disable-dev-shm-usage --disable-background-networking --no-first-run \
+    --no-default-browser-check --no-proxy-server --lang=zh-CN --window-size=390,844 \
+    --user-data-dir="$PROFILE" --remote-debugging-address=127.0.0.1 \
+    --remote-debugging-port=0 about:blank >"$CHROME_LOG" 2>&1 &
+  CHROME_PID=$!
+  if TARGET="$(timeout --kill-after=3s 50s node --input-type=module - "$PROFILE" "$CHROME_PID" "$CHROME_LOG" <<'JS'
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
-const [profile, port, pid] = process.argv.slice(2);
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-let target;
-for (let i = 0; i < 40; i++) {
-  try { process.kill(Number(pid), 0); } catch { throw Error('Chrome exited before the DevTools session became available'); }
-  try {
-    const [debugPort] = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).trim().split('\n');
-    assert.match(debugPort, /^\d+$/);
-    const response = await fetch('http://127.0.0.1:' + debugPort + '/json/list', {signal: AbortSignal.timeout(1500)});
-    if (response.ok) target = (await response.json()).find(x => x.type === 'page' && x.webSocketDebuggerUrl);
-    if (target) break;
-  } catch {}
+const [profile,pid,log] = process.argv.slice(2);
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const deadline=Date.now()+43000;
+let last='no DevToolsActivePort file';
+while(Date.now()<deadline){
+  try {process.kill(Number(pid),0);}catch{throw Error('Chrome exited before DevTools startup');}
+  try{
+    let port;
+    try{[port]=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).trim().split('\n');}
+    catch{
+      // Chrome also prints the loopback endpoint to stderr; tolerate delayed profile writes.
+      const logs=await readFile(log,'utf8');
+      port=logs.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//)?.[1];
+    }
+    assert.match(port??'',/^\d+$/);
+    const origin='http://127.0.0.1:'+port;
+    const version=await fetch(origin+'/json/version',{signal:AbortSignal.timeout(1500)});
+    assert.ok(version.ok,'DevTools version endpoint not ready');
+    const response=await fetch(origin+'/json/list',{signal:AbortSignal.timeout(1500)});
+    assert.ok(response.ok,'DevTools target list not ready');
+    let target=(await response.json()).find(x=>x.type==='page'&&x.webSocketDebuggerUrl);
+    if(!target){
+      const created=await fetch(origin+'/json/new?about:blank',{method:'PUT',signal:AbortSignal.timeout(1500)});
+      assert.ok(created.ok,'could not create blank page target');
+      target=await created.json();
+    }
+    const endpoint=new URL(target.webSocketDebuggerUrl);
+    assert.equal(endpoint.protocol,'ws:');assert.equal(endpoint.hostname,'127.0.0.1');assert.equal(endpoint.port,port);
+    console.log(endpoint.href);
+    process.exit(0);
+  }catch(e){last=String(e.message);}
   await sleep(500);
 }
-assert.ok(target, 'Chrome DevTools did not become available');
-const endpoint = new URL(target.webSocketDebuggerUrl);
+throw Error('Chrome DevTools startup timed out: '+last);
+JS
+  )"; then
+    echo "Chrome DevTools ready (attempt $attempt)"
+    break
+  fi
+  echo "::warning::Chrome startup attempt $attempt failed."
+  tail -50 "$CHROME_LOG" >&2 || true
+  kill "$CHROME_PID" 2>/dev/null || true
+  wait "$CHROME_PID" 2>/dev/null || true
+  CHROME_PID=""
+  TARGET=""
+done
+if [[ -z "$TARGET" ]]; then
+  echo "::error::Chrome DevTools failed to start in both isolated profiles."
+  exit 1
+fi
+
+# Once the browser is ready, run the real hydration test exactly once.
+if ! timeout --kill-after=5s 100s node --input-type=module - "$TARGET" "$PORT" <<'JS'
+import assert from 'node:assert/strict';
+const [target, port] = process.argv.slice(2);
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const endpoint = new URL(target);
 assert.equal(endpoint.protocol, 'ws:');
 assert.equal(endpoint.hostname, '127.0.0.1');
 const socket = new WebSocket(endpoint);
@@ -143,7 +187,7 @@ try {
 JS
 then
   echo "::error::Starflow browser smoke test failed; see DevTools, Chrome and server diagnostics."
-  tail -50 "$WORK/chrome.log"
+  tail -50 "$CHROME_LOG"
   tail -50 "$WORK/server.log"
   exit 1
 fi
