@@ -54,7 +54,7 @@ const roleIdentitySql = `
 const privilegedMembershipSql = `
  AND NOT EXISTS (
  SELECT 1 FROM pg_roles r
- WHERE r.rolname IN ('sf_review_gateway','sf_identity_queue_gateway','sf_identity_proof_issuer','sf_didit_reconcile_gateway','sf_mail_budget_gateway','sf_account_recovery_gateway','sf_fresh_account_gateway','neon_superuser')
+ WHERE r.rolname IN ('sf_review_gateway','sf_identity_queue_gateway','sf_identity_proof_issuer','sf_didit_reconcile_gateway','sf_mail_budget_gateway','sf_account_recovery_gateway','sf_fresh_account_gateway','sf_registration_issuer','neon_superuser')
  AND pg_has_role(current_user,r.oid,'MEMBER')
  )`;
 const authPrivilegeSql = `

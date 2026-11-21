@@ -6,13 +6,14 @@ import {authOptions} from './auth.mjs';
 import {createPreviewHandler,verifyPreviewDatabaseRoles} from './preview-runtime.mjs';
 import {createBusinessHandler} from './business-api.mjs';
 import {provisionFreshAccount} from './fresh-account.mjs';
+import {createRegistrationAdmission} from './registration-admission.mjs';
 import {authorizeUpgrade,syncHint} from '../services/realtime-policy.mjs';
 const origin='https://integration-weizai.example.workers.dev';
 const secret='synthetic-real-session-test-only-not-a-production-secret';
 test('real Better Auth session -> restricted business SQL -> realtime policy; logout invalidates access',async()=>{
  const db={host:'127.0.0.1',port:5432,database:'starflow_auth_test',max:1};
  const owner=new pg.Pool({...db,user:'postgres',password:'ephemeral-ci-only'});
- let pool,authPool,freshPool,fixtureRolesEnabled=false;
+ let pool,authPool,freshPool,issuerPool,fixtureRolesEnabled=false;
  let a,b;
  const pending=new Map();
  try{
@@ -55,9 +56,14 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   await assert.rejects(freshPool.query('SELECT * FROM sf_core.staff_roles LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(pool.query('SET ROLE sf_fresh_account_gateway'),e=>e.code==='42501');
   await assert.rejects(authPool.query('SET ROLE sf_fresh_account_gateway'),e=>e.code==='42501');
+  await owner.query("CREATE ROLE sf_registration_ci_fixture LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-admission-ci-only'");
+  await owner.query('GRANT sf_registration_issuer TO sf_registration_ci_fixture WITH SET TRUE, INHERIT FALSE');
+  issuerPool=new pg.Pool({...db,user:'sf_registration_ci_fixture',password:'synthetic-local-admission-ci-only'});
+  const admissions=createRegistrationAdmission(issuerPool);
+  await assert.rejects(issuerPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
   const o=authOptions({database:authPool,origin,secret});
   const auth=betterAuth({...o,emailAndPassword:{...o.emailAndPassword,disableSignUp:false},
-   emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{pending.set(user.email,url);}}});
+   emailVerification:{...o.emailVerification,sendOnSignUp:true,sendVerificationEmail:async({user,url})=>{assert.equal(await admissions.issueForNewSignup(user),true,'new signup admission');assert.equal(await admissions.allowRecipient({...user,purpose:'verify'}),true);pending.set(user.email,url);}}});
   // Exercise the same guarded dispatcher as the deployed Worker, using only the disposable CI service.
   const previewHost='ep-fixture.example.neon.tech';
   const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
@@ -91,9 +97,8 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   const bob=await register('integration_bob','192.0.2.32');
   const initialize=account=>provisionFreshAccount({auth,pool:freshPool,headers:new Headers({cookie:account.cookie})});
   assert.equal((await viaPreview('GET','/api/v2/me',alice.cookie)).status,403);
-  assert.equal((await initialize(alice)).status,'not_permitted');
-  // Synthetic admission fixture; not a real registration issuer or production path.
-  await owner.query("INSERT INTO sf_core.fresh_registration_admissions(auth_subject,expires_at) VALUES($1,clock_timestamp()+interval '10 minutes'),($2,clock_timestamp()+interval '10 minutes')",[alice.subject,bob.subject]);
+  assert.equal(await admissions.allowRecipient({id:alice.subject,email:'integration_alice@example.invalid',purpose:'verify'}),false);
+  // Admissions were committed by the separate issuer during the synthetic new-signup callback.
   const ar=await initialize(alice),br=await initialize(bob);
   assert.equal(ar.status,'created');assert.equal(br.status,'created');
   a=ar.principal;b=br.principal;
@@ -144,7 +149,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal((await viaPreview('GET','/api/v2/posts',bob.cookie)).status,401);
  }finally{
   try{
-   await Promise.allSettled([pool,authPool,freshPool].filter(Boolean).map(p=>p.end()));
+   await Promise.allSettled([pool,authPool,freshPool,issuerPool].filter(Boolean).map(p=>p.end()));
    if(fixtureRolesEnabled){
     await owner.query("ALTER ROLE sf_auth_runtime NOLOGIN PASSWORD NULL");
     await owner.query("ALTER ROLE sf_business_connect NOLOGIN PASSWORD NULL");
