@@ -63,13 +63,16 @@ export function AuthPortal(){
   const [captchaFailureCode,setCaptchaFailureCode]=useState('');
   const captchaTokenRef=useRef('');
   const submitting=useRef(false);
+  const lastSignupAttempt=useRef<{email:string;until:number}|null>(null);
+  const pendingSignupRef=useRef('');
+  const pendingSignup=mode==='signup'&&!!pendingEmail&&email.trim().toLowerCase()===pendingEmail.toLowerCase();
   function updateCaptcha(token:string){
     captchaTokenRef.current=token;setCaptchaToken(token);
     if(token){setCaptchaFailureCode('');setError(previous=>previous===t('captchaFailure')?'':previous);}
   }
   const [captchaGeneration,setCaptchaGeneration]=useState(0);
   function resetCaptcha(){updateCaptcha('');setCaptchaFailureCode('');setCaptchaGeneration(value=>value+1);}
-  function change(next:'signup'|'login'|'forgot'){if(submitting.current)return;setMode(next);setError('');setSuccess('');setPendingEmail('');setResendAvailableAt(0);resetCaptcha();}
+  function change(next:'signup'|'login'|'forgot'){if(submitting.current)return;setMode(next);setError('');setSuccess('');resetCaptcha();}
   async function submit(e:FormEvent){
     e.preventDefault();if(submitting.current)return;setError('');setSuccess('');
     if(!configured){setError(t('noKeys'));return;}
@@ -83,12 +86,22 @@ export function AuthPortal(){
     try {
       const supabase=db();
       if(mode==='signup'){
+        const normalizedEmail=email.trim().toLowerCase();
+        if(pendingSignupRef.current===normalizedEmail){
+          setError(isEnglishLocale(lang)?'A confirmation request is already pending. Use resend or sign in.':'已提交注册，请重新发送验证邮件或登录，不要重复创建账号。');return;
+        }
+        const previous=lastSignupAttempt.current;
+        if(previous?.email===normalizedEmail&&Date.now()<previous.until){
+          setError(isEnglishLocale(lang)?'Please wait at least 60 seconds before retrying registration.':'请至少等待60秒后再尝试注册。');return;
+        }
+        lastSignupAttempt.current={email:normalizedEmail,until:Date.now()+60_000};
         const {data,error}=await supabase.auth.signUp({email:email.trim(),password,
           options:{captchaToken:requestCaptchaToken,data:{display_name:display.trim(),handle:handle.trim().toLowerCase()},emailRedirectTo:`${location.origin}/auth/confirm`}});
         if(error)throw error;
         setSuccess(data.session?t('signupDone'):t('signupConfirm'));
         if(data.session)location.assign('/');
         else {
+          pendingSignupRef.current=normalizedEmail;
           setPendingEmail(email.trim());
           setResendAvailableAt(Date.now()+60_000);
         }
@@ -123,7 +136,7 @@ export function AuthPortal(){
     finally{submitting.current=false;setBusy(false);resetCaptcha();}
   }
   async function resendSignupEmail(){
-    if(submitting.current||busy||!pendingEmail||Date.now()<resendAvailableAt||!configured)return;
+    if(submitting.current||busy||!pendingSignup||email.trim().toLowerCase()!==pendingSignupRef.current||Date.now()<resendAvailableAt||!configured)return;
     if(siteKey&&!captchaTokenRef.current){setError(t('captchaRequired'));return;}
     submitting.current=true;setBusy(true);setError('');
     try{
@@ -189,9 +202,9 @@ export function AuthPortal(){
             <button type="button" onClick={()=>{setError('');resetCaptcha();}} style={{display:'block',marginTop:8,padding:'8px 12px',borderRadius:11,border:'1px solid #dfbde8',background:'white',color:'#7d43a1',fontWeight:750}}>{(turnstileHelp[lang]??turnstileHelp.en).retry}</button>
           </div>}
           {error&&<div className="form-error" role="alert">{error}</div>}{success&&<div className="form-success" role="status"><Check size={16}/>{success}</div>}
-          <button className="btn btn-primary auth-submit" disabled={busy||!configured||Boolean(siteKey&&!captchaToken)}>{busy?t('processing'):t(mode==='signup'?'create':mode==='login'?'loginButton':'sendReset')}<ArrowRight size={18}/></button>
+          <button className="btn btn-primary auth-submit" disabled={busy||pendingSignup||!configured||Boolean(siteKey&&!captchaToken)}>{busy?t('processing'):t(mode==='signup'?'create':mode==='login'?'loginButton':'sendReset')}<ArrowRight size={18}/></button>
         </form>
-        {mode==='signup'&&pendingEmail&&<div style={{textAlign:'center',margin:'12px 0 4px'}}>
+        {pendingSignup&&<div style={{textAlign:'center',margin:'12px 0 4px'}}>
           <p style={{fontSize:13,margin:'0 0 8px',color:'#6c6482'}}>{isEnglishLocale(lang)?'Already registered? Do not sign up repeatedly. If confirmation is pending, resend here.':'已提交注册？请勿反复注册。尚未收到确认邮件，可在这里重新发送。'}</p>
           <button type="button" onClick={()=>void resendSignupEmail()}
             disabled={busy||resendSeconds>0||Boolean(siteKey&&!captchaToken)}
