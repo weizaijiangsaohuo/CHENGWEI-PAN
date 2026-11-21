@@ -117,6 +117,13 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
    }
   }
   const guarded=createPreviewHandler({env:previewEnv,authorizePreview:async req=>req.headers.get('x-starflow-preview-key')===previewKey,Pool:FixturePool,attestationDatabase:db.database,registrationMail});
+  const disabledReadiness=createPreviewHandler({env:{...previewEnv,STARFLOW_V2_ENABLED:'false',STARFLOW_REGISTRATION_PREVIEW_ENABLED:'false'},authorizePreview:async()=>true,Pool:FixturePool,attestationDatabase:db.database});
+  const registrationReadiness=()=>disabledReadiness(new Request(origin+'/api/v2/registration-readiness'));
+  const ready=await registrationReadiness();assert.equal(ready.status,200);
+  assert.deepEqual(await ready.json(),{databaseReady:true,mailAdapterConfigured:false,liveMailVerified:false,registrationEnabled:false});
+  await owner.query('GRANT SELECT ON public."user" TO sf_mail_budget_gateway');
+  try{const denied=await registrationReadiness();assert.equal(denied.status,503);assert.deepEqual(await denied.json(),{databaseReady:false,stage:'mail_permissions'});}
+  finally{await owner.query('REVOKE SELECT ON public."user" FROM sf_mail_budget_gateway');}
   const viaPreview=(method,path,cookie,data,key=previewKey,ip='192.0.2.33')=>guarded(new Request(origin+path,{method,headers:{origin,'content-type':'application/json','cf-connecting-ip':ip,'x-starflow-preview-key':key,...(cookie?{cookie}:{})},...(data?{body:JSON.stringify(data)}:{})}));
   const register=async(label,ip)=>{
    const email=label+'@example.invalid',password='synthetic-strong-password-'+label+'-2026';

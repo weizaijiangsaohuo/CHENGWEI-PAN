@@ -31,6 +31,7 @@ function validAuthInput(route,data){
   (!Object.hasOwn(data,'rememberMe')||data.rememberMe===false);
 }
 const readinessRoute='GET /api/v2/readiness';
+const registrationReadinessRoute='GET /api/v2/registration-readiness';
 const freshRoute='POST /api/v2/account/initialize';
 const registrationRoutes=new Set(['POST /api/identity/auth/sign-up/email','GET /api/identity/auth/verify-email']);
 const inboxPreviewRoute='GET /api/v2/inbox-preview';
@@ -178,15 +179,15 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   const route=request.method+' '+url.pathname;
   // Owner-only read-only connection probe may run with the explicit disabled flag.
   // No auth or business routes are reachable before the feature switch is enabled.
-  if(env.STARFLOW_V2_ENABLED!=='true'&&!(env.STARFLOW_V2_ENABLED==='false'&&route===readinessRoute))return deny();
-  if((route===readinessRoute||route===inboxPreviewRoute)&&url.search)return deny(400);
+  if(env.STARFLOW_V2_ENABLED!=='true'&&!(env.STARFLOW_V2_ENABLED==='false'&&[readinessRoute,registrationReadinessRoute].includes(route)))return deny();
+  if((route===readinessRoute||route===registrationReadinessRoute||route===inboxPreviewRoute)&&url.search)return deny(400);
   // Browser-facing page is independently opt-in and cannot use owner-key mode.
   if(route===inboxPreviewRoute&&(env.STARFLOW_INBOX_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
   const registration=registrationRoutes.has(route);
   if(registration&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED!=='true')return deny();
   if(route===freshRoute&&(env.STARFLOW_FRESH_PREVIEW_ENABLED!=='true'))return deny();
   if(route===freshRoute&&(url.search||request.body!==null))return deny(400);
-  if(route!==readinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!registration&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
+  if(route!==readinessRoute&&route!==registrationReadinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!registration&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
@@ -209,7 +210,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   }
   let authPool,businessPool,freshPool,issuerPool,mailPool;
   // Only reached after the existing owner authorization. Fixed labels, never exception text.
-  const unavailable=stage=>route===readinessRoute?Response.json({error:'unavailable'},{status:503,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Starflow-Readiness-Stage':stage}}):deny(503);
+  const unavailable=stage=>route===registrationReadinessRoute?Response.json({databaseReady:false,stage},{status:503,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}}):route===readinessRoute?Response.json({error:'unavailable'},{status:503,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Starflow-Readiness-Stage':stage}}):deny(503);
   let stage='signing_config';
   try{
    if(typeof env.BETTER_AUTH_SECRET!=='string'||env.BETTER_AUTH_SECRET.length<32)return unavailable(stage);
@@ -220,6 +221,32 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
    if(a.password===b.password)return unavailable('credential_separation');
    stage='auth_connection';
    authPool=new Pool(a);
+   if(route===registrationReadinessRoute){
+    // No auth ceremony, customer reads, provider request, or writes. This route
+    // attests the five independent connections while all signup flags remain off.
+    stage=env.STARFLOW_FRESH_DB_URL===undefined?'fresh_missing':'fresh_config';
+    const f=restrictedPoolConfig(env.STARFLOW_FRESH_DB_URL,'sf_fresh_account_connect',env.STARFLOW_PREVIEW_DB_HOST);
+    stage=env.STARFLOW_REGISTRATION_DB_URL===undefined?'issuer_missing':'issuer_config';
+    const i=restrictedPoolConfig(env.STARFLOW_REGISTRATION_DB_URL,'sf_registration_connect',env.STARFLOW_PREVIEW_DB_HOST);
+    stage=env.STARFLOW_MAIL_DB_URL===undefined?'mail_missing':'mail_config';
+    const m=restrictedPoolConfig(env.STARFLOW_MAIL_DB_URL,'sf_mail_budget_connect',env.STARFLOW_PREVIEW_DB_HOST);
+    if(new Set([a.password,b.password,f.password,i.password,m.password]).size!==5)return unavailable('credential_separation');
+    stage='business_connection';businessPool=new Pool(b);
+    stage='fresh_connection';freshPool=new Pool(f);
+    stage='issuer_connection';issuerPool=new Pool(i);
+    stage='mail_connection';mailPool=new Pool(m);
+    stage='runtime';
+    const failures=await Promise.all([
+     roleFailure(authPool,'sf_auth_runtime',authPrivilegeSql,'auth',attestationDatabase),
+     roleFailure(businessPool,'sf_business_connect',businessPrivilegeSql,'business',attestationDatabase),
+     roleFailure(freshPool,'sf_fresh_account_connect',freshPrivilegeSql,'fresh',attestationDatabase),
+     roleFailure(issuerPool,'sf_registration_connect',issuerPrivilegeSql,'issuer',attestationDatabase),
+     roleFailure(mailPool,'sf_mail_budget_connect',mailPrivilegeSql,'mail',attestationDatabase)]);
+    const failed=failures.find(Boolean);if(failed)return unavailable(failed);
+    return Response.json({databaseReady:true,mailAdapterConfigured:typeof registrationMail?.verifyBilling==='function'&&typeof registrationMail?.transport==='function',
+     liveMailVerified:false,registrationEnabled:env.STARFLOW_V2_ENABLED==='true'&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED==='true'},
+     {headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+   }
    if(route===readinessRoute){
     stage='business_connection';
     businessPool=new Pool(b);

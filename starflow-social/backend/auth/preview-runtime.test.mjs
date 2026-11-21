@@ -160,3 +160,18 @@ test('isolated inbox HTML preview is opt-in, does not accept owner-key mode, and
  assert.equal((await run(enabled,async()=>true,'/api/v2/inbox-preview?principal=arbitrary')).status,400);
  assert.equal(opened,0);
 });
+
+test('registration readiness is owner-only, read-only, and keeps signup disabled',async()=>{
+ const pools=[];class Pool{constructor(cfg){this.cfg=cfg;pools.push(this);}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){this.closed=true;}}
+ const cfg={...env,STARFLOW_V2_ENABLED:'false',STARFLOW_FRESH_DB_URL:url('sf_fresh_account_connect','fresh-only'),STARFLOW_REGISTRATION_DB_URL:url('sf_registration_connect','issuer-only'),STARFLOW_MAIL_DB_URL:url('sf_mail_budget_connect','mail-only')};
+ const make=(bindings,allowed=true)=>createPreviewHandler({env:bindings,authorizePreview:async()=>allowed,Pool,authFactory:()=>{throw Error('never create auth');},registrationMail:{verifyBilling:()=>{throw Error('never call billing');},transport:()=>{throw Error('never call provider');}}});
+ const path='/api/v2/registration-readiness';
+ const denied=await make(cfg,false)(req(path));assert.equal(denied.status,403);assert.deepEqual(await denied.json(),{error:'not_permitted'});
+ assert.equal((await make(cfg)(req(path+'?debug=1'))).status,400);
+ assert.equal((await make(cfg)(new Request('https://weizai.example.workers.dev'+path))).status,404);
+ assert.equal(pools.length,0);
+ const missing=await make({...cfg,STARFLOW_MAIL_DB_URL:undefined})(req(path));assert.equal(missing.status,503);assert.deepEqual(await missing.json(),{databaseReady:false,stage:'mail_missing'});
+ const result=await make(cfg)(req(path));assert.equal(result.status,200);assert.deepEqual(await result.json(),{databaseReady:true,mailAdapterConfigured:true,liveMailVerified:false,registrationEnabled:false});
+ assert.ok(pools.every(p=>p.closed));
+ assert.equal((await make(cfg)(req('/api/identity/auth/sign-up/email',{method:'POST',headers:{origin}}))).status,404);
+});
