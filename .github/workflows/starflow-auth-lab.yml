@@ -74,7 +74,7 @@ jobs:
           PGDATABASE: starflow_auth_test
         run: |
           psql -v ON_ERROR_STOP=1 -c "DELETE FROM sf_core.principals"
-          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue 010_review_gateway 013_dm_idempotency 004_identity_sandbox 015_identity_evidence_vault 016_identity_evidence_lifecycle 017_identity_case_queue 018_identity_queue_mfa 014_identity_atomic_reconcile 019_didit_reconcile_gateway; do
+          for i in 003_social_core 006_social_private 007_review_mfa 008_dm_sync 009_notifications_queue 010_review_gateway 013_dm_idempotency 004_identity_sandbox 015_identity_evidence_vault 016_identity_evidence_lifecycle 017_identity_case_queue 018_identity_queue_mfa 014_identity_atomic_reconcile 019_didit_reconcile_gateway 002_email_budget 011_otp_mail_budget 020_unified_security_mail; do
             psql -v ON_ERROR_STOP=1 -f ../migrations/$i.sql
           done
       - name: Validate reproducible backend role grants
@@ -94,3 +94,4 @@ jobs:
       - run: node --test passkey-ceremony.test.mjs
       - run: node --test email-otp-lab.test.mjs
       - run: node --test preview-runtime.test.mjs
+      - run: node --test auth-mail-ceremony.test.mjs
