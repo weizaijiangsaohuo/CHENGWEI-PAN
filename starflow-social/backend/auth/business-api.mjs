@@ -20,10 +20,13 @@ export function createBusinessHandler({auth,pool,origin}){
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return response({error:'invalid_origin'},403);
   const route=request.method+' '+url.pathname;
   if(!['GET /api/v2/me','GET /api/v2/messages','GET /api/v2/notifications','POST /api/v2/messages','POST /api/v2/notifications/read'].includes(route))return response({error:'not_found'},404);
-  let input,after='0';
+  let input,after='0',before=null;
   if(route==='GET /api/v2/messages'){
    after=url.searchParams.get('after')??'0';
    if(!cursor(after)||[...url.searchParams.keys()].some(k=>k!=='after')||url.searchParams.getAll('after').length>1)return response({error:'invalid_cursor'},400);
+  }else if(route==='GET /api/v2/notifications'){
+   before=url.searchParams.get('before');
+   if((before!==null&&!isUuid(before))||[...url.searchParams.keys()].some(k=>k!=='before')||url.searchParams.getAll('before').length>1)return response({error:'invalid_cursor'},400);
   }else if(url.search)return response({error:'invalid_query'},400);
   if(request.method==='POST'){
    try{input=await body(request);}catch{return response({error:'invalid_body'},400);}
@@ -43,9 +46,19 @@ export function createBusinessHandler({auth,pool,origin}){
    let result,status=200;
    if(route==='GET /api/v2/me')result={profile:(await client.query('SELECT id,handle,display_name,bio FROM sf_core.profiles WHERE id=$1',[id])).rows[0]??null};
    if(route==='GET /api/v2/messages'){
-    const rows=(await client.query('SELECT * FROM sf_core.read_dm_delta($1::bigint,50)',[after])).rows;result={messages:rows,next:rows.at(-1)?.sync_seq??after};
+    const rows=(await client.query('SELECT * FROM sf_core.read_dm_delta($1::bigint,51)',[after])).rows;
+    const messages=rows.slice(0,50);result={messages,next:messages.at(-1)?.sync_seq??after,hasMore:rows.length>50};
    }
-   if(route==='GET /api/v2/notifications')result={notifications:(await client.query('SELECT id,message_id,created_at,read_at FROM sf_core.dm_notifications ORDER BY created_at DESC,id LIMIT 50')).rows};
+   if(route==='GET /api/v2/notifications'){
+    // A cursor is an RLS-visible notification ID, not an authorization credential.
+    // Resolve its exact timestamp in PostgreSQL to preserve microsecond ordering.
+    // Missing or hidden anchor yields an empty page; never fall back to unscoped results.
+    const rows=(await client.query(
+     'SELECT id,message_id,created_at,read_at FROM sf_core.dm_notifications WHERE $1::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM sf_core.dm_notifications WHERE id=$1::uuid) ORDER BY created_at DESC,id DESC LIMIT 51',
+     [before])).rows;
+    const notifications=rows.slice(0,50);
+    result={notifications,next:rows.length>50?notifications.at(-1).id:null,hasMore:rows.length>50};
+   }
    if(route==='POST /api/v2/messages'){
     if(!input.requestId){
      const q=await client.query('INSERT INTO sf_core.direct_messages(sender_id,recipient_id,body) VALUES($1,$2,$3) RETURNING id',[id,input.recipient,input.body]);result={id:q.rows[0].id};status=201;
