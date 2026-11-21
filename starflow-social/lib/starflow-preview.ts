@@ -1,3 +1,4 @@
+import { Pool as NeonPool } from '@neondatabase/serverless';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createPreviewHandler } from '@/backend/auth/preview-runtime.mjs';
 import { readinessResponse } from '@/backend/auth/readiness-response.mjs';
@@ -12,6 +13,6 @@ export async function handleStarflowPreview(request: Request): Promise<Response>
     // The shared handler keeps media, identity and all business/auth routes disabled.
     // Only the owner-authenticated readiness probe is exempt when the switch is false.
     const authorizePreview=createConfiguredPreviewVerifier(bindings);
-    return readinessResponse(request,await createPreviewHandler({env:bindings,authorizePreview})(request));
+    return readinessResponse(request,await createPreviewHandler({env:bindings,authorizePreview,Pool:NeonPool})(request));
   } catch { return disabled(); }
 }

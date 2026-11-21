@@ -15,3 +15,6 @@ The exact named staging readiness GET mirrors its existing error HTTP status int
 
 ### Authorized readiness diagnostics
 After the existing owner authorization only, the staging readiness response adds a fixed stage label for missing/invalid runtime bindings, independent-password check, credential/connection errors, role and privilege checks. Never return driver exceptions, credentials or SQL data. Both pool checks remain required and failure remains 503; production and the disabled service gate are unchanged. Database metadata checks do not prove that the Worker has the right secret or successful TLS connectivity.
+
+### Worker transport
+The Next.js Worker adapter injects the official Neon serverless Pool. Its default transport is secure WebSockets to the validated Neon host, with TLS at the WebSocket layer rather than the previous direct PostgreSQL TCP/TLS negotiation. Native pg remains available to the isolated local database tests. No custom proxy, new binding or new resource is introduced. Existing per-request cleanup, owner gate, distinct role and host validation, and read-only privilege attestation remain unchanged. The live preview must pass readiness before any other feature is enabled; this change does not establish production readiness.
