@@ -29,10 +29,19 @@ BEGIN
  OR sf_core.issue_registration_admission('00000000-0000-4000-8000-000000002504','nocred025@example.invalid')
  THEN RAISE EXCEPTION 'ineligible signup'; END IF;
  IF NOT sf_core.issue_registration_admission(sid,'fresh025@example.invalid')
- OR NOT sf_core.registration_mail_allowed(sid,'fresh025@example.invalid')
- OR sf_core.registration_mail_allowed(sid,'wrong@example.invalid')
- OR sf_core.issue_registration_admission(sid,'fresh025@example.invalid')
- THEN RAISE EXCEPTION 'admission or replay mismatch'; END IF;
+ THEN RAISE EXCEPTION 'admission issuance failed'; END IF;
+END $;
+-- The SQL STABLE mail gate uses statement_timestamp(). Issue and check must
+-- be separate top-level statements, just like the runtime's separate transactions.
+DO $
+DECLARE sid uuid:='00000000-0000-4000-8000-000000002501';
+BEGIN
+ IF NOT sf_core.registration_mail_allowed(sid,'fresh025@example.invalid')
+ THEN RAISE EXCEPTION 'admission recipient denied'; END IF;
+ IF sf_core.registration_mail_allowed(sid,'wrong@example.invalid')
+ THEN RAISE EXCEPTION 'wrong recipient allowed'; END IF;
+ IF sf_core.issue_registration_admission(sid,'fresh025@example.invalid')
+ THEN RAISE EXCEPTION 'duplicate admission issued'; END IF;
 END $$;
 RESET ROLE;
 UPDATE public."user" SET "emailVerified"=true WHERE id='00000000-0000-4000-8000-000000002501';
