@@ -48,6 +48,13 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   try{assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),false);}
   finally{await owner.query('REVOKE sf_didit_reconcile_gateway FROM sf_business_connect');}
   assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
+  // Temporary direct EXECUTE grants in disposable CI only.
+  for(const role of ['sf_auth_runtime','sf_business_connect','sf_profile_runtime','sf_session_gateway']){
+   await owner.query('GRANT EXECUTE ON FUNCTION sf_core.issue_registration_admission(uuid,text) TO '+role);
+   try{assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),false,'unsafe direct function grant '+role);}
+   finally{await owner.query('REVOKE EXECUTE ON FUNCTION sf_core.issue_registration_admission(uuid,text) FROM '+role);}
+  }
+  assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
   // Actual isolated provisioning connection, with no inherited privileges: disposable CI only.
   await owner.query("CREATE ROLE sf_fresh_integration_fixture LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-fresh-fixture-only'");
   await owner.query('GRANT sf_fresh_account_gateway TO sf_fresh_integration_fixture WITH SET TRUE, INHERIT FALSE');

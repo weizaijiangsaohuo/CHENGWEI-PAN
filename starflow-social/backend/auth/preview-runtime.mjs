@@ -59,6 +59,25 @@ const privilegedMembershipSql = `
  WHERE r.rolname IN ('sf_review_gateway','sf_identity_queue_gateway','sf_identity_proof_issuer','sf_didit_reconcile_gateway','sf_mail_budget_gateway','sf_account_recovery_gateway','sf_fresh_account_gateway','sf_registration_issuer','neon_superuser')
  AND pg_has_role(current_user,r.oid,'MEMBER')
  )`;
+// SECURITY DEFINER grants can bypass table ACLs. Require only the intended delegated routines.
+const noDirectDefinerSql = `
+ AND NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='sf_core' AND p.prosecdef AND has_function_privilege(current_user,p.oid,'EXECUTE'))`;
+const delegatedDefinerSql = `
+ AND NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='sf_core' AND p.prosecdef AND (
+ (has_function_privilege('sf_profile_runtime',p.oid,'EXECUTE')
+ AND NOT (p.proname='can_view_author' AND pg_catalog.oidvectortypes(p.proargtypes)='uuid'))
+ OR (has_function_privilege('sf_session_gateway',p.oid,'EXECUTE')
+ AND NOT (p.proname='resolve_auth_subject' AND pg_catalog.oidvectortypes(p.proargtypes)='uuid'))))
+ AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='sf_core' AND p.proname='can_view_author'
+ AND pg_catalog.oidvectortypes(p.proargtypes)='uuid' AND p.prosecdef
+ AND has_function_privilege('sf_profile_runtime',p.oid,'EXECUTE'))
+ AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='sf_core' AND p.proname='resolve_auth_subject'
+ AND pg_catalog.oidvectortypes(p.proargtypes)='uuid' AND p.prosecdef
+ AND has_function_privilege('sf_session_gateway',p.oid,'EXECUTE'))`;
 const authPrivilegeSql = `
  SELECT
  count(*)=7 AND bool_and(
@@ -70,7 +89,8 @@ const authPrivilegeSql = `
  ) AND NOT has_schema_privilege(current_user,'sf_core','USAGE')
  AND NOT pg_has_role(current_user,'sf_session_gateway','MEMBER')
  AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER')
- ${privilegedMembershipSql} AS safe
+ ${privilegedMembershipSql}
+ ${noDirectDefinerSql} AS safe
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind='r'
  AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
@@ -84,7 +104,8 @@ const businessPrivilegeSql = `
  AND NOT pg_has_role(current_user,'sf_review_gateway','MEMBER')
  AND NOT pg_has_role(current_user,'sf_auth_runtime','MEMBER')
  ${privilegedMembershipSql}
- AND EXISTS (
+ ${noDirectDefinerSql}
+ ${delegatedDefinerSql} AND EXISTS (
  SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace ns ON ns.oid=p.pronamespace
  WHERE ns.nspname='sf_core' AND p.proname='open_review_queue'
  AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, uuid, uuid, integer'
