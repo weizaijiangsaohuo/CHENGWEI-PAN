@@ -60,9 +60,9 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   }
   assert.equal(await verifyPreviewDatabaseRoles(authPool,pool,db.database),true);
   // Actual isolated provisioning connection, with no inherited privileges: disposable CI only.
-  await owner.query("CREATE ROLE sf_fresh_integration_fixture LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-fresh-fixture-only'");
-  await owner.query('GRANT sf_fresh_account_gateway TO sf_fresh_integration_fixture WITH SET TRUE, INHERIT FALSE');
-  freshPool=new pg.Pool({...db,user:'sf_fresh_integration_fixture',password:'synthetic-local-fresh-fixture-only'});
+  await owner.query("CREATE ROLE sf_fresh_account_connect LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'synthetic-local-fresh-fixture-only'");
+  await owner.query('GRANT sf_fresh_account_gateway TO sf_fresh_account_connect WITH SET TRUE, INHERIT FALSE');
+  freshPool=new pg.Pool({...db,user:'sf_fresh_account_connect',password:'synthetic-local-fresh-fixture-only'});
   await assert.rejects(freshPool.query('SELECT * FROM public."user" LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(freshPool.query('SELECT * FROM sf_core.staff_roles LIMIT 0'),e=>e.code==='42501');
   await assert.rejects(pool.query('SET ROLE sf_fresh_account_gateway'),e=>e.code==='42501');
@@ -101,14 +101,15 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal((await registration(new Request(origin+'/api/identity/auth/verify-email?token=fixture&callbackURL=https://example.invalid',{headers:{'x-starflow-preview-key':'c'.repeat(64)}}))).status,400);
   // Exercise the same guarded dispatcher as the deployed Worker, using only the disposable CI service.
   const previewHost='ep-fixture.example.neon.tech';
-  const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_INBOX_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
+  const previewEnv={STARFLOW_V2_ENABLED:'true',STARFLOW_V2_PREVIEW_ONLY:'true',STARFLOW_SOCIAL_PREVIEW_ENABLED:'true',STARFLOW_INBOX_PREVIEW_ENABLED:'true',STARFLOW_FRESH_PREVIEW_ENABLED:'true',STARFLOW_AUTH_ORIGIN:origin,STARFLOW_PREVIEW_DB_HOST:previewHost,BETTER_AUTH_SECRET:secret,
    STARFLOW_AUTH_DB_URL:'postgresql://sf_auth_runtime:synthetic-local-auth-fixture-only@'+previewHost+'/neondb?sslmode=require',
-   STARFLOW_BUSINESS_DB_URL:'postgresql://sf_business_connect:synthetic-local-business-fixture-only@'+previewHost+'/neondb?sslmode=require'};
+   STARFLOW_BUSINESS_DB_URL:'postgresql://sf_business_connect:synthetic-local-business-fixture-only@'+previewHost+'/neondb?sslmode=require',
+   STARFLOW_FRESH_DB_URL:'postgresql://sf_fresh_account_connect:synthetic-local-fresh-fixture-only@'+previewHost+'/neondb?sslmode=require'};
   const previewKey='c'.repeat(64);
   class FixturePool extends pg.Pool{
    constructor(config){
     assert.equal(config.host,previewHost);
-    assert.ok(['sf_auth_runtime','sf_business_connect'].includes(config.user));
+    assert.ok(['sf_auth_runtime','sf_business_connect','sf_fresh_account_connect'].includes(config.user));
     super({...db,user:config.user,password:config.password});
    }
   }
@@ -131,7 +132,13 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   const alice=await register('integration_alice','192.0.2.31');
   const bob=await register('integration_bob','192.0.2.32');
   assert.deepEqual(deliveries,['integration_alice@example.invalid','integration_bob@example.invalid']);
-  const initialize=account=>provisionFreshAccount({auth,pool:freshPool,headers:new Headers({cookie:account.cookie})});
+  const initialize=async account=>(await viaPreview('POST','/api/v2/account/initialize',account.cookie)).json();
+  assert.equal((await viaPreview('POST','/api/v2/account/initialize',alice.cookie,{subject:alice.subject})).status,400);
+  assert.equal((await viaPreview('POST','/api/v2/account/initialize',alice.cookie,null,'wrong')).status,403);
+  assert.equal((await viaPreview('POST','/api/v2/account/initialize',null)).status,403);
+  await owner.query('GRANT SELECT ON public."user" TO sf_fresh_account_gateway');
+  try{assert.equal((await viaPreview('POST','/api/v2/account/initialize',alice.cookie)).status,503);}
+  finally{await owner.query('REVOKE SELECT ON public."user" FROM sf_fresh_account_gateway');}
   assert.equal((await viaPreview('GET','/api/v2/me',alice.cookie)).status,403);
   assert.equal(await admissions.allowRecipient({id:alice.subject,email:'integration_alice@example.invalid',purpose:'verify'}),false);
   // Admissions were committed by the separate issuer during the synthetic new-signup callback.

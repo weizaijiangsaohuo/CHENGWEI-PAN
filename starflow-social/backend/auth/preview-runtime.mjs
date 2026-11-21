@@ -5,6 +5,7 @@ import {createStarflowAuthLab} from './auth.mjs';
 import {isSocialRoute} from './social-api.mjs';
 import {createBusinessHandler} from './business-api.mjs';
 import {createInboxSync} from './inbox-sync.mjs';
+import {provisionFreshAccount} from './fresh-account.mjs';
 
 const authPaths=new Set([
  'POST /api/identity/auth/sign-in/email',
@@ -27,6 +28,7 @@ function validAuthInput(route,data){
   (!Object.hasOwn(data,'rememberMe')||data.rememberMe===false);
 }
 const readinessRoute='GET /api/v2/readiness';
+const freshRoute='POST /api/v2/account/initialize';
 const inboxPreviewRoute='GET /api/v2/inbox-preview';
 const businessPaths=new Set([
  'GET /api/v2/me','GET /api/v2/messages','GET /api/v2/notifications',
@@ -114,6 +116,31 @@ const businessPrivilegeSql = `
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind='r'
  AND c.relname IN ('user','session','account','verification','twoFactor','passkey','rateLimit')`;
+// Separate NOINHERIT login may SET only the provisioning gateway; neither may
+// directly read or write account/business tables or execute other definer functions.
+const freshPrivilegeSql = `
+ SELECT pg_has_role(current_user,'sf_fresh_account_gateway','SET')
+ AND NOT pg_has_role(current_user,'sf_fresh_account_gateway','USAGE')
+ AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname NOT IN (current_user,'sf_fresh_account_gateway')
+ AND pg_has_role(current_user,r.oid,'MEMBER'))
+ AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname='sf_fresh_account_gateway'
+ AND NOT (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR rolinherit))
+ AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname<>'sf_fresh_account_gateway'
+ AND pg_has_role('sf_fresh_account_gateway',r.oid,'MEMBER'))
+ AND NOT has_schema_privilege('sf_fresh_account_gateway','sf_core','CREATE')
+ AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname IN ('public','sf_core') AND c.relkind IN ('r','p','v','m','f') AND (
+ has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ OR has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+ OR has_table_privilege('sf_fresh_account_gateway',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ OR has_any_column_privilege('sf_fresh_account_gateway',c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
+ ${noDirectDefinerSql}
+ AND NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='sf_core' AND p.prosecdef AND has_function_privilege('sf_fresh_account_gateway',p.oid,'EXECUTE')
+ AND NOT (p.proname='provision_fresh_account' AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, uuid'))
+ AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='sf_core' AND p.prosecdef AND p.proname='provision_fresh_account'
+ AND pg_catalog.oidvectortypes(p.proargtypes)='uuid, uuid' AND has_function_privilege('sf_fresh_account_gateway',p.oid,'EXECUTE')) AS safe`;
 async function roleFailure(pool,role,sql,label,database){
  let rows;
  try{({rows}=await pool.query(roleIdentitySql));}catch(e){return label+(e?.code==='28P01'||e?.code==='28000'?'_credentials':'_connection');}
@@ -147,7 +174,9 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   if((route===readinessRoute||route===inboxPreviewRoute)&&url.search)return deny(400);
   // Browser-facing page is independently opt-in and cannot use owner-key mode.
   if(route===inboxPreviewRoute&&(env.STARFLOW_INBOX_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
-  if(route!==readinessRoute&&route!==inboxPreviewRoute&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
+  if(route===freshRoute&&(env.STARFLOW_FRESH_PREVIEW_ENABLED!=='true'))return deny();
+  if(route===freshRoute&&(url.search||request.body!==null))return deny(400);
+  if(route!==readinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
@@ -168,7 +197,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     if(!validAuthInput(route,data))return deny(400);
    }catch{return deny(400);}
   }
-  let authPool,businessPool;
+  let authPool,businessPool,freshPool;
   // Only reached after the existing owner authorization. Fixed labels, never exception text.
   const unavailable=stage=>route===readinessRoute?Response.json({error:'unavailable'},{status:503,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Starflow-Readiness-Stage':stage}}):deny(503);
   let stage='signing_config';
@@ -189,6 +218,17 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
     const failed=failures.find(Boolean);
     if(failed)return unavailable(failed);
     return Response.json({ready:true},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+   }
+   if(route===freshRoute){
+    const failure=await roleFailure(authPool,'sf_auth_runtime',authPrivilegeSql,'auth',attestationDatabase);
+    if(failure)return unavailable(failure);
+    const f=restrictedPoolConfig(env.STARFLOW_FRESH_DB_URL,'sf_fresh_account_connect',env.STARFLOW_PREVIEW_DB_HOST);
+    if([a.password,b.password].includes(f.password))return unavailable('credential_separation');
+    freshPool=new Pool(f);
+    if(await roleFailure(freshPool,'sf_fresh_account_connect',freshPrivilegeSql,'fresh',attestationDatabase))return deny(503);
+    const auth=authFactory({database:authPool,origin,secret:env.BETTER_AUTH_SECRET});
+    const result=await provisionFreshAccount({auth,pool:freshPool,headers:request.headers});
+    return Response.json(result,{status:result.status==='created'?201:result.status==='unavailable'?503:403,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
    }
    // Re-attest each request-scoped pool before exposing any enabled preview operation.
    // Auth-only requests do not open a business connection.
@@ -219,7 +259,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   }catch{return unavailable(stage);}
   finally{
    // Worker I/O resources are request scoped; never reuse pg sockets across requests.
-   await Promise.allSettled([authPool,businessPool].filter(Boolean).map(p=>p.end()));
+   await Promise.allSettled([authPool,businessPool,freshPool].filter(Boolean).map(p=>p.end()));
   }
  };
 }
