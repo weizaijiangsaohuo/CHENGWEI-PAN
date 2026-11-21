@@ -47,7 +47,7 @@ export function createBusinessHandler({auth,pool,origin}){
    if(route==='GET /api/v2/me')result={profile:(await client.query('SELECT id,handle,display_name,bio FROM sf_core.profiles WHERE id=$1',[id])).rows[0]??null};
    if(route==='GET /api/v2/messages'){
     const rows=(await client.query('SELECT * FROM sf_core.read_dm_delta($1::bigint,51)',[after])).rows;
-    const messages=rows.slice(0,50);result={messages,next:messages.at(-1)?.sync_seq??after,hasMore:rows.length>50};
+    const messages=rows.slice(0,50);result={principal:id,messages,next:messages.at(-1)?.sync_seq??after,hasMore:rows.length>50};
    }
    if(route==='GET /api/v2/notifications'){
     // A cursor is an RLS-visible notification ID, not an authorization credential.
@@ -57,7 +57,7 @@ export function createBusinessHandler({auth,pool,origin}){
      'SELECT id,message_id,created_at,read_at FROM sf_core.dm_notifications WHERE $1::uuid IS NULL OR (created_at,id)<(SELECT created_at,id FROM sf_core.dm_notifications WHERE id=$1::uuid) ORDER BY created_at DESC,id DESC LIMIT 51',
      [before])).rows;
     const notifications=rows.slice(0,50);
-    result={notifications,next:rows.length>50?notifications.at(-1).id:null,hasMore:rows.length>50};
+    result={principal:id,notifications,next:rows.length>50?notifications.at(-1).id:null,hasMore:rows.length>50};
    }
    if(route==='POST /api/v2/messages'){
     if(!input.requestId){

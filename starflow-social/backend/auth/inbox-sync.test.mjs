@@ -11,9 +11,9 @@ test('bounded pages preserve order and do not skip records',async()=>{
  const sync=createInboxSync({request:async path=>{
   paths.push(path);
   if(path==='/api/v2/me')return json({profile:{id:a}});
-  if(path.endsWith('after=0'))return json({messages:Array.from({length:50},(_,i)=>msg(i+1)),next:'50',hasMore:true});
-  if(path.endsWith('after=50'))return json({messages:[msg(51)],next:'51',hasMore:false});
-  if(path==='/api/v2/notifications')return json({notifications:[notice(1)],next:null,hasMore:false});
+  if(path.endsWith('after=0'))return json({principal:a,messages:Array.from({length:50},(_,i)=>msg(i+1)),next:'50',hasMore:true});
+  if(path.endsWith('after=50'))return json({principal:a,messages:[msg(51)],next:'51',hasMore:false});
+  if(path==='/api/v2/notifications')return json({principal:a,notifications:[notice(1)],next:null,hasMore:false});
   throw Error('unexpected');
  }});
  const r=await sync.refresh(a);
@@ -23,10 +23,10 @@ test('bounded pages preserve order and do not skip records',async()=>{
 });
 test('malformed page, repeated sequence, and foreign message fail closed',async()=>{
  for(const batch of [
-  {messages:[msg(1),msg(1)],next:'1',hasMore:false},
-  {messages:[msg(1)],next:'2',hasMore:false},
-  {messages:[{...msg(1),sender_id:b,recipient_id:id(500)}],next:'1',hasMore:false},
-  {messages:[msg(1)],next:'1',hasMore:true}
+  {principal:a,messages:[msg(1),msg(1)],next:'1',hasMore:false},
+  {principal:a,messages:[msg(1)],next:'2',hasMore:false},
+  {principal:a,messages:[{...msg(1),sender_id:b,recipient_id:id(500)}],next:'1',hasMore:false},
+  {principal:a,messages:[msg(1)],next:'1',hasMore:true}
  ]){
   const sync=createInboxSync({request:async p=>json(p==='/api/v2/me'?{profile:{id:a}}:batch)});
   await assert.rejects(sync.refresh(a),/refresh required/);
@@ -36,7 +36,7 @@ test('account change, expired session and reset discard in-flight data',async()=
  let checks=0;
  const sync=createInboxSync({request:async p=>{
   if(p==='/api/v2/me')return json({profile:{id:++checks===1?a:b}});
-  return json(p.includes('messages')?{messages:[msg(1)],next:'1',hasMore:false}:{notifications:[],next:null,hasMore:false});
+  return json(p.includes('messages')?{principal:a,messages:[msg(1)],next:'1',hasMore:false}:{principal:a,notifications:[],next:null,hasMore:false});
  }});
  await assert.rejects(sync.refresh(a),/refresh required/);
  const expired=createInboxSync({request:async()=>new Response(null,{status:401})});
@@ -51,10 +51,27 @@ test('page budget is enforced, refresh replaces old visibility instead of retain
  let visible=true;
  const sync=createInboxSync({pageBudget:1,request:async p=>{
   if(p==='/api/v2/me')return json({profile:{id:a}});
-  if(p.includes('messages'))return json(visible?{messages:Array.from({length:50},(_,i)=>msg(i+1)),next:'50',hasMore:true}:{messages:[],next:'0',hasMore:false});
-  return json({notifications:[],next:null,hasMore:false});
+  if(p.includes('messages'))return json(visible?{principal:a,messages:Array.from({length:50},(_,i)=>msg(i+1)),next:'50',hasMore:true}:{principal:a,messages:[],next:'0',hasMore:false});
+  return json({principal:a,notifications:[],next:null,hasMore:false});
  }});
  const first=await sync.refresh(a);assert.equal(first.hasMoreMessages,true);
  visible=false;
  const second=await sync.refresh(a);assert.deepEqual(second.messages,[]);
+});
+
+test('account switches away and back between identity checks cannot mix another inbox page',async()=>{
+ for(const foreignPath of ['messages','notifications']){
+  let checks=0;
+  const sync=createInboxSync({request:async p=>{
+   if(p==='/api/v2/me'){checks++;return json({profile:{id:a}});}
+   if(p.includes('messages'))return json({principal:foreignPath==='messages'?b:a,messages:[msg(1)],next:'1',hasMore:false});
+   return json({principal:foreignPath==='notifications'?b:a,notifications:[notice(1)],next:null,hasMore:false});
+  }});
+  await assert.rejects(sync.refresh(a),/refresh required/);
+  assert.equal(checks,1);
+ }
+});
+test('legacy pages without server-confirmed identity are rejected',async()=>{
+ const sync=createInboxSync({request:async p=>json(p==='/api/v2/me'?{profile:{id:a}}:{messages:[],next:'0',hasMore:false})});
+ await assert.rejects(sync.refresh(a),/refresh required/);
 });

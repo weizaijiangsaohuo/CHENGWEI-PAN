@@ -32,7 +32,7 @@ export function createInboxSync({request,pageBudget=10}){
    for(let page=0;page<pageBudget&&(moreMessages||moreNotices);page++){
     if(moreMessages){
      const batch=await read('/api/v2/messages?after='+after);
-     if(!Array.isArray(batch?.messages)||batch.messages.length>50||!validSeq(batch.next)||typeof batch.hasMore!=='boolean')fail();
+     if(batch?.principal!==expectedPrincipal||!Array.isArray(batch?.messages)||batch.messages.length>50||!validSeq(batch.next)||typeof batch.hasMore!=='boolean')fail();
      let last=after;
      for(const m of batch.messages){
       if(!validId(m?.id)||!validSeq(m.sync_seq)||BigInt(m.sync_seq)<=BigInt(last)||messageIds.has(m.id)||
@@ -44,7 +44,7 @@ export function createInboxSync({request,pageBudget=10}){
     }
     if(moreNotices){
      const batch=await read('/api/v2/notifications'+(before?'?before='+before:''));
-     if(!Array.isArray(batch?.notifications)||batch.notifications.length>50||typeof batch.hasMore!=='boolean')fail();
+     if(batch?.principal!==expectedPrincipal||!Array.isArray(batch?.notifications)||batch.notifications.length>50||typeof batch.hasMore!=='boolean')fail();
      for(const n of batch.notifications){
       if(!validId(n?.id)||!validId(n.message_id)||noticeIds.has(n.id))fail();
       noticeIds.add(n.id);notifications.push(n);
