@@ -57,7 +57,7 @@ jobs:
           if ! node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           const origin='http://127.0.0.1:8787';
-          const paths=['/api/v2/readiness','/api/v2/me','/api/identity/auth/get-session'];
+          const paths=['/api/v2/readiness','/api/v2/me','/api/identity/auth/get-session','/api/v2/messages','/api/v2/notifications','/api/v2/posts'];
           let ready=false;
           for(let i=0;i<60;i++){
             try {
@@ -80,7 +80,13 @@ jobs:
           });
           assert.equal(response.status,404);
           assert.deepEqual(await response.json(),{error:'not_permitted'});
-          console.log('PASS: bundled Worker denies disabled v2 requests, including forged identity headers');
+          for(const path of ['/api/identity/auth/sign-up/email','/api/identity/auth/request-password-reset','/api/identity/auth/passkey/verify-authentication','/api/v2/admin/identity/cases','/api/v2/admin/reports/review']){
+            const r=await fetch(origin+path,{method:'POST',redirect:'manual',signal:AbortSignal.timeout(5000),headers:{origin,'content-type':'application/json'},body:'{}'});
+            assert.equal(r.status,404,path);
+            assert.deepEqual(await r.json(),{error:'not_permitted'});
+            assert.match(r.headers.get('cache-control')??'',/no-store/i);
+          }
+          console.log('PASS: bundled Worker denies disabled v2 requests, including forged identity headers and sensitive account/admin routes');
           JS
           then
             tail -100 "$RUNNER_TEMP/starflow-workerd.log"
