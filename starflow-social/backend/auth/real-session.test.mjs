@@ -2,6 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import {betterAuth} from 'better-auth';
+import {generateKeyPair,exportJWK,createLocalJWKSet,SignJWT} from 'jose';
+import {createConfiguredPreviewVerifier} from './preview-access.mjs';
 import {authOptions} from './auth.mjs';
 import {createPreviewHandler,verifyPreviewDatabaseRoles} from './preview-runtime.mjs';
 import {createBusinessHandler} from './business-api.mjs';
@@ -140,6 +142,28 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   assert.equal(inbox.notifications.length,1);
   assert.equal((await call('POST','/api/v2/notifications/read',alice.cookie,{id:inbox.notifications[0].id})).status,404);
   assert.equal((await call('POST','/api/v2/notifications/read',bob.cookie,{id:inbox.notifications[0].id})).status,200);
+  // Real signature verification plus real restricted database session in one request.
+  // The local signing key is synthetic and never used with Cloudflare or Neon.
+  const issuer='https://starflow-fixture.cloudflareaccess.com',aud='a'.repeat(64),email='owner@example.invalid';
+  const signedEnv={...previewEnv,STARFLOW_ACCESS_ISSUER:issuer,STARFLOW_ACCESS_AUD:aud,STARFLOW_ACCESS_OWNER_EMAIL:email};
+  const {publicKey,privateKey}=await generateKeyPair('RS256',{extractable:true});
+  const jwk=await exportJWK(publicKey);jwk.kid='fixture';jwk.alg='RS256';
+  const token=async(overrides={})=>new SignJWT({iss:issuer,aud:[aud],sub:'synthetic-owner',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+300,type:'app',email,...overrides}).setProtectedHeader({alg:'RS256',kid:'fixture'}).sign(privateKey);
+  const verifier=createConfiguredPreviewVerifier(signedEnv,{keyset:createLocalJWKSet({keys:[jwk]})});
+  const signedHandler=createPreviewHandler({env:signedEnv,authorizePreview:verifier,Pool:FixturePool,attestationDatabase:db.database});
+  const signedInbox=(jwt,cookie)=>signedHandler(new Request(origin+'/api/v2/inbox-preview',{headers:{...(jwt?{'cf-access-jwt-assertion':jwt}:{}),...(cookie?{cookie}:{}),'cf-access-authenticated-user-email':email}}));
+  const validJWT=await token();
+  assert.equal((await signedInbox(null,bob.cookie)).status,403);
+  assert.equal((await signedInbox(await token({aud:['b'.repeat(64)]}),bob.cookie)).status,403);
+  assert.equal((await signedInbox(validJWT,null)).status,401);
+  const page=await signedInbox(validJWT,bob.cookie);
+  assert.equal(page.status,200);
+  assert.match(page.headers.get('content-type'),/text\/html/);
+  assert.match(page.headers.get('cache-control'),/no-store/);
+  assert.match(page.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+  const html=await page.text();
+  assert.ok(html.includes('消息：1')&&html.includes('通知：1'));
+  for(const privateValue of ['real session fixture',a,b,bob.subject,bob.cookie,validJWT])assert.ok(!html.includes(privateValue));
   // Trusted mapping uses restricted role; no caller-supplied actor.
   const resolvePrincipal=async subject=>{
    const c=await pool.connect();try{await c.query('BEGIN');await c.query('SET LOCAL ROLE sf_session_gateway');
@@ -150,6 +174,7 @@ test('real Better Auth session -> restricted business SQL -> realtime policy; lo
   const grant=await upgrade();assert.equal(grant?.principal,b);
   assert.equal(syncHint(grant,await upgrade()),'{"type":"sync_available"}');
   assert.ok((await bob.logout()).ok);
+  assert.equal((await signedInbox(validJWT,bob.cookie)).status,401);
   assert.equal((await initialize(bob)).status,'not_permitted');
   assert.equal(await upgrade(),null);assert.equal(syncHint(grant,await upgrade()),null);
   assert.equal((await call('GET','/api/v2/notifications',bob.cookie)).status,401);
