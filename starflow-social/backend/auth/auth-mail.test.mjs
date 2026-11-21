@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {fixedAuthMailLink,createAuthMailCallbacks} from './auth-mail.mjs';
+import {fixedAuthMailLink,createAuthMailCallbacks,createFreshRegistrationMail} from './auth-mail.mjs';
 const origin='https://fixture.invalid',token='Abc123_token';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'member@fixture.invalid',emailVerified:false,twoFactorEnabled:false};
 const verify={user,token,url:origin+'/api/identity/auth/verify-email?token='+token+'&callbackURL='+encodeURIComponent('https://attacker.invalid')};
@@ -20,4 +20,36 @@ test('callback uses trusted subject, fixed link and committed reservation only; 
  await cb.sendResetPassword({...reset,user:{...reset.user,emailVerified:false}});
  await createAuthMailCallbacks({...cfg,enabled:true,allowRecipient:async()=>false}).sendResetPassword(reset);assert.deepEqual(calls,[]);
  await cb.sendVerificationEmail({...verify,recipient:'attacker@fixture.invalid'});assert.deepEqual(calls,['BEGIN','SET','SELECT','COMMIT','release','send']);
+});
+
+test('fresh registration connects canonical Better Auth verification to free-plan check and committed budget; no reset callback',async()=>{
+ const calls=[];
+ const pool={connect:async()=>({query:async(sql,args)=>{calls.push(sql.split(' ')[0]);if(sql.startsWith('SELECT')){assert.match(args[1],/^[a-f0-9]{64}$/);return {rows:[{allowed:true}]};}},release(){calls.push('release');}})};
+ const cfg={pool,origin,enabled:true,apiKey:'fixture-only',sender:'security@fixture.invalid',recipientSecret:'independent-synthetic-recipient-key',
+  allowRecipient:async s=>{calls.push('admission');return s.id===user.id&&s.email===user.email&&s.purpose==='verify';},
+  verifyBilling:async()=>{calls.push('billing');return true;},
+  transport:async(url,opts)=>{
+   assert.equal(opts.redirect,'error');
+   if(opts.method==='GET'){
+    calls.push('plan');assert.equal(url,'https://api.brevo.com/v3/account');
+    return Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'free',creditsType:'sendLimit',credits:200}]});
+   }
+   calls.push('send');assert.equal(url,'https://api.brevo.com/v3/smtp/email');
+   const msg=JSON.parse(opts.body);assert.equal(msg.to[0].email,user.email);
+   assert.doesNotMatch(msg.textContent,/attacker/);assert.match(msg.textContent,/verify-email\?token=/);
+   return Response.json({messageId:'fixture'},{status:201});
+  }};
+ const mail=createFreshRegistrationMail(cfg);
+ assert.deepEqual(Object.keys(mail),['sendVerificationEmail']);
+ await mail.sendVerificationEmail(verify);
+ assert.deepEqual(calls,['admission','billing','plan','BEGIN','SET','SELECT','COMMIT','release','send']);
+ calls.length=0;
+ await mail.sendVerificationEmail({...verify,user:{...user,emailVerified:true}});
+ assert.deepEqual(calls,[]);
+ await createFreshRegistrationMail({...cfg,enabled:false}).sendVerificationEmail(verify);
+ assert.deepEqual(calls,[]);
+ await createFreshRegistrationMail({...cfg,allowRecipient:async()=>false}).sendVerificationEmail(verify);
+ assert.deepEqual(calls,[]);
+ await createFreshRegistrationMail({...cfg,verifyBilling:async()=>false,confirmFreePlan:async()=>true}).sendVerificationEmail(verify);
+ assert.deepEqual(calls,['admission']);
 });

@@ -2,6 +2,7 @@
 // Neither request-provided recipient nor redirect targets can reach the transport.
 import {randomUUID} from 'node:crypto';
 import {createMailDispatcher} from '../services/mail-dispatch.mjs';
+import {createBrevoFreeDispatcher} from '../services/brevo-free.mjs';
 import {createMailBudgetReservation} from './mail-budget.mjs';
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function fixedAuthMailLink({origin,purpose,url,token}){
@@ -19,7 +20,7 @@ export function fixedAuthMailLink({origin,purpose,url,token}){
  const fixed=new URL(purpose==='verify'?'/api/identity/auth/verify-email':'/reset-password',origin);
  fixed.searchParams.set('token',token);return fixed.href;
 }
-export function createAuthMailCallbacks({enabled=false,pool,origin,allowRecipient,...config}={}){
+function composeCallbacks({enabled=false,pool,origin,allowRecipient,...config}={},dispatcherFactory){
  async function send(purpose,data){
   if(enabled!==true||typeof allowRecipient!=='function')return {status:'disabled'};
   try{
@@ -31,7 +32,7 @@ export function createAuthMailCallbacks({enabled=false,pool,origin,allowRecipien
    // The subject and email originate from trusted Better Auth callbacks only.
    const subject=Object.freeze({id:user.id,email:user.email,purpose});
    const event=Object.freeze({eventId:randomUUID(),purpose,link});
-   const dispatch=createMailDispatcher({...config,origin,enabled:true,
+   const dispatch=dispatcherFactory({...config,origin,enabled:true,
     reserve:createMailBudgetReservation(pool),
     authorize:async candidate=>candidate===event&&await allowRecipient(subject)===true?subject.email:null});
    return await dispatch(event);
@@ -42,4 +43,17 @@ export function createAuthMailCallbacks({enabled=false,pool,origin,allowRecipien
   sendVerificationEmail:async data=>{await send('verify',data);},
   sendResetPassword:async data=>{await send('reset',data);}
  });
+}
+
+// Existing isolated reset-ceremony laboratory only. Never mount these callbacks as
+// the new account-recovery route; email-only reset is incompatible with the new policy.
+export function createAuthMailCallbacks(config){
+ return composeCallbacks(config,createMailDispatcher);
+}
+// New registration path: only email ownership verification, not password recovery.
+// Requires trusted admission-recipient eligibility and independently verified free billing.
+// No public handler, live credentials or default provider transport.
+export function createFreshRegistrationMail(config){
+ const {sendVerificationEmail}=composeCallbacks(config,createBrevoFreeDispatcher);
+ return Object.freeze({sendVerificationEmail});
 }

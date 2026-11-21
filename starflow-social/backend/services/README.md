@@ -7,3 +7,6 @@ Legacy Supabase, Google OAuth, Resend remain active until replacement acceptance
 
 ## Read-only mail plan acceptance
 The new Brevo composition checks the official GET /v3/account plan and relay fields before committing quota and sending. Unknown, ambiguous, paid, exhausted, oversized or unavailable responses deny sending. The plan endpoint does not prove the absence of paid credits or automatic charges; separately verified billing is still required and no default transport or live credential is configured. See https://developers.brevo.com/reference/get-account . Tests use synthetic responses only; no provider call or account change.
+
+## Fresh registration mail composition
+`createFreshRegistrationMail` now joins the Better Auth canonical verification callback, trusted recipient check, independent billing attestation, Brevo free-plan probe and committed SQL budget. It exposes no password reset callback, consistent with the enrolled-person recovery policy. The older mail-reset callback remains laboratory-only for historical ceremony tests. No public registration or mail route, credential or live transport is enabled. CI verifies denial without sending for disabled registration, already verified users, uncertain billing and unauthorized recipients.
