@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Eye, EyeOff, Globe2, Lock, Mail, ShieldCheck, Sparkles, Users, Zap } from 'lucide-react';
 import { Brand } from './Brand';
 import { TurnstileChallenge } from './TurnstileChallenge';
@@ -34,6 +35,7 @@ function turnstileFailureHint(code:string,lang:Lang){
 
 export function AuthPortal(){
   const {t,lang}=useLanguage();
+  const router=useRouter();
   const [mode,setMode]=useState<'login'|'signup'|'forgot'>('signup');
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');
   const [display,setDisplay]=useState('');const [handle,setHandle]=useState('');const [visible,setVisible]=useState(false);
@@ -99,7 +101,7 @@ export function AuthPortal(){
           options:{captchaToken:requestCaptchaToken,data:{display_name:display.trim(),handle:handle.trim().toLowerCase()},emailRedirectTo:`${location.origin}/auth/confirm`}});
         if(error)throw error;
         setSuccess(data.session?t('signupDone'):t('signupConfirm'));
-        if(data.session)location.assign('/');
+        if(data.session)router.replace('/');
         else {
           pendingSignupRef.current=normalizedEmail;
           setPendingEmail(email.trim());
@@ -118,7 +120,7 @@ export function AuthPortal(){
           const {error:sessionError}=await supabase.auth.setSession({access_token:data.session.access_token,refresh_token:data.session.refresh_token});
           if(sessionError)throw sessionError;
         }
-        location.assign('/');
+        router.replace('/');
       } else {
         const identity=email.trim();
         if(identity.includes('@') && !identity.startsWith('@')){
