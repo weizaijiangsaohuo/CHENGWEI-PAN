@@ -175,3 +175,27 @@ test('registration readiness is owner-only, read-only, and keeps signup disabled
  assert.ok(pools.every(p=>p.closed));
  assert.equal((await make(cfg)(req('/api/identity/auth/sign-up/email',{method:'POST',headers:{origin}}))).status,404);
 });
+
+test('signup cannot start unless browser access and independent account initialization are enabled',async()=>{
+ let opened=0;class Pool{constructor(){opened++;throw Error('no pool expected');}}
+ const cfg={...env,STARFLOW_REGISTRATION_PREVIEW_ENABLED:'true'};
+ const run=(bindings,path,method)=>createPreviewHandler({env:bindings,authorizePreview:async()=>true,Pool})(req(path,{method,headers:{origin}}));
+ for(const [path,method] of [['/api/identity/auth/sign-up/email','POST'],['/api/identity/auth/verify-email?token=fixture','GET']]){
+  assert.equal((await run(cfg,path,method)).status,404);
+  assert.equal((await run({...cfg,STARFLOW_FRESH_PREVIEW_ENABLED:'true',STARFLOW_PREVIEW_OWNER_KEY:'c'.repeat(64)},path,method)).status,404);
+ }
+ assert.equal(opened,0);
+});
+test('registration fails before signup when business or provisioning privileges are unsafe',async()=>{
+ const cfg={...env,STARFLOW_REGISTRATION_PREVIEW_ENABLED:'true',STARFLOW_FRESH_PREVIEW_ENABLED:'true',
+ STARFLOW_FRESH_DB_URL:url('sf_fresh_account_connect','fresh-only'),STARFLOW_REGISTRATION_DB_URL:url('sf_registration_connect','issuer-only'),STARFLOW_MAIL_DB_URL:url('sf_mail_budget_connect','mail-only')};
+ for(const badRole of ['sf_business_connect','sf_fresh_account_connect']){
+  const pools=[];let sends=0;
+  class Pool{constructor(cfg){this.cfg=cfg;pools.push(this);}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:this.cfg.user!==badRole}]};}async end(){this.closed=true;}}
+  const h=createPreviewHandler({env:cfg,authorizePreview:async()=>true,Pool,registrationMail:{verifyBilling:async()=>true,transport:async()=>{sends++;throw Error('no send allowed');},apiKey:'fixture-key',sender:'fixture@example.invalid',recipientSecret:'fixture-only-secret-not-real-32chars'}});
+  const response=await h(req('/api/identity/auth/sign-up/email',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({email:'fixture@example.invalid',name:'Fixture',username:'fixture',password:'synthetic-test-password'})}));
+  assert.equal(response.status,503);assert.equal(sends,0);
+  assert.deepEqual(pools.map(p=>p.cfg.user),['sf_auth_runtime','sf_business_connect','sf_fresh_account_connect','sf_registration_connect','sf_mail_budget_connect']);
+  assert.ok(pools.every(p=>p.closed));
+ }
+});

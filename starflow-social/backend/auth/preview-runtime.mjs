@@ -184,7 +184,9 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   // Browser-facing page is independently opt-in and cannot use owner-key mode.
   if(route===inboxPreviewRoute&&(env.STARFLOW_INBOX_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
   const registration=registrationRoutes.has(route);
-  if(registration&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED!=='true')return deny();
+  // Email verification is browser navigation: an owner header cannot authorize its link.
+  // Do not admit signup until the independent account initialization route is enabled.
+  if(registration&&(env.STARFLOW_REGISTRATION_PREVIEW_ENABLED!=='true'||env.STARFLOW_FRESH_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
   if(route===freshRoute&&(env.STARFLOW_FRESH_PREVIEW_ENABLED!=='true'))return deny();
   if(route===freshRoute&&(url.search||request.body!==null))return deny(400);
   if(route!==readinessRoute&&route!==registrationReadinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!registration&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
@@ -244,7 +246,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
      roleFailure(mailPool,'sf_mail_budget_connect',mailPrivilegeSql,'mail',attestationDatabase)]);
     const failed=failures.find(Boolean);if(failed)return unavailable(failed);
     return Response.json({databaseReady:true,mailAdapterConfigured:typeof registrationMail?.verifyBilling==='function'&&typeof registrationMail?.transport==='function',
-     liveMailVerified:false,registrationEnabled:env.STARFLOW_V2_ENABLED==='true'&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED==='true'},
+     liveMailVerified:false,registrationEnabled:env.STARFLOW_V2_ENABLED==='true'&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED==='true'&&env.STARFLOW_FRESH_PREVIEW_ENABLED==='true'&&env.STARFLOW_PREVIEW_OWNER_KEY===undefined},
      {headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
    }
    if(route===readinessRoute){
@@ -265,11 +267,14 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
      typeof registrationMail.recipientSecret!=='string'||registrationMail.recipientSecret.length<32||
      [env.BETTER_AUTH_SECRET,registrationMail.apiKey].includes(registrationMail.recipientSecret)||
      await registrationMail.verifyBilling()!==true)return deny(503);
+    const f=restrictedPoolConfig(env.STARFLOW_FRESH_DB_URL,'sf_fresh_account_connect',env.STARFLOW_PREVIEW_DB_HOST);
     const i=restrictedPoolConfig(env.STARFLOW_REGISTRATION_DB_URL,'sf_registration_connect',env.STARFLOW_PREVIEW_DB_HOST);
     const m=restrictedPoolConfig(env.STARFLOW_MAIL_DB_URL,'sf_mail_budget_connect',env.STARFLOW_PREVIEW_DB_HOST);
-    if(new Set([a.password,b.password,i.password,m.password]).size!==4)return deny(503);
-    issuerPool=new Pool(i);mailPool=new Pool(m);
+    if(new Set([a.password,b.password,f.password,i.password,m.password]).size!==5)return deny(503);
+    businessPool=new Pool(b);freshPool=new Pool(f);issuerPool=new Pool(i);mailPool=new Pool(m);
     const failures=await Promise.all([roleFailure(authPool,'sf_auth_runtime',authPrivilegeSql,'auth',attestationDatabase),
+     roleFailure(businessPool,'sf_business_connect',businessPrivilegeSql,'business',attestationDatabase),
+     roleFailure(freshPool,'sf_fresh_account_connect',freshPrivilegeSql,'fresh',attestationDatabase),
      roleFailure(issuerPool,'sf_registration_connect',issuerPrivilegeSql,'issuer',attestationDatabase),
      roleFailure(mailPool,'sf_mail_budget_connect',mailPrivilegeSql,'mail',attestationDatabase)]);
     if(failures.some(Boolean))return deny(503);
