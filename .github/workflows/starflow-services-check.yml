@@ -34,6 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: node --experimental-strip-types --test starflow-social/tests/didit-identity.test.mjs
       - run: node --test starflow-social/backend/services/services.test.mjs starflow-social/backend/services/mail-dispatch.test.mjs starflow-social/backend/services/identity-vault.test.mjs starflow-social/backend/auth/identity-queue.test.mjs starflow-social/backend/auth/ui/identity-workbench.test.mjs starflow-social/backend/auth/identity-stepup.test.mjs
       - run: |
           psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/001_core_profiles.sql
