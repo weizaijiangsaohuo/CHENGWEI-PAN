@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createInboxSync} from './inbox-sync.mjs';
+import {createInboxSync,createPreviewInboxController} from './inbox-sync.mjs';
 const a='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',b='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const id=i=>'00000000-0000-4000-8000-'+String(i).padStart(12,'0');
 const msg=i=>({id:id(i),sync_seq:String(i),sender_id:a,recipient_id:b,body:'fixture'});
@@ -74,4 +74,35 @@ test('account switches away and back between identity checks cannot mix another 
 test('legacy pages without server-confirmed identity are rejected',async()=>{
  const sync=createInboxSync({request:async p=>json(p==='/api/v2/me'?{profile:{id:a}}:{messages:[],next:'0',hasMore:false})});
  await assert.rejects(sync.refresh(a),/refresh required/);
+});
+
+test('preview inbox uses explicit same-origin cookie transport and clears data before refresh or logout',async()=>{
+ const origin='https://fixture-weizai.example.workers.dev',states=[],requests=[];
+ const fetcher=async(url,opts)=>{
+  requests.push({url,opts});const p=new URL(url);
+  assert.equal(p.origin,origin);assert.equal(opts.credentials,'same-origin');assert.equal(opts.redirect,'error');assert.equal(opts.cache,'no-store');assert.deepEqual(opts.headers,{accept:'application/json'});
+  return json(p.pathname.endsWith('/me')?{profile:{id:a}}:p.pathname.endsWith('/messages')?{principal:a,messages:[msg(1)],next:'1',hasMore:false}:{principal:a,notifications:[],next:null,hasMore:false});
+ };
+ const c=createPreviewInboxController({origin,fetcher,onState:s=>states.push(s)});
+ assert.throws(()=>createPreviewInboxController({origin:'https://weizai.example.workers.dev',fetcher,onState:()=>{}}));
+ assert.equal(await c.refresh(a),true);assert.equal(states.at(-1).snapshot.messages.length,1);
+ const second=c.refresh(a);assert.deepEqual(states.at(-1),{status:'loading',snapshot:null});
+ c.reset();assert.deepEqual(states.at(-1),{status:'idle',snapshot:null});
+ assert.equal(await second,false);assert.equal(states.at(-1).status,'idle');
+ c.close();assert.equal(states.at(-1).status,'closed');assert.equal(await c.refresh(a),false);
+ assert.ok(requests.length>0);
+});
+test('preview inbox does not publish delayed account data or keep expired session records',async()=>{
+ const origin='https://fixture-weizai.example.workers.dev',states=[];
+ let resolve,first=true;
+ const c=createPreviewInboxController({origin,onState:s=>states.push(s),fetcher:async()=>{
+  if(first){first=false;return new Promise(r=>{resolve=r;});}
+  return new Response(null,{status:401});
+ }});
+ const old=c.refresh(a);const latest=c.refresh(b);
+ assert.equal(await latest,false);
+ assert.deepEqual(states.at(-1),{status:'error',snapshot:null});
+ resolve(json({profile:{id:a}}));assert.equal(await old,false);
+ assert.deepEqual(states.at(-1),{status:'error',snapshot:null});
+ assert.ok(states.every(s=>s.snapshot===null));
 });

@@ -18,3 +18,6 @@ The isolated registry now snapshots an immutable, UUID-bound session grant, acce
 
 ## Scoped post export reconciliation
 The offline post planner now accepts a separate exact-count reconciliation call over the six scoped source tables. Missing tables, partial exports, unrecognized source scope, count mismatches, or invalid row relationships deny acceptance. The report returns only table names/counts and always blocks import and cutover. Matching counts alone cannot establish same-snapshot provenance, checksums, media integrity or recovery; an authorized immutable export, target identity mapping and restore rehearsal remain required. No source credentials, records or backup were obtained by this change.
+
+## Preview browser inbox lifecycle adapter
+The isolated inbox module now includes a browser-facing controller using only same-origin cookie transport on the existing weizai preview hostname, with redirects rejected, no-store reads and no owner secret in JS. It synchronously clears displayed state at refresh/reset/close and suppresses cancelled or superseded results, with tests for expired sessions and account switching. It is designed for signed Cloudflare Access sessions, not owner-key-only previews. The current production UI is untouched; actual UI mounting, Access verification, and WebSocket delivery remain separate acceptance gates.
