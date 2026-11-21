@@ -1,0 +1,47 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import pg from 'pg';import {randomUUID} from 'node:crypto';import {createBusinessHandler} from './business-api.mjs';
+test('HTTP social routes enforce own profile, private posts, blocking, interactions and follow consent on PostgreSQL',async()=>{
+ const cfg={host:'127.0.0.1',port:5432,database:'starflow_auth_test',max:2};const owner=new pg.Pool({...cfg,user:'postgres',password:'ephemeral-ci-only'});let pool;
+ const a=randomUUID(),b=randomUUID(),sa=randomUUID(),sb=randomUUID(),origin='https://social-fixture.invalid';
+ try{
+  await owner.query("CREATE ROLE sf_social_api_fixture LOGIN NOSUPERUSER NOINHERIT NOBYPASSRLS PASSWORD 'synthetic-social-fixture-only'");
+  await owner.query('GRANT sf_session_gateway TO sf_social_api_fixture');
+  await owner.query('INSERT INTO sf_core.principals(id) VALUES($1),($2)',[a,b]);
+  await owner.query("INSERT INTO sf_core.profiles(id,handle) VALUES($1,'social_fixture_a'),($2,'social_fixture_b')",[a,b]);
+  await owner.query('INSERT INTO sf_core.auth_bindings(principal_id,auth_subject) VALUES($1,$2),($3,$4)',[a,sa,b,sb]);
+  pool=new pg.Pool({...cfg,user:'sf_social_api_fixture',password:'synthetic-social-fixture-only'});
+  const auth={api:{getSession:async({headers})=>{const sub=({'a':sa,'b':sb})[headers.get('cookie')];return sub?{user:{id:sub,emailVerified:true},session:{userId:sub,expiresAt:new Date(Date.now()+60000)}}:null;}}};
+  const app=createBusinessHandler({auth,pool,origin});
+  const call=(method,path,cookie,data,from=origin)=>app(new Request(origin+'/api/v2/'+path,{method,headers:{origin:from,cookie,'content-type':'application/json','x-user-id':b},...(data?{body:JSON.stringify(data)}:{})}));
+  assert.equal((await call('POST','profile','a',{displayName:'Alice',id:b})).status,400);
+  assert.equal((await call('POST','profile','a',{displayName:'Alice'},'https://evil.invalid')).status,403);
+  assert.equal((await call('POST','profile','a',{displayName:'Alice',bio:'fixture'})).status,200);
+  assert.equal((await (await call('GET','me','b')).json()).profile.display_name,'新朋友');
+  assert.equal((await call('GET','posts','none')).status,401);
+  const p=await call('POST','posts','a',{content:'private fixture'});assert.equal(p.status,201);const post=(await p.json()).post;
+  assert.equal(post.author_id,a);assert.equal(post.visibility,'private');
+  assert.equal((await call('POST','posts','a',{content:'too soon'})).status,429);
+  const feed=async(who,query='')=>(await (await call('GET','posts'+query,who)).json());
+  assert.ok(!(await feed('b')).posts.some(x=>x.id===post.id));
+  assert.equal((await call('POST','posts/like','b',{id:post.id,enabled:true})).status,404);
+  assert.equal((await call('POST','posts/edit','b',{id:post.id,content:'attack',visibility:'members'})).status,404);
+  assert.equal((await call('POST','posts/edit','a',{id:post.id,content:'member fixture',visibility:'members'})).status,200);
+  assert.equal((await call('POST','posts/like','b',{id:post.id,enabled:true})).status,200);
+  assert.equal((await call('POST','posts/like','b',{id:post.id,enabled:true})).status,200);
+  assert.equal((await call('POST','posts/bookmark','b',{id:post.id,enabled:true})).status,200);
+  assert.equal((await feed('b')).posts.find(x=>x.id===post.id).liked,true);
+  assert.equal((await feed('b')).posts.find(x=>x.id===post.id).bookmarked,true);
+  assert.equal((await feed('a')).posts.find(x=>x.id===post.id).liked,false);
+  assert.equal((await call('POST','posts/like','b',{id:post.id,enabled:false})).status,200);
+  assert.equal((await feed('b')).posts.find(x=>x.id===post.id).liked,false);
+  assert.equal((await (await call('POST','follows/request','a',{id:b})).json()).accepted,false);
+  assert.equal((await call('POST','follows/accept','a',{id:b})).status,404);
+  assert.equal((await call('POST','follows/accept','b',{id:a})).status,200);
+  assert.equal((await (await call('POST','follows/request','a',{id:b})).json()).accepted,true);
+  await owner.query('INSERT INTO sf_core.blocks(blocker_id,blocked_id) VALUES($1,$2)',[b,a]);
+  assert.ok(!(await feed('b')).posts.some(x=>x.id===post.id));
+  assert.deepEqual((await feed('b','?before='+post.id)).posts,[]);
+  assert.equal((await call('POST','posts/bookmark','b',{id:post.id,enabled:true})).status,404);
+  assert.equal((await call('POST','follows/request','a',{id:b})).status,403);
+  assert.equal((await call('POST','follows/remove','a',{id:b})).status,200);
+ }finally{if(pool)await pool.end();await owner.end();}
+});

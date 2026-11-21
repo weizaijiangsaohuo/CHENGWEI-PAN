@@ -2,6 +2,7 @@
 // Access verification must be supplied by a trusted server integration, never by a client flag.
 import pg from 'pg';
 import {createStarflowAuthLab} from './auth.mjs';
+import {isSocialRoute} from './social-api.mjs';
 import {createBusinessHandler} from './business-api.mjs';
 
 const authPaths=new Set([
@@ -90,7 +91,7 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   let target;try{target=new URL(origin);}catch{return deny();}
   if(target.origin!==origin||target.protocol!=='https:'||!/^[-a-z0-9]+-weizai\.[a-z0-9-]+\.workers\.dev$/.test(target.hostname)||url.origin!==origin||url.username||url.password)return deny();
   const route=request.method+' '+url.pathname;
-  if(route!==readinessRoute&&!authPaths.has(route)&&!businessPaths.has(route))return deny();
+  if(route!==readinessRoute&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);

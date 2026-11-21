@@ -89,6 +89,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f ../migrations/021_account_recovery_policy.sql
           psql -v ON_ERROR_STOP=1 -f ../tests/021_account_recovery_policy.sql
       - run: node --test business-api.test.mjs
+      - run: node --test social-api.test.mjs
       - run: node --test real-session.test.mjs
       - run: node --test review-api.test.mjs
       - run: node --test totp-ceremony.test.mjs

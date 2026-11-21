@@ -79,3 +79,12 @@ test('owner-key mode preserves disabled and production guards; forwards no owner
  assert.equal(pools,0);
  assert.equal((await make(cfg)(req(path,input))).status,200);assert.equal(pools,1);assert.equal(calls,1);
 });
+
+test('new social preview routes require explicit flag plus owner access',async()=>{
+ let pools=0;class Pool{constructor(){pools++;}async end(){}}
+ const make=(bindings,authorizePreview)=>createPreviewHandler({env:bindings,authorizePreview,Pool,authFactory:()=>({api:{getSession:async()=>null}})});
+ assert.equal((await make(env,async()=>true)(req('/api/v2/posts'))).status,404);
+ const enabled={...env,STARFLOW_SOCIAL_PREVIEW_ENABLED:'true'};
+ assert.equal((await make(enabled,async()=>false)(req('/api/v2/posts'))).status,403);assert.equal(pools,0);
+ assert.equal((await make(enabled,async()=>true)(req('/api/v2/posts'))).status,401);assert.equal(pools,2);
+});
