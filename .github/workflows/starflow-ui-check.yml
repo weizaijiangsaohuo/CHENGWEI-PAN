@@ -34,7 +34,7 @@ jobs:
           cache: npm
           cache-dependency-path: starflow-social/package-lock.json
       - run: npm ci --no-audit --no-fund
-      - run: node --test backend/auth/preview-access.test.mjs backend/auth/preview-runtime.test.mjs
+      - run: node --test backend/auth/preview-access.test.mjs backend/auth/preview-runtime.test.mjs backend/auth/inbox-sync.test.mjs
       - run: npm run check
       - run: npm run lint
       - run: npm run build
