@@ -68,6 +68,7 @@ export function AuthPortal(){
   const lastSignupAttempt=useRef<{email:string;until:number}|null>(null);
   const pendingSignupRef=useRef('');
   const pendingSignup=mode==='signup'&&!!pendingEmail&&email.trim().toLowerCase()===pendingEmail.toLowerCase();
+  const canResendConfirmation=mode!=='forgot'&&!!pendingEmail&&email.trim().toLowerCase()===pendingEmail.toLowerCase();
   function updateCaptcha(token:string){
     captchaTokenRef.current=token;setCaptchaToken(token);
     if(token){setCaptchaFailureCode('');setError(previous=>previous===t('captchaFailure')?'':previous);}
@@ -111,6 +112,16 @@ export function AuthPortal(){
         const identity=email.trim();
         if(identity.includes('@') && !identity.startsWith('@')){
           const {error}=await supabase.auth.signInWithPassword({email:identity,password,options:{captchaToken:requestCaptchaToken}});
+          if(error?.code==='email_not_confirmed'){
+            const normalized=identity.toLowerCase();
+            if(pendingSignupRef.current!==normalized){
+              pendingSignupRef.current=normalized;
+              setPendingEmail(identity);
+              setResendAvailableAt(0);
+            }
+            setError(isEnglishLocale(lang)?'Confirm your email before signing in. You can resend the confirmation below.':'邮箱尚未验证，请先完成验证。未收到邮件可在下方重新发送。');
+            return;
+          }
           if(error)throw error;
         }else{
           const {data,error}=await supabase.functions.invoke('auth-identifier',{
@@ -138,9 +149,10 @@ export function AuthPortal(){
     finally{submitting.current=false;setBusy(false);resetCaptcha();}
   }
   async function resendSignupEmail(){
-    if(submitting.current||busy||!pendingSignup||email.trim().toLowerCase()!==pendingSignupRef.current||Date.now()<resendAvailableAt||!configured)return;
+    if(submitting.current||busy||!canResendConfirmation||email.trim().toLowerCase()!==pendingSignupRef.current||Date.now()<resendAvailableAt||!configured)return;
     if(siteKey&&!captchaTokenRef.current){setError(t('captchaRequired'));return;}
     submitting.current=true;setBusy(true);setError('');
+    setResendAvailableAt(Date.now()+60_000);
     try{
       const {error:resendError}=await db().auth.resend({
         type:'signup',
@@ -206,7 +218,7 @@ export function AuthPortal(){
           {error&&<div className="form-error" role="alert">{error}</div>}{success&&<div className="form-success" role="status"><Check size={16}/>{success}</div>}
           <button className="btn btn-primary auth-submit" disabled={busy||pendingSignup||!configured||Boolean(siteKey&&!captchaToken)}>{busy?t('processing'):t(mode==='signup'?'create':mode==='login'?'loginButton':'sendReset')}<ArrowRight size={18}/></button>
         </form>
-        {pendingSignup&&<div style={{textAlign:'center',margin:'12px 0 4px'}}>
+        {canResendConfirmation&&<div style={{textAlign:'center',margin:'12px 0 4px'}}>
           <p style={{fontSize:13,margin:'0 0 8px',color:'#6c6482'}}>{isEnglishLocale(lang)?'Already registered? Do not sign up repeatedly. If confirmation is pending, resend here.':'已提交注册？请勿反复注册。尚未收到确认邮件，可在这里重新发送。'}</p>
           <button type="button" onClick={()=>void resendSignupEmail()}
             disabled={busy||resendSeconds>0||Boolean(siteKey&&!captchaToken)}
