@@ -145,7 +145,17 @@ export function AuthPortal(){
         }
         setSuccess(isEnglishLocale(lang)?'If the account exists, a reset link will be sent to its registered email.':'如果账号存在，系统会向注册时预留的邮箱发送密码重置链接。');
       }
-    } catch(e) {setError(e instanceof Error?e.message:t('authFailure'));}
+    } catch(e) {
+      const code=typeof e==='object'&&e!==null&&'code' in e?String(e.code):'';
+      const message=e instanceof Error?e.message:t('authFailure');
+      if(mode==='login'&&code==='invalid_credentials'){
+        setError(isEnglishLocale(lang)?'The email, username or password is incorrect. Check your details or use Forgot password.':'邮箱、用户名或密码不正确。请核对输入，或使用忘记密码。');
+      }else if(/^(load failed|failed to fetch|networkerror when attempting to fetch resource\.?|network request failed)$/i.test(message)){
+        setError(mode==='signup'
+          ?(isEnglishLocale(lang)?'The connection was interrupted. Registration may already have succeeded. Check your inbox or try signing in before registering again.':'网络连接中断，注册可能已成功。请先检查邮箱或尝试登录，不要重复注册。')
+          :(isEnglishLocale(lang)?'The connection was interrupted. Please check your network and try again.':'网络连接中断，请检查网络后重试。'));
+      }else setError(message);
+    }
     finally{submitting.current=false;setBusy(false);resetCaptcha();}
   }
   async function resendSignupEmail(){
