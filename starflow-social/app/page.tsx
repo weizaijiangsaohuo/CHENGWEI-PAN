@@ -144,13 +144,26 @@ export default function Home(){
   useEffect(()=>{
     if(!hasConfig()){setScreen('landing');return;}
     let active=true;
+    let sessionChanged=false;
     const client=db();
-    const {data:{subscription}}=client.auth.onAuthStateChange((_event,session)=>{
-      if(active&&session?.user)setScreen('member');
+    const {data:{subscription}}=client.auth.onAuthStateChange((event,session)=>{
+      if(!active)return;
+      if(event==='SIGNED_OUT'){
+        sessionChanged=true;
+        setScreen(current=>current==='auth'?current:'landing');
+        return;
+      }
+      // An initial network lookup must not overwrite a newer sign-in event.
+      if(event==='SIGNED_IN'&&session?.user)sessionChanged=true;
+      if(session?.user)setScreen('member');
     });
     client.auth.getUser().then(({data:{user}})=>{
-      if(active)setScreen(current=>current==='auth'?current:(user?'member':'landing'));
-    }).catch(()=>{if(active)setScreen('landing')});
+      if(active&&!sessionChanged)setScreen(current=>current==='auth'?current:(user?'member':'landing'));
+    }).catch(()=>{
+      if(active&&!sessionChanged){
+        setScreen(current=>current==='auth'?current:'landing');
+      }
+    });
     return()=>{active=false;subscription.unsubscribe()};
   },[]);
   if(screen==='checking'&&!showInitialLogo)return <main className="sf-section-loading sf-root-auth-loading" role="status"><span className="sf-section-loading-dot"/> 正在进入星流…</main>;
