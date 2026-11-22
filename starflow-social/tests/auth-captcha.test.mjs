@@ -65,6 +65,7 @@ function portal() {
   const auth=Object.fromEntries(['signUp','signInWithPassword','resetPasswordForEmail','signInWithOAuth'].map(name=>[
     name,(...args)=>{calls.push({name,args});return service;}
   ]));
+  auth.resend=async(...args)=>{calls.push({name:'resend',args});return {error:null};};
   const h=harness('AuthPortal',{
     'next/navigation':{useRouter:()=>({replace:path=>navigation.push(path)})},
     '@/lib/supabase':{db:()=>({auth}),hasConfig:()=>true},
@@ -217,4 +218,31 @@ test('successful email sign-in uses client navigation',async()=>{
   const p=portal();p.switchMode('signIn');p.fill();p.challenge().props.onToken('verified-token');
   const pending=p.submit();p.finish({data:{session:{access_token:'mock-session'}},error:null});await pending;
   assert.deepEqual(p.navigation,['/']);
+});
+
+test('unconfirmed email login offers resend only after a fresh CAPTCHA and never navigates',async()=>{
+  const p=portal();p.switchMode('signIn');p.fill();p.challenge().props.onToken('login-token');
+  const pending=p.submit();p.finish({error:{code:'email_not_confirmed',message:'Email not confirmed'}});await pending;
+  const resend=()=>find(p.render(),n=>n.type==='button'&&n.props.children==='重新发送注册验证邮件');
+  assert.ok(resend());assert.equal(resend().props.disabled,true);
+  resend().props.onClick();assert.equal(p.calls.length,1);
+  p.challenge().props.onToken('resend-token');
+  resend().props.onClick();await Promise.resolve();await Promise.resolve();
+  assert.equal(p.calls.length,2);
+  assert.equal(p.calls[1].name,'resend');
+  assert.equal(p.calls[1].args[0].email,'tester@example.invalid');
+  assert.equal(p.calls[1].args[0].options.captchaToken,'resend-token');
+  assert.deepEqual(p.navigation,[]);
+});
+test('network interruption during signup warns of uncertain result instead of suggesting another signup',async()=>{
+  const p=portal();p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({error:new Error('Load failed')});await pending;
+  assert.match(find(p.render(),n=>n.props.role==='alert').props.children,/注册可能已成功/);
+  assert.deepEqual(p.navigation,[]);
+});
+test('invalid credentials stay on login with safe recovery guidance',async()=>{
+  const p=portal();p.switchMode('signIn');p.fill();p.challenge().props.onToken('verified-token');
+  const pending=p.submit();p.finish({error:{code:'invalid_credentials',message:'Invalid login credentials'}});await pending;
+  assert.match(find(p.render(),n=>n.props.role==='alert').props.children,/忘记密码/);
+  assert.deepEqual(p.navigation,[]);
 });
