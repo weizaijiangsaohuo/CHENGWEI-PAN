@@ -22,7 +22,7 @@ test('verified user cache stays in memory, short-lived, revalidated, and cleared
  assert.match(app,/client\.auth\.getUser\(\)\.then/);
  assert.match(app,/rememberVerifiedRouteUser\(next\)/);
  assert.match(app,/if\(event==='SIGNED_OUT'\)\{/);
- assert.match(app,/signedOut=true;rememberVerifiedRouteUser\(null\)/);
+ assert.match(app,/signedOut=true;sessionChanged=true;rememberVerifiedRouteUser\(null\)/);
  assert.match(app,/if\(verifiedRouteUser\?\.user\.id!==session\.user\.id\)rememberVerifiedRouteUser\(null\)/);
  assert.doesNotMatch(app,/localStorage\.setItem\(['"]sf-[^'"]*user-cache/);
 });
