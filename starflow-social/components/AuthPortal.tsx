@@ -147,7 +147,8 @@ export function AuthPortal(){
       }
     } catch(e) {
       const code=typeof e==='object'&&e!==null&&'code' in e?String(e.code):'';
-      const message=e instanceof Error?e.message:t('authFailure');
+      // Errors originating in a different browser realm may not share our Error prototype.
+      const message=typeof e==='object'&&e!==null&&'message' in e&&typeof e.message==='string'?e.message:t('authFailure');
       if(mode==='login'&&code==='invalid_credentials'){
         setError(isEnglishLocale(lang)?'The email, username or password is incorrect. Check your details or use Forgot password.':'邮箱、用户名或密码不正确。请核对输入，或使用忘记密码。');
       }else if(/^(load failed|failed to fetch|networkerror when attempting to fetch resource\.?|network request failed)$/i.test(message)){
