@@ -30,7 +30,7 @@ export function createPreviewRegistrationMail(env={}, {transport=fetch}={}){
   env.STARFLOW_BREVO_SEND_ENABLED!=='true'||env.STARFLOW_BREVO_BILLING_FREE_ONLY_VERIFIED!=='true'||
   env.STARFLOW_PREVIEW_OWNER_KEY!==undefined||typeof transport!=='function')return undefined;
  const sender=env.STARFLOW_BREVO_SENDER_EMAIL,apiKey=env.BREVO_API_KEY,recipientSecret=env.STARFLOW_MAIL_RECIPIENT_SECRET;
- if(!clean(apiKey)||!clean(sender,3,254)||!senderEmail.test(sender)||
+ if(!clean(apiKey)||!clean(sender,3,254)||sender.includes('\\')||!senderEmail.test(sender)||
   !clean(recipientSecret,32,512)||recipientSecret===apiKey||recipientSecret===env.BETTER_AUTH_SECRET)return undefined;
  try{
   const origin=new URL(env.STARFLOW_AUTH_ORIGIN);
