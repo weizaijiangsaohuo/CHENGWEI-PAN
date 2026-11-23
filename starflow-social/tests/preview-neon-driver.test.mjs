@@ -21,7 +21,9 @@ test('existing Worker preview and production configuration cannot activate the n
  assert.ok(cfg.compatibility_flags.includes('nodejs_compat'));
  const vars=cfg.previews?.vars;
  assert.ok(vars);
- assert.deepEqual(Object.keys(vars).sort(),['STARFLOW_AUTH_ORIGIN','STARFLOW_PREVIEW_DB_HOST','STARFLOW_V2_ENABLED','STARFLOW_V2_PREVIEW_ONLY'].sort());
+ assert.deepEqual(Object.keys(vars).sort(),['CLOUDINARY_CLOUD_NAME','STARFLOW_AUTH_ORIGIN','STARFLOW_PREVIEW_DB_HOST','STARFLOW_V2_ENABLED','STARFLOW_V2_PREVIEW_ONLY','STARFLOW_FRESH_PREVIEW_ENABLED','STARFLOW_REGISTRATION_PREVIEW_ENABLED','STARFLOW_BREVO_SEND_ENABLED','STARFLOW_CLOUDINARY_UPLOAD_ENABLED'].sort());
+ assert.equal(vars.CLOUDINARY_CLOUD_NAME,'buaqssyk');
+ for(const key of ['STARFLOW_FRESH_PREVIEW_ENABLED','STARFLOW_REGISTRATION_PREVIEW_ENABLED','STARFLOW_BREVO_SEND_ENABLED','STARFLOW_CLOUDINARY_UPLOAD_ENABLED'])assert.equal(vars[key],'false');
  assert.equal(vars.STARFLOW_V2_ENABLED,'false');
  assert.equal(vars.STARFLOW_V2_PREVIEW_ONLY,'true');
  assert.equal(vars.STARFLOW_AUTH_ORIGIN,'https://feature-neon-backend-foundation-20261120-weizai.weizai.workers.dev');
