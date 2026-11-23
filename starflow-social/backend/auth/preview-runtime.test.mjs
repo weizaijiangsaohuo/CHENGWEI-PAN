@@ -247,7 +247,7 @@ test('owner-only provider readiness remains available with v2 disabled and never
  const response=await h(req('/api/v2/provider-readiness',protectedHeader));
  assert.equal(response.status,200);
  assert.equal(response.headers.get('cache-control'),'private, no-store');
- assert.deepEqual(await response.json(),{brevo:'free_account_authorized',cloudinary:'usage_access_authorized'});
+ assert.deepEqual(await response.json(),{brevo:'free_account_authorized',sender:'not_configured',cloudinary:'usage_access_authorized'});
  assert.equal(providerCalls,2);
  assert.equal(poolCount,0);
 });
