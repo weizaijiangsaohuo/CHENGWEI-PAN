@@ -1,0 +1,39 @@
+name: Starflow PostgreSQL foundation checks
+on:
+  push:
+    branches: [feature/neon-backend-foundation-20261120]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'starflow-social/backend/**'
+      - '.github/workflows/starflow-postgres-check.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ephemeral-ci-only
+          POSTGRES_DB: starflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d starflow_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: ephemeral-ci-only
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGDATABASE: starflow_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Apply isolated schema and test access boundaries
+        run: |
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/migrations/001_core_profiles.sql
+          psql -v ON_ERROR_STOP=1 -f starflow-social/backend/tests/001_core_profiles.sql

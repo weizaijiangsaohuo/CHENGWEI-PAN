@@ -6,7 +6,7 @@ export type LinkedProvider={key:ProviderKey;label:string;provider:Provider;enabl
 const wx=process.env.NEXT_PUBLIC_WECHAT_OAUTH_PROVIDER||'';
 const qq=process.env.NEXT_PUBLIC_QQ_OAUTH_PROVIDER||'';
 export const linkedProviders:readonly LinkedProvider[]=[
- {key:'google',label:'Google',provider:'google',enabled:process.env.NEXT_PUBLIC_GOOGLE_ENABLED==='true',requirement:'需要启用 Supabase Google OAuth。'},
+ {key:'google',label:'Google',provider:'google',enabled:false,requirement:'旧 Google 授权服务已停用；已有身份关联仅供查看，不会自动解绑。'},
  {key:'apple',label:'Apple ID',provider:'apple',enabled:process.env.NEXT_PUBLIC_APPLE_ENABLED==='true',requirement:'需要 Apple Developer 应用凭据和 Supabase Apple OAuth。'},
  {key:'facebook',label:'Facebook',provider:'facebook',enabled:process.env.NEXT_PUBLIC_FACEBOOK_ENABLED==='true',requirement:'需要 Meta 开发者应用与 Supabase Facebook OAuth。'},
  {key:'twitter',label:'X',provider:'twitter',enabled:process.env.NEXT_PUBLIC_X_ENABLED==='true',requirement:'需要 X Developer OAuth 2.0 应用及 Supabase Twitter OAuth。'},

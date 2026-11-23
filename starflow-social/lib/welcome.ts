@@ -1,19 +1,6 @@
-/**
- * Trigger after a verified account first enters the app. The server verifies the
- * Supabase JWT again and guarantees a once-per-account send via a DB claim.
- * No email API key, SMTP password, or service-role key is exposed to browsers.
+/** Legacy compatibility export: welcome emails through the retired provider are disabled.
+ * Do not claim a delivery, modify delivery history, or bypass verification/reset emails.
  */
-import { db } from './supabase';
-
-const attempted = new Set<string>();
-export async function ensureWelcomeEmail(userId: string): Promise<void> {
-  if (attempted.has(userId)) return;
-  attempted.add(userId);
-  try {
-    // The same endpoint works for email+password accounts and Google OAuth accounts.
-    const { error } = await db().functions.invoke('welcome-email', { body: {} });
-    if (error) attempted.delete(userId); // May retry on a later page load.
-  } catch {
-    attempted.delete(userId);
-  }
+export async function ensureWelcomeEmail(_userId: string): Promise<void> {
+  // No network requests or persistent state. Kept only for older imports.
 }

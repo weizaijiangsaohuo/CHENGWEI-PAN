@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>星流 · 身份档案工作台</title><link rel="stylesheet" href="./identity-workbench.css"></head>
+<body><main id="identity-workbench"><header><span class="eyebrow">STARFLOW · 安全审核</span><h1>身份档案工作台</h1><p>仅限授权审核人员。列表不显示证件原图、完整身份字段或人脸照片。</p></header>
+<section class="panel"><form><label>用户账号编号（UUID，可留空）<input name="subject" autocomplete="off" maxlength="36" placeholder="输入用户 UUID"></label><button type="submit" data-search disabled>验证并查询</button></form><p role="status">身份档案接口尚未启用，等待安全接入。</p></section>
+<section class="panel"><h2>认证档案</h2><div class="table-scroll"><table><thead><tr><th>用户编号</th><th>认证编号</th><th>状态</th><th>提交时间</th><th>保留材料类型</th><th>保留截止</th></tr></thead><tbody></tbody></table></div><button data-next type="button" disabled>验证并查看下一页</button></section>
+</main></body></html>

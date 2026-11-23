@@ -196,13 +196,6 @@ export function AuthPortal(){
       submitting.current=false;setBusy(false);
     }
   }
-  async function oauth(){
-    if(submitting.current||process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true')return;
-    if(!configured){setError(t('authNotReady'));return;}
-    setError('');submitting.current=true;setBusy(true);
-    try{const {error}=await db().auth.signInWithOAuth({provider:'google',options:{redirectTo:`${location.origin}/auth/callback`,skipBrowserRedirect:false}});if(error)throw error;}
-    catch(e){setError(e instanceof Error?e.message:t('googleFailure'));submitting.current=false;setBusy(false);}
-  }
   return <div className="welcome-page sf-auth-premium">
     <div className="welcome-grid">
       <section className="welcome-story">
@@ -218,7 +211,7 @@ export function AuthPortal(){
       <section className="welcome-form"><div className="auth-card">
         <div className="auth-heading"><span className="sf-auth-monogram">✦</span><h2>{t(mode==='signup'?'signup':mode==='login'?'login':'forgot')}</h2>
           <p>{mode==='forgot'?(isEnglishLocale(lang)?'Enter your email or username. A secure reset link is sent only to the registered mailbox.':'填写预留邮箱或用户名，系统仅向注册邮箱发送安全重置链接。'):t(mode==='signup'?'signupDesc':'loginDesc')}</p></div>
-        {mode!=='forgot'&&<div className="oauth-buttons"><button disabled={busy||process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'} className="oauth-btn" onClick={oauth}><span className="google-g">G</span>{t('continueGoogle')}{process.env.NEXT_PUBLIC_GOOGLE_ENABLED!=='true'&&<small>{t('googleNotReady')}</small>}</button>
+        {mode!=='forgot'&&<div className="oauth-buttons"><button type="button" disabled className="oauth-btn"><span className="google-g">G</span>{t('continueGoogle')}<small>{isEnglishLocale(lang)?'Retired · use existing account credentials':'已停用，请使用原账号凭据'}</small></button>
           {activeLoginProviders.filter(p=>p.key!=='google').length>0&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
             {activeLoginProviders.filter(p=>p.key!=='google').map(p=><button key={p.key} type="button" className="oauth-btn" disabled={busy} style={{flex:'1 1 120px',minHeight:43}} onClick={()=>void extraOAuth(p.key as 'apple'|'facebook'|'twitter'|'wechat'|'qq')}>使用 {p.label} 登录</button>)}
           </div>}

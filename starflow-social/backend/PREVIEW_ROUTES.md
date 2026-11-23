@@ -1,0 +1,37 @@
+# Existing Worker preview routes
+The two catch-all Next.js routes /api/identity/auth/[...path] and /api/v2/[...path] call the existing guarded preview handler. Both reject requests unless runtime flags explicitly enable preview, the exact configured origin is a weizai preview hostname, and a signed Cloudflare Access application JWT matches the configured issuer, audience and owner email. No credentials in this repository. No use of process.env for secrets; no production routes changed. No API authorizes requests from client-supplied identity headers alone. Use only runtime preview bindings; do not enable on production. The package lock is reconstructed from the successful GitHub run 44734532299 (artifact 14628490549); the only changed existing lock entry is the root manifest. CI rejects invalid lock or imports. Current Next routes still deny signup, password reset, staff review, passkey and realtime until separately tested. The worker build and actual authenticated Neon connection have not yet been verified. Actual owner-only Access setup and credentials are still required; do not use existing Supabase service role for this. No new Worker, token, compute, or paid service.
+
+## Optional owner-key preview access
+If the owner declines Cloudflare Zero Trust, set a separate runtime secret STARFLOW_PREVIEW_OWNER_KEY only in the preview environment. Generate 32 random bytes locally, encoded as 64 lowercase hexadecimal characters. Never reuse BETTER_AUTH_SECRET, legacy credentials or a Cloudflare API token. If the variable is present, only the exact x-starflow-preview-key request header is accepted; malformed configuration or credentials deny access without fallback. If absent, the existing signed Access verifier remains in effect. The key is stripped before dispatch to Better Auth/business code. This is an API test gate, not end-user login or MFA, and does not protect the entire website. Never embed the key in source, public JS, URL, cookies or local storage. Keep STARFLOW_V2_ENABLED=false until credentials, separate staging roles and owner-only requests are verified. No change to production access or legacy data.
+
+## Safe connectivity acceptance before activation
+The existing GET /api/v2/readiness now accepts an explicitly disabled STARFLOW_V2_ENABLED=false only on the exact owner-authorized preview origin with STARFLOW_V2_PREVIEW_ONLY=true. It checks separate TLS-authenticated database roles and rejects elevated gateway membership, reports no credentials or customer data, and never creates an auth handler. All other routes remain disabled. A successful probe establishes restricted connectivity, not production readiness. Missing credentials or NOLOGIN roles yield failure, and no owner/legacy credentials may substitute. No new Worker, token, paid resource or production change.
+
+## Preview configuration synchronization
+Pin only non-secret staging origin, host and disabled flags in the Wrangler previews.vars block. Cloudflare Previews Base secrets are copied when a Preview is created; updating Base does not update an already active Preview. Update encrypted credentials on the existing named branch Preview itself, not Production; never commit secrets or reuse disclosed passwords. A rebuild can synchronize non-secret Wrangler configuration but does not by itself establish that individual Preview secrets have been updated. See https://developers.cloudflare.com/workers/previews/configuration/ .
+
+## Mobile read-only connectivity troubleshooting
+The exact named staging readiness GET mirrors its existing error HTTP status into the JSON body so clients that hide response codes can distinguish 404 (route/context or preview configuration guard), 403 (access or origin rejected), and 503 (runtime configuration or restricted DB attestation unavailable). The response exposes no new diagnostic detail beyond the existing HTTP status, no secrets, and no exception text. Other routes, production and successful readiness are unchanged. No bypass of the owner gate or disabled-service switch.
+
+### Authorized readiness diagnostics
+After the existing owner authorization only, the staging readiness response adds a fixed stage label for missing/invalid runtime bindings, independent-password check, credential/connection errors, role and privilege checks. Never return driver exceptions, credentials or SQL data. Both pool checks remain required and failure remains 503; production and the disabled service gate are unchanged. Database metadata checks do not prove that the Worker has the right secret or successful TLS connectivity.
+
+### Worker transport
+The Next.js Worker adapter injects the official Neon serverless Pool. Its default transport is secure WebSockets to the validated Neon host, with TLS at the WebSocket layer rather than the previous direct PostgreSQL TCP/TLS negotiation. Native pg remains available to the isolated local database tests. No custom proxy, new binding or new resource is introduced. Existing per-request cleanup, owner gate, distinct role and host validation, and read-only privilege attestation remain unchanged. The live preview must pass readiness before any other feature is enabled; this change does not establish production readiness.
+
+## Read-only provider credential acceptance
+`GET /api/v2/provider-readiness` is allowed on the existing exact-host Preview only while
+`STARFLOW_V2_PREVIEW_ONLY=true`, including while the v2 switch remains `false`.
+It requires the **same verified owner authorization** as database readiness and
+rejects query strings. It makes only fixed HTTPS GET requests to Brevo
+`/v3/account` and Cloudinary `/v1_1/<cloud>/usage` with runtime secrets.
+Responses are bounded to 64 KiB, all provider errors are reduced to fixed
+classifications, and no API keys, account identity, HTML, full provider
+responses, database data, or customer information leave the Worker.
+The `brevo=free_account_authorized` classification means a credential
+authenticated to a currently observed Free plan, **not** independent billing
+or actual email delivery. The `cloudinary=usage_access_authorized`
+classification means a credential authorized to read usage, **not**
+successful image upload or proven free-only billing. Neither probe sends
+email, uploads media, enables signup, or changes production. A missing
+Cloudflare owner key still blocks live acceptance; do not add a bypass.

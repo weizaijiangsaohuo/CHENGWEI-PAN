@@ -33,7 +33,76 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: starflow-social/package-lock.json
+      # Independent, credential-free public probe. Never an authenticated release gate.
+      - name: Observe existing online preview public guards
+        continue-on-error: true
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {verifyPreview} from './scripts/verify-preview.mjs';
+          const result=await verifyPreview();
+          const expected=result.code==='public_guards_verified_owner_readiness_required';
+          console.log('ONLINE PUBLIC OBSERVATION: '+result.code);
+          console.log('Authenticated readiness and deployed revision: NOT VERIFIED');
+          if(!expected)process.exitCode=1;
+          JS
       - run: npm ci --no-audit --no-fund
+      - run: node --test backend/auth/preview-access.test.mjs backend/auth/preview-runtime.test.mjs backend/auth/inbox-sync.test.mjs backend/migration/compare-inventory.test.mjs backend/migration/legacy-post-plan.test.mjs scripts/verify-preview.test.mjs
       - run: npm run check
       - run: npm run lint
       - run: npm run build
+
+      # OpenNext must run its own standalone Next build; the normal build lacks its manifests.
+      # No cloud deployment and no account credentials.
+      - name: Build OpenNext Worker locally
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: npm run build:cloudflare
+      - name: Smoke-test disabled v2 routes in local workerd
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/wrangler dev --local --ip 127.0.0.1 --port 8787 --var STARFLOW_V2_ENABLED:false --var STARFLOW_V2_PREVIEW_ONLY:true > "$RUNNER_TEMP/starflow-workerd.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
+          if ! node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          const origin='http://127.0.0.1:8787';
+          const paths=['/api/v2/readiness','/api/v2/me','/api/identity/auth/get-session','/api/v2/messages','/api/v2/notifications','/api/v2/posts','/api/v2/inbox-preview'];
+          let ready=false;
+          for(let i=0;i<60;i++){
+            try {
+              const response=await fetch(origin+paths[0],{redirect:'manual',signal:AbortSignal.timeout(1500)});
+              if(response.status===404 && (await response.json()).error==='not_permitted'){ready=true;break;}
+            } catch {}
+            await new Promise(resolve=>setTimeout(resolve,1000));
+          }
+          assert.ok(ready,'local Worker did not serve the guarded route');
+          for(const path of paths){
+            const response=await fetch(origin+path,{redirect:'manual',signal:AbortSignal.timeout(5000)});
+            assert.equal(response.status,404,path);
+            assert.deepEqual(await response.json(),{error:'not_permitted'});
+            assert.match(response.headers.get('cache-control')??'',/no-store/i);
+          }
+          const response=await fetch(origin+'/api/identity/auth/sign-in/email',{
+            method:'POST',redirect:'manual',signal:AbortSignal.timeout(5000),
+            headers:{origin,'content-type':'application/json','cf-access-authenticated-user-email':'synthetic@example.invalid'},
+            body:JSON.stringify({email:'synthetic@example.invalid',password:'fixture-only'})
+          });
+          assert.equal(response.status,404);
+          assert.deepEqual(await response.json(),{error:'not_permitted'});
+          for(const path of ['/api/identity/auth/sign-up/email','/api/identity/auth/request-password-reset','/api/identity/auth/passkey/verify-authentication','/api/v2/admin/identity/cases','/api/v2/admin/reports/review']){
+            const r=await fetch(origin+path,{method:'POST',redirect:'manual',signal:AbortSignal.timeout(5000),headers:{origin,'content-type':'application/json'},body:'{}'});
+            assert.equal(r.status,404,path);
+            assert.deepEqual(await r.json(),{error:'not_permitted'});
+            assert.match(r.headers.get('cache-control')??'',/no-store/i);
+          }
+          console.log('PASS: bundled Worker denies disabled v2 requests, including forged identity headers and sensitive account/admin routes');
+          JS
+          then
+            tail -100 "$RUNNER_TEMP/starflow-workerd.log"
+            exit 1
+          fi

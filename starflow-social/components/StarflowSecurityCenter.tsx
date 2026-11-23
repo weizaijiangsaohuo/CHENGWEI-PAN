@@ -158,7 +158,7 @@ export function StarflowSecurityCenter(){
     <div className="sf-sec-providers">{availableProviders.map(p=>{
      const identity=identities.find(i=>i.provider===p.provider);
      return <div className="sf-sec-provider" key={p.key}>
-      <span className="sf-sec-provider-text"><strong>{p.label}</strong><small>{identity?accountLabel(identity):p.enabled?'尚未绑定':p.requirement}</small></span>
+      <span className="sf-sec-provider-text"><strong>{p.label}</strong><small>{identity?accountLabel(identity)+(p.key==='google'?' · 旧授权已停用':''):p.enabled?'尚未绑定':p.requirement}</small></span>
       {identity?<span className="sf-sec-yes"><CheckCircle2 size={13}/> 已绑定</span>:
        p.enabled?<button className="sf-sec-bind" disabled={linking!==null} onClick={()=>void bind(p.key)} type="button">{linking===p.key?'正在打开授权…':'绑定账号'}</button>:
        <span className="sf-sec-pending">待接入</span>}
