@@ -26,6 +26,7 @@ test('no transport is configured without every independent preview and zero-char
   {STARFLOW_MAIL_RECIPIENT_SECRET:env.BETTER_AUTH_SECRET},
   {STARFLOW_BREVO_SENDER_EMAIL:'attacker@example.invalid\r\n'},
   {STARFLOW_BREVO_SENDER_EMAIL:'not-an-email'},
+  {STARFLOW_BREVO_SENDER_EMAIL:String.raw`security@example.invalid\\r\\n`},
   {BREVO_API_KEY:undefined},{STARFLOW_AUTH_ORIGIN:'https://weizai.weizai.workers.dev'},
   {STARFLOW_AUTH_ORIGIN:'http://'+new URL(origin).hostname}]){
   assert.equal(createPreviewRegistrationMail({...env,...patch},{transport}),undefined,JSON.stringify(Object.keys(patch)));
