@@ -66,27 +66,70 @@ test('preview provider probes use fixed read-only endpoints, no secret response 
   return Response.json({credits:{usage:0,limit:25},resources:0});
  };
  const status=await inspectProviderBindings(env,provider);
- assert.deepEqual(status,{brevo:'free_account_authorized',cloudinary:'usage_access_authorized'});
+ assert.deepEqual(status,{brevo:'free_account_authorized',sender:'not_configured',cloudinary:'usage_access_authorized'});
  assert.deepEqual(calls.map(c=>c.url),['https://api.brevo.com/v3/account','https://api.cloudinary.com/v1_1/synthetic-cloud/usage']);
  assert.ok(calls.every(c=>c.hasSignal));
  assert.equal(JSON.stringify(status).includes(env.CLOUDINARY_API_SECRET),false);
  assert.equal(JSON.stringify(status).includes(env.BREVO_API_KEY),false);
  assert.deepEqual(await inspectProviderBindings({},async()=>{throw Error('unexpected call');}),
-  {brevo:'not_configured',cloudinary:'not_configured'});
+  {brevo:'not_configured',sender:'not_configured',cloudinary:'not_configured'});
 });
 
 test('provider probe fails closed on key mismatch, denial, oversized JSON and network failure',async()=>{
  const env={BREVO_API_KEY:'synthetic-brevo-key',CLOUDINARY_CLOUD_NAME:'synthetic-cloud',
   CLOUDINARY_API_KEY:'12345678',CLOUDINARY_API_SECRET:'synthetic-private-secret'};
  const failed=await inspectProviderBindings(env,async()=>new Response('denied',{status:401}));
- assert.deepEqual(failed,{brevo:'unconfirmed',cloudinary:'unconfirmed'});
+ assert.deepEqual(failed,{brevo:'unconfirmed',sender:'not_configured',cloudinary:'unconfirmed'});
  const oversized=await inspectProviderBindings(env,async()=>new Response('{"huge":"'+('x'.repeat(70000))+'"}',
   {status:200,headers:{'content-type':'application/json'}}));
- assert.deepEqual(oversized,{brevo:'unconfirmed',cloudinary:'unconfirmed'});
+ assert.deepEqual(oversized,{brevo:'unconfirmed',sender:'not_configured',cloudinary:'unconfirmed'});
  const bad=await inspectProviderBindings({...env,CLOUDINARY_CLOUD_NAME:'../../evil'},async(url)=>{
   assert.equal(url,'https://api.brevo.com/v3/account');throw Error('down');
  });
- assert.deepEqual(bad,{brevo:'unconfirmed',cloudinary:'not_configured'});
+ assert.deepEqual(bad,{brevo:'unconfirmed',sender:'not_configured',cloudinary:'not_configured'});
  assert.deepEqual(await inspectProviderBindings(env,async()=>{throw Error('offline')}),
-  {brevo:'unconfirmed',cloudinary:'unconfirmed'});
+  {brevo:'unconfirmed',sender:'not_configured',cloudinary:'unconfirmed'});
+});
+
+
+test('read-only sender attestation requires an exact active sender on the same Brevo Free account',async()=>{
+ const env={BREVO_API_KEY:'synthetic-brevo-key',STARFLOW_BREVO_SENDER_EMAIL:'security@example.invalid'};
+ const free=()=>Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'free',creditsType:'sendLimit',credits:300}]});
+ const good=async(url,opts)=>{
+  assert.equal(opts.method,'GET');assert.equal(opts.redirect,'error');assert.equal(opts.cache,'no-store');
+  assert.equal(opts.headers['api-key'],env.BREVO_API_KEY);
+  if(url==='https://api.brevo.com/v3/account')return free();
+  assert.equal(url,'https://api.brevo.com/v3/senders');
+  return Response.json({senders:[{email:env.STARFLOW_BREVO_SENDER_EMAIL,active:true}]});
+ };
+ assert.deepEqual(await inspectProviderBindings(env,good),{
+  brevo:'free_account_authorized',sender:'active_sender_authorized',cloudinary:'not_configured'});
+ for(const bad of [
+  ()=>Response.json({senders:[{email:'other@example.invalid',active:true}]}),
+  ()=>Response.json({senders:[{email:env.STARFLOW_BREVO_SENDER_EMAIL,active:false}]}),
+  ()=>Response.json({senders:[{email:env.STARFLOW_BREVO_SENDER_EMAIL,active:'true'}]}),
+  ()=>Response.json({senders:'bad'}),
+  ()=>Response.json({senders:[{email:env.STARFLOW_BREVO_SENDER_EMAIL,active:true}]},{status:401}),
+  ()=>new Response('{bad',{headers:{'content-type':'application/json'}}),
+  ()=>new Response('x'.repeat(66000),{headers:{'content-type':'application/json'}})
+ ]){
+  const result=await inspectProviderBindings(env,async(url,opts)=>url.endsWith('/account')?free():bad());
+  assert.equal(result.brevo,'free_account_authorized');
+  assert.equal(result.sender,'unconfirmed');
+ }
+ let senderCalls=0;
+ const paid=await inspectProviderBindings(env,async url=>{
+  if(url.endsWith('/senders')){senderCalls++;throw Error('no sender probe on paid plan');}
+  return Response.json({enterprise:true,relay:{enabled:true},plan:[{type:'paid',creditsType:'sendLimit',credits:300}]});
+ });
+ assert.equal(paid.sender,'unconfirmed');assert.equal(senderCalls,0);
+ for(const invalid of [undefined,'attacker@example.invalid\\r\\n','not-an-email']){
+  const result=await inspectProviderBindings({...env,STARFLOW_BREVO_SENDER_EMAIL:invalid},async url=>{
+   assert.equal(url,'https://api.brevo.com/v3/account');return free();
+  });
+  assert.equal(result.sender,'not_configured');
+ }
+ const report=await inspectProviderBindings(env,good);
+ assert.ok(!JSON.stringify(report).includes(env.BREVO_API_KEY));
+ assert.ok(!JSON.stringify(report).includes(env.STARFLOW_BREVO_SENDER_EMAIL));
 });
