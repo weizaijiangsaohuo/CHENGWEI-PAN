@@ -28,9 +28,20 @@ export function createMailDispatcher({enabled=false,apiKey,sender,origin,recipie
    // One committed attempt. Never refund on timeout or uncertain provider response.
    const response=await transport(request.url,{...request.options,signal:AbortSignal.timeout(10000)});
    // An accepted provider request is NOT proof of mailbox delivery.
-   if(response?.status===201){
-    const body=await response.json();
-    if(typeof body?.messageId==='string'&&body.messageId.length>0&&body.messageId.length<=512)return {status:'accepted'};
+   if(response?.status===201&&!response.redirected&&response.body&&
+      response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()==='application/json'){
+    // Provider responses are untrusted. Bound streamed bytes before decoding JSON.
+    const reader=response.body.getReader(),chunks=[];let size=0;
+    try{
+     while(true){
+      const {done,value}=await reader.read();if(done)break;
+      size+=value.byteLength;
+      if(size>4096){void reader.cancel().catch(()=>{});return {status:'unconfirmed'};}
+      chunks.push(value);
+     }
+    }finally{reader.releaseLock();}
+    const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
+    if(typeof body?.messageId==='string'&&body.messageId.trim().length>0&&body.messageId.length<=512)return {status:'accepted'};
    }
    return {status:'unconfirmed'};
   }catch{return {status:'unconfirmed'};}
