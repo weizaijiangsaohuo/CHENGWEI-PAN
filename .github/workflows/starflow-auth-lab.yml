@@ -126,6 +126,7 @@ jobs:
       - run: node --test fresh-account.test.mjs
 
       - run: node --test registration-admission.test.mjs
+      - run: node --test ../services/preview-registration-mail.test.mjs
       - run: node --test deployed-preview-smoke.test.mjs
       - run: node --test deployed-preview-deny-smoke.test.mjs
       - name: Verify live staging rejects anonymous requests
