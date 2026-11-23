@@ -4,6 +4,7 @@ import {Buffer} from 'node:buffer';
 import {freeMailPlan} from './brevo-free.mjs';
 
 const secureString=value=>typeof value==='string'&&value.length>0&&value.length<=512&&!/[\r\n]/.test(value);
+const senderEmail=/^[^\s<>@,;\r\n]+@[^\s<>@,;\r\n]+\.[^\s<>@,;\r\n]+$/;
 async function boundedJSON(response){
  if(response?.status!==200||response.redirected||!response.body||
   response.headers?.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json')return null;
@@ -22,7 +23,7 @@ async function boundedJSON(response){
 }
 
 export async function inspectProviderBindings(env={},transport=fetch){
- const results={brevo:'not_configured',cloudinary:'not_configured'};
+ const results={brevo:'not_configured',sender:'not_configured',cloudinary:'not_configured'};
  if(typeof transport!=='function')return Object.freeze(results);
  if(secureString(env.BREVO_API_KEY)){
   results.brevo='unconfirmed';
@@ -34,6 +35,25 @@ export async function inspectProviderBindings(env={},transport=fetch){
    const body=await boundedJSON(r);
    if(freeMailPlan(body))results.brevo='free_account_authorized';
   }catch{/* No credential, provider error or user details in diagnostic results. */}
+ }
+ // An active Brevo sender is independently checked, but is not proof of domain
+ // authentication, mailbox delivery, billing approval or permission to send.
+ const sender=env.STARFLOW_BREVO_SENDER_EMAIL;
+ if(secureString(env.BREVO_API_KEY)&&typeof sender==='string'&&sender.length<=254&&
+    sender===sender.trim()&&senderEmail.test(sender)){
+  results.sender='unconfirmed';
+  if(results.brevo==='free_account_authorized'){
+   try{
+    const r=await transport('https://api.brevo.com/v3/senders',{
+     method:'GET',redirect:'error',cache:'no-store',
+     headers:{'api-key':env.BREVO_API_KEY,accept:'application/json'},signal:AbortSignal.timeout(5000)
+    });
+    const body=await boundedJSON(r);
+    if(Array.isArray(body?.senders)&&body.senders.length<=500&&
+       body.senders.some(item=>item&&item.email===sender&&item.active===true))
+      results.sender='active_sender_authorized';
+   }catch{/* No sender identity, provider errors or credential details in diagnostics. */}
+  }
  }
  const cloud=env.CLOUDINARY_CLOUD_NAME,key=env.CLOUDINARY_API_KEY,secret=env.CLOUDINARY_API_SECRET;
  if(typeof cloud==='string'&&/^[a-z0-9_-]{1,80}$/.test(cloud)&&
