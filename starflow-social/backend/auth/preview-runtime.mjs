@@ -10,6 +10,7 @@ import {createFreshSignupHandler} from './fresh-signup-handler.mjs';
 import {createRegistrationAdmission} from './registration-admission.mjs';
 import {createFreshRegistrationMail} from './auth-mail.mjs';
 import {createBrevoFreePlanCheck} from '../services/brevo-free.mjs';
+import {inspectProviderBindings} from '../services/provider-readiness.mjs';
 
 const authPaths=new Set([
  'POST /api/identity/auth/sign-in/email',
@@ -33,6 +34,7 @@ function validAuthInput(route,data){
 }
 const readinessRoute='GET /api/v2/readiness';
 const registrationReadinessRoute='GET /api/v2/registration-readiness';
+const providerReadinessRoute='GET /api/v2/provider-readiness';
 const freshRoute='POST /api/v2/account/initialize';
 const registrationRoutes=new Set(['POST /api/identity/auth/sign-up/email','GET /api/identity/auth/verify-email']);
 const inboxPreviewRoute='GET /api/v2/inbox-preview';
@@ -168,7 +170,7 @@ export async function verifyPreviewDatabaseRoles(authPool,businessPool,database=
  return (await readinessFailures(authPool,businessPool,database)).every(x=>x===null);
 }
 
-export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab,attestationDatabase='neondb',registrationMail}){
+export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFactory=createStarflowAuthLab,attestationDatabase='neondb',registrationMail,providerTransport=fetch}){
  return async request=>{
   // No production access, no fall-through to legacy auth, no DB connection on disabled paths.
   if(env?.STARFLOW_V2_PREVIEW_ONLY!=='true'||
@@ -180,8 +182,8 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   const route=request.method+' '+url.pathname;
   // Owner-only read-only connection probe may run with the explicit disabled flag.
   // No auth or business routes are reachable before the feature switch is enabled.
-  if(env.STARFLOW_V2_ENABLED!=='true'&&!(env.STARFLOW_V2_ENABLED==='false'&&[readinessRoute,registrationReadinessRoute].includes(route)))return deny();
-  if((route===readinessRoute||route===registrationReadinessRoute||route===inboxPreviewRoute)&&url.search)return deny(400);
+  if(env.STARFLOW_V2_ENABLED!=='true'&&!(env.STARFLOW_V2_ENABLED==='false'&&[readinessRoute,registrationReadinessRoute,providerReadinessRoute].includes(route)))return deny();
+  if((route===readinessRoute||route===registrationReadinessRoute||route===providerReadinessRoute||route===inboxPreviewRoute)&&url.search)return deny(400);
   // Browser-facing page is independently opt-in and cannot use owner-key mode.
   if(route===inboxPreviewRoute&&(env.STARFLOW_INBOX_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
   const registration=registrationRoutes.has(route);
@@ -190,11 +192,15 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
   if(registration&&(env.STARFLOW_REGISTRATION_PREVIEW_ENABLED!=='true'||env.STARFLOW_FRESH_PREVIEW_ENABLED!=='true'||env.STARFLOW_PREVIEW_OWNER_KEY!==undefined))return deny();
   if(route===freshRoute&&(env.STARFLOW_FRESH_PREVIEW_ENABLED!=='true'))return deny();
   if(route===freshRoute&&(url.search||request.body!==null))return deny(400);
-  if(route!==readinessRoute&&route!==registrationReadinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!registration&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
+  if(route!==readinessRoute&&route!==registrationReadinessRoute&&route!==providerReadinessRoute&&route!==inboxPreviewRoute&&route!==freshRoute&&!registration&&!authPaths.has(route)&&!businessPaths.has(route)&&!(isSocialRoute(route)&&env.STARFLOW_SOCIAL_PREVIEW_ENABLED==='true'))return deny();
   if(request.headers.has('origin')&&request.headers.get('origin')!==origin)return deny(403);
   if(request.method==='POST'&&request.headers.get('origin')!==origin)return deny(403);
   if(authPaths.has(route)&&url.search)return deny(403);
   try{if(await authorizePreview(request)!==true)return deny(403);}catch{return deny(403);}
+  // Owner-only, network read-only provider credential attestation; no database pool,
+  // mail dispatch, media upload, customer data or signup switch required.
+  if(route===providerReadinessRoute)return Response.json(await inspectProviderBindings(env,providerTransport),
+   {headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
   // Access credentials are only for this verified outer boundary, not downstream auth/business.
   // Registration independently sanitizes its own request.
   const accessHeaders=['x-starflow-preview-key','cf-access-jwt-assertion','cf-access-authenticated-user-email','cf-access-client-id','cf-access-client-secret'];
