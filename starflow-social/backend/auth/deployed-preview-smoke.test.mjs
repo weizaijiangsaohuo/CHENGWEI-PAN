@@ -7,13 +7,15 @@ test('never contacts the network without a valid pre-existing authorization',asy
  assert.equal((await probeWorker({fetchImpl})).state,'not_configured');
  assert.equal((await probeWorker({ownerKey:'wrong',fetchImpl})).state,'invalid_authorization');
 });
-test('uses only two fixed preview GET endpoints, no redirect, and reports email readiness accurately',async()=>{
+test('uses only three fixed preview GET endpoints, no redirect, and verifies provider access without secrets',async()=>{
  let n=0;const result=await probeWorker({ownerKey:key,fetchImpl:async(url,opts)=>{
-  assert.equal(url,'https://feature-neon-backend-foundation-20261120-weizai.weizai.workers.dev/api/v2/'+(n===0?'readiness':'registration-readiness'));
+  assert.equal(url,'https://feature-neon-backend-foundation-20261120-weizai.weizai.workers.dev/api/v2/'+['readiness','registration-readiness','provider-readiness'][n]);
   assert.equal(opts.method,'GET');assert.equal(opts.redirect,'error');assert.equal(opts.headers['x-starflow-preview-key'],key);
-  return Response.json(n++===0?{ready:true}:{databaseReady:true,mailAdapterConfigured:false,liveMailVerified:false,registrationEnabled:false});
+  const body=n===0?{ready:true}:n===1?{databaseReady:true,mailAdapterConfigured:false,liveMailVerified:false,registrationEnabled:false}:{brevo:'free_account_authorized',cloudinary:'usage_access_authorized'};
+  n++;return Response.json(body);
  }});
- assert.equal(n,2);assert.equal(result.state,'database_ready');assert.equal(result.probes[1].liveMailVerified,false);
+ assert.equal(n,3);assert.equal(result.state,'database_ready');assert.equal(result.probes[1].liveMailVerified,false);
+ assert.deepEqual(result.probes[2],{name:'providers',state:'authorized',brevoAuthorized:true,cloudinaryAuthorized:true});
  assert.ok(!JSON.stringify(result).includes(key));
 });
 test('does not mistake 403, 503, redirects, malformed bodies or oversized responses for success',async()=>{
@@ -21,4 +23,16 @@ test('does not mistake 403, 503, redirects, malformed bodies or oversized respon
   const result=await probeWorker({ownerKey:key,fetchImpl:factory});
   assert.equal(result.state,'not_ready');assert.ok(!JSON.stringify(result).includes(key));
  }
+});
+
+test('provider authorization failures never produce a successful readiness state or leak response fields',async()=>{
+ let n=0;
+ const result=await probeWorker({ownerKey:key,fetchImpl:async()=>{
+  const body=n++===0?{ready:true}:n===2?{databaseReady:true,mailAdapterConfigured:false,liveMailVerified:false,registrationEnabled:false}:{brevo:'unconfirmed',cloudinary:'usage_access_authorized',secret:key};
+  return Response.json(body);
+ }});
+ assert.equal(n,3);
+ assert.equal(result.state,'not_ready');
+ assert.deepEqual(result.probes[2],{name:'providers',state:'unconfirmed',brevoAuthorized:false,cloudinaryAuthorized:true});
+ assert.ok(!JSON.stringify(result).includes(key));
 });
