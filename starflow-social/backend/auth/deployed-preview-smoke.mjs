@@ -27,7 +27,8 @@ export async function probeWorker({ownerKey,fetchImpl=fetch}={}){
     continue;
    }
    if(data?.databaseReady!==true||typeof data.mailAdapterConfigured!=='boolean'||typeof data.liveMailVerified!=='boolean'||typeof data.registrationEnabled!=='boolean'){results.push({name,state:'not_ready'});continue;}
-   results.push({name,state:'database_ready',mailAdapterConfigured:data.mailAdapterConfigured,liveMailVerified:data.liveMailVerified,registrationEnabled:data.registrationEnabled});
+   // A preview readiness probe must not approve a deployment that has accidentally enabled signup.
+   results.push({name,state:data.registrationEnabled===false?'database_ready':'unsafe_signup_enabled',mailAdapterConfigured:data.mailAdapterConfigured,liveMailVerified:data.liveMailVerified,registrationEnabled:data.registrationEnabled});
   }catch{results.push({name,state:'unreachable_or_invalid_response'});}
  }
  return {state:results[0]?.state==='ready'&&results[1]?.state==='database_ready'&&results[2]?.state==='authorized'?'database_ready':'not_ready',probes:results};
