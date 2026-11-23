@@ -15,7 +15,7 @@ test('uses only three fixed preview GET endpoints, no redirect, and verifies pro
   n++;return Response.json(body);
  }});
  assert.equal(n,3);assert.equal(result.state,'database_ready');assert.equal(result.probes[1].liveMailVerified,false);
- assert.deepEqual(result.probes[2],{name:'providers',state:'authorized',brevoAuthorized:true,cloudinaryAuthorized:true});
+ assert.deepEqual(result.probes[2],{name:'providers',state:'authorized',brevoAuthorized:true,cloudinaryAuthorized:true,senderAuthorized:false});
  assert.ok(!JSON.stringify(result).includes(key));
 });
 test('does not mistake 403, 503, redirects, malformed bodies or oversized responses for success',async()=>{
@@ -33,7 +33,7 @@ test('provider authorization failures never produce a successful readiness state
  }});
  assert.equal(n,3);
  assert.equal(result.state,'not_ready');
- assert.deepEqual(result.probes[2],{name:'providers',state:'unconfirmed',brevoAuthorized:false,cloudinaryAuthorized:true});
+ assert.deepEqual(result.probes[2],{name:'providers',state:'unconfirmed',brevoAuthorized:false,cloudinaryAuthorized:true,senderAuthorized:false});
  assert.ok(!JSON.stringify(result).includes(key));
 });
 
@@ -64,4 +64,17 @@ test('rejects provider-ready staging when any release safety flag is on or missi
   assert.equal(result.probes[1].safetyFlagsOff,false);
   assert.ok(!JSON.stringify(result).includes(key));
  }
+});
+
+test('sender readiness is reported separately and never masks database or provider failures',async()=>{
+ let n=0;
+ const result=await probeWorker({ownerKey:key,fetchImpl:async()=>{
+  const body=n++===0?{ready:true}:n===2?{databaseReady:true,mailAdapterConfigured:false,liveMailVerified:false,
+   registrationEnabled:false,safetyFlagsOff:true}:{brevo:'free_account_authorized',cloudinary:'usage_access_authorized',sender:'active_sender_authorized'};
+  return Response.json(body);
+ }});
+ assert.equal(n,3);
+ assert.equal(result.state,'database_ready');
+ assert.equal(result.probes[2].senderAuthorized,true);
+ assert.ok(!JSON.stringify(result).includes(key));
 });
