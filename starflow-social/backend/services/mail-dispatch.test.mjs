@@ -31,3 +31,46 @@ test('quota denial, invalid link and unknown transport outcomes fail closed',asy
  const invalid=createMailDispatcher({...config,transport:async()=>Response.json({},{status:201})});
  assert.deepEqual(await invalid(event),{status:'unconfirmed'});
 });
+
+test('provider acceptance requires bounded JSON and a nonblank receipt; no repeat attempt',async()=>{
+ const json=body=>Response.json(body,{status:201});
+ const cases=[
+  ['valid',()=>json({messageId:'fixture'}),'accepted'],
+  ['wrong MIME',()=>new Response('{"messageId":"fixture"}',{status:201,headers:{'content-type':'text/html'}}),'unconfirmed'],
+  ['blank ID',()=>json({messageId:'  '}),'unconfirmed'],
+  ['long ID',()=>json({messageId:'x'.repeat(513)}),'unconfirmed'],
+  ['oversized body',()=>json({messageId:'fixture',extra:'x'.repeat(5000)}),'unconfirmed'],
+  ['malformed JSON',()=>new Response('{broken',{status:201,headers:{'content-type':'application/json'}}),'unconfirmed'],
+  ['invalid UTF-8',()=>new Response(new Uint8Array([255]),{status:201,headers:{'content-type':'application/json'}}),'unconfirmed'],
+  ['redirected response',()=>{const response=json({messageId:'fixture'});Object.defineProperty(response,'redirected',{value:true});return response;},'unconfirmed'],
+  ['rate limited',()=>Response.json({messageId:'fixture'},{status:429}),'unconfirmed'],
+  ['provider failure',()=>Response.json({messageId:'fixture'},{status:503}),'unconfirmed'],
+  ['empty body',()=>new Response(null,{status:201,headers:{'content-type':'application/json'}}),'unconfirmed']
+ ];
+ for(const [name,reply,status] of cases){
+  let reservations=0,attempts=0;
+  const dispatch=createMailDispatcher({...config,reserve:async()=>{reservations++;return true},transport:async()=>{attempts++;return reply()}});
+  assert.deepEqual(await dispatch(event),{status},name);
+  assert.equal(reservations,1,name);assert.equal(attempts,1,name);
+ }
+});
+test('revoked recipient after reservation cannot cause delivery or refund',async()=>{
+ let checks=0,reservations=0,attempts=0;
+ const dispatch=createMailDispatcher({...config,recheckRecipient:true,
+  authorize:async()=>++checks===1?'user@example.invalid':null,
+  reserve:async()=>{reservations++;return true},
+  transport:async()=>{attempts++;throw Error('must not send')}
+ });
+ assert.deepEqual(await dispatch(event),{status:'rejected'});
+ assert.equal(checks,2);assert.equal(reservations,1);assert.equal(attempts,0);
+});
+test('a repeated event is stopped by the shared reservation even after uncertain transport',async()=>{
+ const seen=new Set();let attempts=0;
+ const dispatch=createMailDispatcher({...config,
+  reserve:async({eventId})=>{if(seen.has(eventId))return false;seen.add(eventId);return true;},
+  transport:async()=>{attempts++;throw Error('synthetic timeout')}
+ });
+ assert.deepEqual(await dispatch(event),{status:'unconfirmed'});
+ assert.deepEqual(await dispatch(event),{status:'quota_denied'});
+ assert.equal(attempts,1);
+});
