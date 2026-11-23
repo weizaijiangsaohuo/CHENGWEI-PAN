@@ -13,6 +13,8 @@
 - [x] Neon：四组业务、账号初始化、注册、邮件委托角色分别只能 `SET ROLE` 至指定网关，不能直接继承网关权限；无公共 schema CREATE 权限。
 - [x] Brevo：已连接账户套餐为 Free，每天 300 封发送额度，SMTP relay 启用；一个发件人状态为 active；已验证的独立发信域名数量为 0。仅证明账户状态，不证明真实收件箱送达。
 - [x] Cloudinary：已连接账户为 Free，25 credits 配额的使用为 0；仅证明账户配额，不证明现有预览密钥的上传授权。
+- [x] 预览代码新增 Brevo 发件人只读预检：仅在 Brevo Free 账户检查通过且已配置指定发件人时读取 `GET /v3/senders`；只返回 active 状态，不返回邮箱或密钥，不发送邮件。此状态与数据库就绪分开报告。
+- [ ] **当前命名预览的发信前置条件仍未齐备**：`STARFLOW_BREVO_SENDER_EMAIL` 未设置，`STARFLOW_MAIL_RECIPIENT_SECRET` 未设置，`STARFLOW_BREVO_BILLING_FREE_ONLY_VERIFIED` 未由拥有者确认；因此邮件适配器不会启动，不能把只读 API 成功当成真实邮件验收。
 - [x] GitHub：提交安全测试后，自动运行代码检查、服务/认证/数据库及 UI 测试；具体结果以当前提交 CI 为准。
 
 ## 未完成的门禁 / 不可视为正式上线
