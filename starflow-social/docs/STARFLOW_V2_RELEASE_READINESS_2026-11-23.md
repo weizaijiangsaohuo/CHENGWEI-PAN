@@ -19,7 +19,9 @@
 
 - [ ] **GitHub Actions 的 `STARFLOW_PREVIEW_OWNER_KEY` 同步**：Cloudflare 已有该密钥，但加密值不能读取；当前已连接 GitHub 工具不能写入 Actions Secrets。需要拥有者把**同一串新的随机 64 位小写十六进制密钥**分别存到 GitHub 仓库 Actions Secrets 和 Cloudflare 的**指定测试预览**密钥中。**不得发送到聊天、提交仓库或替换生产密钥**。
 - [ ] **执行真实授权的只读预览探针**：`/api/v2/readiness`、`/api/v2/registration-readiness`、`/api/v2/provider-readiness`；GitHub 有 `deployed-preview-smoke.mjs` 可执行，要求上述 GitHub Secret。无密钥的模拟测试或匿名拒绝测试不能代替。
-- [ ] **实际注册邮件集成与送达验收**：当前 `starflow-social/lib/starflow-preview.ts` 显式注入 `registrationMail:undefined`，因此不能认为注册/邮箱验证实际可用。必须完成独立的免费账单验证、受信发件人、收件人密钥、邮件服务接入后，在独立测试账号上验证送达；不直接开启发送。
+- [x] **注册邮件服务端适配代码**：已在独立预览入口接入 `createPreviewRegistrationMail()`。仅在完全独立的测试分支、全部显式开关启用、预览 owner key 不存在、存在独立收件人 HMAC 密钥且经过操作者账单确认时才构建适配器；每次发送前只读检查 Brevo 活跃发件人、Free 计划和数据库配额。代码接入完成不代表开通真实发送。
+- [ ] **真实邮件功能启用与送达验收**：需由拥有者在 Brevo 账单页面确认无付费额度、自动升级或付费扣款路径，再由拥有者明确批准仅在测试环境配置 `STARFLOW_BREVO_BILLING_FREE_ONLY_VERIFIED=true`（人工签核，不是自动账单证明）、`STARFLOW_BREVO_SENDER_EMAIL`（须为 API 确认的 active 发件人）和独立 Cloudflare secret `STARFLOW_MAIL_RECIPIENT_SECRET`（至少 32 字符且不能重复数据库密码、Better Auth 密钥或 Brevo API key）。完成后还需测试账号真实邮件收件箱验收。严禁因测试失败而跳过账单验证、泄露密钥、默认启用发送或配置到生产环境。
+- [ ] **测试邮件阶段的单独准许**：`STARFLOW_V2_ENABLED`、`STARFLOW_FRESH_PREVIEW_ENABLED`、`STARFLOW_REGISTRATION_PREVIEW_ENABLED` 和 `STARFLOW_BREVO_SEND_ENABLED` 仍保持 false；不能为了代码验证擅自开启。owner key 的存在会阻断测试注册功能，只有全部授权测试通过且单独批准后才能切换到受保护的真实注册验收模式。
 - [ ] **浏览器端端到端验收**：iPhone Safari / Android Chrome，验证码、注册、登录、密码找回、用户隔离、发帖/评论/通知、附件上传、回滚和异常恢复。CI 模拟通过不代表此项通过。
 - [ ] **域名与合规/运营验收**：选定公开域名、邮件发件身份与验证策略；落实适用的隐私、服务条款、内容治理与平台审核。如涉及 QQ / 抖音小程序，上架/备案/权限审核与网站发布分开处理。
 - [ ] **人工最终发布许可**：上述项目均通过并选择上线范围后，才决定合并 PR #59、配置**独立生产**环境、逐步开启发布开关、监控与回滚。不得自动合并、自动开启 `STARFLOW_V2_ENABLED` 或将测试数据/密码复制到正式库。
