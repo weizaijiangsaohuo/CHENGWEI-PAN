@@ -36,3 +36,16 @@ test('provider authorization failures never produce a successful readiness state
  assert.deepEqual(result.probes[2],{name:'providers',state:'unconfirmed',brevoAuthorized:false,cloudinaryAuthorized:true});
  assert.ok(!JSON.stringify(result).includes(key));
 });
+
+test('fails the live preview gate if signup unexpectedly becomes enabled',async()=>{
+ let n=0;
+ const result=await probeWorker({ownerKey:key,fetchImpl:async()=>{
+  const body=n===0?{ready:true}:n===1?{databaseReady:true,mailAdapterConfigured:true,liveMailVerified:false,registrationEnabled:true}:{brevo:'free_account_authorized',cloudinary:'usage_access_authorized'};
+  n++;return Response.json(body);
+ }});
+ assert.equal(n,3);
+ assert.equal(result.state,'not_ready');
+ assert.equal(result.probes[1].state,'unsafe_signup_enabled');
+ assert.equal(result.probes[1].registrationEnabled,true);
+ assert.ok(!JSON.stringify(result).includes(key));
+});
