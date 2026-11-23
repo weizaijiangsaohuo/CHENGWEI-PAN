@@ -171,7 +171,7 @@ test('registration readiness is owner-only, read-only, and keeps signup disabled
  assert.equal((await make(cfg)(new Request('https://weizai.example.workers.dev'+path))).status,404);
  assert.equal(pools.length,0);
  const missing=await make({...cfg,STARFLOW_MAIL_DB_URL:undefined})(req(path));assert.equal(missing.status,503);assert.deepEqual(await missing.json(),{databaseReady:false,stage:'mail_missing'});
- const result=await make(cfg)(req(path));assert.equal(result.status,200);assert.deepEqual(await result.json(),{databaseReady:true,mailAdapterConfigured:true,liveMailVerified:false,registrationEnabled:false});
+ const result=await make(cfg)(req(path));assert.equal(result.status,200);assert.deepEqual(await result.json(),{databaseReady:true,mailAdapterConfigured:true,liveMailVerified:false,registrationEnabled:false,safetyFlagsOff:true});
  assert.ok(pools.every(p=>p.closed));
  assert.equal((await make(cfg)(req('/api/identity/auth/sign-up/email',{method:'POST',headers:{origin}}))).status,404);
 });
@@ -250,4 +250,24 @@ test('owner-only provider readiness remains available with v2 disabled and never
  assert.deepEqual(await response.json(),{brevo:'free_account_authorized',cloudinary:'usage_access_authorized'});
  assert.equal(providerCalls,2);
  assert.equal(poolCount,0);
+});
+
+// An owner key suppresses actual signup dispatch, but must not hide accidental flags.
+test('staging release flag attestation fails closed even when owner access keeps signup unreachable',async()=>{
+ const off={...env,STARFLOW_V2_ENABLED:'false',STARFLOW_FRESH_DB_URL:url('sf_fresh_account_connect','fresh-only'),
+  STARFLOW_REGISTRATION_DB_URL:url('sf_registration_connect','issuer-only'),STARFLOW_MAIL_DB_URL:url('sf_mail_budget_connect','mail-only'),
+  STARFLOW_PREVIEW_OWNER_KEY:'c'.repeat(64)};
+ class Pool{constructor(cfg){this.cfg=cfg;}async query(sql){return {rows:[sql.includes('session_user')?{role:this.cfg.user,login:this.cfg.user,db:'neondb',restricted:true}:{safe:true}]};}async end(){}}
+ const probe=async config=>{
+  const response=await createPreviewHandler({env:config,authorizePreview:async()=>true,Pool})(req('/api/v2/registration-readiness'));
+  assert.equal(response.status,200);
+  return response.json();
+ };
+ const safe=await probe(off);assert.equal(safe.registrationEnabled,false);assert.equal(safe.safetyFlagsOff,true);
+ for(const flag of ['STARFLOW_V2_ENABLED','STARFLOW_FRESH_PREVIEW_ENABLED','STARFLOW_REGISTRATION_PREVIEW_ENABLED',
+  'STARFLOW_BREVO_SEND_ENABLED','STARFLOW_CLOUDINARY_UPLOAD_ENABLED','STARFLOW_SOCIAL_PREVIEW_ENABLED','STARFLOW_INBOX_PREVIEW_ENABLED']){
+  const result=await probe({...off,[flag]:'true'});
+  assert.equal(result.registrationEnabled,false,'owner gate must not be bypassed');
+  assert.equal(result.safetyFlagsOff,false,'unsafe flag '+flag+' must block release');
+ }
 });
