@@ -18,3 +18,20 @@ After the existing owner authorization only, the staging readiness response adds
 
 ### Worker transport
 The Next.js Worker adapter injects the official Neon serverless Pool. Its default transport is secure WebSockets to the validated Neon host, with TLS at the WebSocket layer rather than the previous direct PostgreSQL TCP/TLS negotiation. Native pg remains available to the isolated local database tests. No custom proxy, new binding or new resource is introduced. Existing per-request cleanup, owner gate, distinct role and host validation, and read-only privilege attestation remain unchanged. The live preview must pass readiness before any other feature is enabled; this change does not establish production readiness.
+
+## Read-only provider credential acceptance
+`GET /api/v2/provider-readiness` is allowed on the existing exact-host Preview only while
+`STARFLOW_V2_PREVIEW_ONLY=true`, including while the v2 switch remains `false`.
+It requires the **same verified owner authorization** as database readiness and
+rejects query strings. It makes only fixed HTTPS GET requests to Brevo
+`/v3/account` and Cloudinary `/v1_1/<cloud>/usage` with runtime secrets.
+Responses are bounded to 64 KiB, all provider errors are reduced to fixed
+classifications, and no API keys, account identity, HTML, full provider
+responses, database data, or customer information leave the Worker.
+The `brevo=free_account_authorized` classification means a credential
+authenticated to a currently observed Free plan, **not** independent billing
+or actual email delivery. The `cloudinary=usage_access_authorized`
+classification means a credential authorized to read usage, **not**
+successful image upload or proven free-only billing. Neither probe sends
+email, uploads media, enables signup, or changes production. A missing
+Cloudflare owner key still blocks live acceptance; do not add a bypass.
