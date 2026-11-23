@@ -40,7 +40,7 @@ export async function inspectProviderBindings(env={},transport=fetch){
  // authentication, mailbox delivery, billing approval or permission to send.
  const sender=env.STARFLOW_BREVO_SENDER_EMAIL;
  if(secureString(env.BREVO_API_KEY)&&typeof sender==='string'&&sender.length<=254&&
-    sender===sender.trim()&&senderEmail.test(sender)){
+    sender===sender.trim()&&!sender.includes('\\')&&senderEmail.test(sender)){
   results.sender='unconfirmed';
   if(results.brevo==='free_account_authorized'){
    try{
