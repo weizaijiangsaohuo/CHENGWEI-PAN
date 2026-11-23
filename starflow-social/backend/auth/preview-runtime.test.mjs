@@ -222,3 +222,32 @@ test('verified Access assertion and service credentials never reach downstream a
  authFactory:()=>({handler:async request=>{calls++;for(const name of names)assert.equal(request.headers.get(name),null);assert.equal(request.headers.get('cookie'),'session_token=fixture');assert.equal(request.headers.get('origin'),origin);return Response.json({ok:true});}})});
  assert.equal((await h(req('/api/identity/auth/get-session',{headers}))).status,200);assert.equal(calls,1);
 });
+
+test('owner-only provider readiness remains available with v2 disabled and never opens a database',async()=>{
+ let poolCount=0,providerCalls=0;
+ class ForbiddenPool{constructor(){poolCount++;throw Error('probe must never connect to database');}}
+ const cfg={...env,STARFLOW_V2_ENABLED:'false',
+  BREVO_API_KEY:'synthetic-brevo',CLOUDINARY_CLOUD_NAME:'fixture-cloud',
+  CLOUDINARY_API_KEY:'123456789',CLOUDINARY_API_SECRET:'synthetic-cloud-secret'};
+ const h=createPreviewHandler({env:cfg,Pool:ForbiddenPool,
+  authorizePreview:async request=>request.headers.get('x-starflow-preview-key')==='synthetic-owner',
+  providerTransport:async url=>{
+   providerCalls++;
+   if(url==='https://api.brevo.com/v3/account')return Response.json({
+    enterprise:false,relay:{enabled:true},plan:[{type:'free',credits:300,creditsType:'sendLimit'}]});
+   if(url==='https://api.cloudinary.com/v1_1/fixture-cloud/usage')
+    return Response.json({credits:{usage:0,limit:25},resources:0});
+   throw Error('unsupported provider target');
+  }});
+ const protectedHeader={headers:{'x-starflow-preview-key':'synthetic-owner'}};
+ assert.equal((await h(req('/api/v2/provider-readiness'))).status,403);
+ assert.equal(providerCalls,0);
+ assert.equal((await h(req('/api/v2/provider-readiness?unexpected=1',protectedHeader))).status,400);
+ assert.equal((await h(req('/api/v2/me',protectedHeader))).status,404);
+ const response=await h(req('/api/v2/provider-readiness',protectedHeader));
+ assert.equal(response.status,200);
+ assert.equal(response.headers.get('cache-control'),'private, no-store');
+ assert.deepEqual(await response.json(),{brevo:'free_account_authorized',cloudinary:'usage_access_authorized'});
+ assert.equal(providerCalls,2);
+ assert.equal(poolCount,0);
+});
