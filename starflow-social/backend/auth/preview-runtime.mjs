@@ -256,7 +256,12 @@ export function createPreviewHandler({env,authorizePreview,Pool=pg.Pool,authFact
      roleFailure(mailPool,'sf_mail_budget_connect',mailPrivilegeSql,'mail',attestationDatabase)]);
     const failed=failures.find(Boolean);if(failed)return unavailable(failed);
     return Response.json({databaseReady:true,mailAdapterConfigured:typeof registrationMail?.verifyBilling==='function'&&typeof registrationMail?.transport==='function',
-     liveMailVerified:false,registrationEnabled:env.STARFLOW_V2_ENABLED==='true'&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED==='true'&&env.STARFLOW_FRESH_PREVIEW_ENABLED==='true'&&env.STARFLOW_PREVIEW_OWNER_KEY===undefined},
+     liveMailVerified:false,registrationEnabled:env.STARFLOW_V2_ENABLED==='true'&&env.STARFLOW_REGISTRATION_PREVIEW_ENABLED==='true'&&env.STARFLOW_FRESH_PREVIEW_ENABLED==='true'&&env.STARFLOW_PREVIEW_OWNER_KEY===undefined,
+     // A separate release fence: owner-key mode can mask a mistakenly enabled signup flag.
+     safetyFlagsOff:env.STARFLOW_V2_ENABLED==='false'&&
+       ['STARFLOW_FRESH_PREVIEW_ENABLED','STARFLOW_REGISTRATION_PREVIEW_ENABLED','STARFLOW_BREVO_SEND_ENABLED',
+        'STARFLOW_CLOUDINARY_UPLOAD_ENABLED','STARFLOW_SOCIAL_PREVIEW_ENABLED','STARFLOW_INBOX_PREVIEW_ENABLED']
+        .every(key=>env[key]!=='true')},
      {headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
    }
    if(route===readinessRoute){
