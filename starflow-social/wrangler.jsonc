@@ -49,6 +49,11 @@
     "vars": {
       "STARFLOW_AUTH_ORIGIN": "https://feature-neon-backend-foundation-20261120-weizai.weizai.workers.dev",
       "STARFLOW_PREVIEW_DB_HOST": "ep-plain-snow-b3x6hb9a.c-4.ap-southeast-1.aws.neon.tech",
+      "CLOUDINARY_CLOUD_NAME": "buaqssyk",
+      "STARFLOW_BREVO_SEND_ENABLED": "false",
+      "STARFLOW_CLOUDINARY_UPLOAD_ENABLED": "false",
+      "STARFLOW_FRESH_PREVIEW_ENABLED": "false",
+      "STARFLOW_REGISTRATION_PREVIEW_ENABLED": "false",
       "STARFLOW_V2_ENABLED": "false",
       "STARFLOW_V2_PREVIEW_ONLY": "true"
     }
