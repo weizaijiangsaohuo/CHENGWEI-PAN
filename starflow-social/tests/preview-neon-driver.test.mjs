@@ -5,7 +5,10 @@ import {Pool,neonConfig} from '@neondatabase/serverless';
 test('Worker uses official Neon Pool, secure default transport and transaction-compatible API',async()=>{
  const source=await readFile(new URL('../lib/starflow-preview.ts',import.meta.url),'utf8');
  assert.match(source,/import \{ Pool as NeonPool \} from '@neondatabase\/serverless'/);
- assert.match(source,/createPreviewHandler\(\{env:bindings,authorizePreview,Pool:NeonPool,registrationMail:undefined\}\)/);
+ assert.match(source,/import \{ createPreviewRegistrationMail \} from '@\/backend\/services\/preview-registration-mail.mjs'/);
+ assert.match(source,/createPreviewRegistrationMail\(bindings\)/);
+ assert.match(source,/createPreviewHandler\(\{env:bindings,authorizePreview,Pool:NeonPool,registrationMail\}\)/);
+ assert.doesNotMatch(source,/registrationMail:\s*undefined/);
  assert.equal(neonConfig.useSecureWebSocket,true);
  assert.equal(neonConfig.poolQueryViaFetch,false);
  const pool=new Pool({host:'ep-fixture.example.neon.tech',database:'neondb',user:'synthetic',password:'fixture',max:1});
