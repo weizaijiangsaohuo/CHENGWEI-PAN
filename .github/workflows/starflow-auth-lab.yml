@@ -127,6 +127,11 @@ jobs:
 
       - run: node --test registration-admission.test.mjs
       - run: node --test deployed-preview-smoke.test.mjs
+      - run: node --test deployed-preview-deny-smoke.test.mjs
+      - name: Verify live staging rejects anonymous requests
+        # Trusted branch only, GET-only, no secrets or user requests.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/neon-backend-foundation-20261120'
+        run: node deployed-preview-deny-smoke.mjs
       - name: Read-only deployed preview readiness (existing authorization only)
         # Same-repository trusted preview branch only; never use secrets on fork PRs.
         if: >-
