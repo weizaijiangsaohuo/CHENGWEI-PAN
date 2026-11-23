@@ -23,7 +23,8 @@ export async function probeWorker({ownerKey,fetchImpl=fetch}={}){
     // Provider status is checked against fixed labels; never log API responses or secrets.
     const brevoAuthorized=data?.brevo==='free_account_authorized';
     const cloudinaryAuthorized=data?.cloudinary==='usage_access_authorized';
-    results.push({name,state:brevoAuthorized&&cloudinaryAuthorized?'authorized':'unconfirmed',brevoAuthorized,cloudinaryAuthorized});
+    const senderAuthorized=data?.sender==='active_sender_authorized';
+    results.push({name,state:brevoAuthorized&&cloudinaryAuthorized?'authorized':'unconfirmed',brevoAuthorized,cloudinaryAuthorized,senderAuthorized});
     continue;
    }
    if(data?.databaseReady!==true||typeof data.mailAdapterConfigured!=='boolean'||typeof data.liveMailVerified!=='boolean'||typeof data.registrationEnabled!=='boolean'){results.push({name,state:'not_ready'});continue;}
@@ -42,4 +43,6 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  if(result.state==='not_configured')console.log('::warning::Worker probe not run: existing preview authorization unavailable in GitHub Actions.');
  else if(result.state!=='database_ready')process.exitCode=1;
  else if(result.probes[1]?.liveMailVerified!==true)console.log('::warning::Database readiness does not establish real email delivery or registration success.');
+ if(result.state==='database_ready'&&result.probes[2]?.senderAuthorized!==true)
+  console.log('::warning::An active Brevo sender has not been independently attested for staging; email registration is not release-ready.');
 }
