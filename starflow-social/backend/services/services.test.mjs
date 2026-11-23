@@ -46,3 +46,47 @@ test('private media dispatcher requires authorization, sanitized dimensions, fre
  assert.deepEqual(await createPrivateImageDispatcher({...cfg,transport:async()=>Response.json({public_id:'other',type:'upload'})})(input),{status:'unconfirmed'});
  assert.deepEqual(calls,['authorize','free','sanitize','reserve','authorize']);
 });
+
+import {inspectProviderBindings} from './provider-readiness.mjs';
+
+test('preview provider probes use fixed read-only endpoints, no secret response or changes',async()=>{
+ const env={BREVO_API_KEY:'synthetic-brevo-key',CLOUDINARY_CLOUD_NAME:'synthetic-cloud',
+  CLOUDINARY_API_KEY:'12345678',CLOUDINARY_API_SECRET:'synthetic-private-secret'};
+ const calls=[];
+ const provider=async(url,opts)=>{
+  calls.push({url,method:opts.method,redirect:opts.redirect,cache:opts.cache,hasSignal:!!opts.signal});
+  assert.equal(opts.method,'GET');assert.equal(opts.redirect,'error');assert.equal(opts.cache,'no-store');
+  if(url==='https://api.brevo.com/v3/account'){
+   assert.equal(opts.headers['api-key'],env.BREVO_API_KEY);
+   return Response.json({enterprise:false,relay:{enabled:true},plan:[{type:'free',credits:300,creditsType:'sendLimit'}],
+    planVerticals:[{planType:'free',status:'active'}]});
+  }
+  assert.equal(url,'https://api.cloudinary.com/v1_1/synthetic-cloud/usage');
+  assert.match(opts.headers.Authorization,/^Basic [A-Za-z0-9+/]+=*$/);
+  return Response.json({credits:{usage:0,limit:25},resources:0});
+ };
+ const status=await inspectProviderBindings(env,provider);
+ assert.deepEqual(status,{brevo:'free_account_authorized',cloudinary:'usage_access_authorized'});
+ assert.deepEqual(calls.map(c=>c.url),['https://api.brevo.com/v3/account','https://api.cloudinary.com/v1_1/synthetic-cloud/usage']);
+ assert.ok(calls.every(c=>c.hasSignal));
+ assert.equal(JSON.stringify(status).includes(env.CLOUDINARY_API_SECRET),false);
+ assert.equal(JSON.stringify(status).includes(env.BREVO_API_KEY),false);
+ assert.deepEqual(await inspectProviderBindings({},async()=>{throw Error('unexpected call');}),
+  {brevo:'not_configured',cloudinary:'not_configured'});
+});
+
+test('provider probe fails closed on key mismatch, denial, oversized JSON and network failure',async()=>{
+ const env={BREVO_API_KEY:'synthetic-brevo-key',CLOUDINARY_CLOUD_NAME:'synthetic-cloud',
+  CLOUDINARY_API_KEY:'12345678',CLOUDINARY_API_SECRET:'synthetic-private-secret'};
+ const failed=await inspectProviderBindings(env,async()=>new Response('denied',{status:401}));
+ assert.deepEqual(failed,{brevo:'unconfirmed',cloudinary:'unconfirmed'});
+ const oversized=await inspectProviderBindings(env,async()=>new Response('{"huge":"'+('x'.repeat(70000))+'"}',
+  {status:200,headers:{'content-type':'application/json'}}));
+ assert.deepEqual(oversized,{brevo:'unconfirmed',cloudinary:'unconfirmed'});
+ const bad=await inspectProviderBindings({...env,CLOUDINARY_CLOUD_NAME:'../../evil'},async(url)=>{
+  assert.equal(url,'https://api.brevo.com/v3/account');throw Error('down');
+ });
+ assert.deepEqual(bad,{brevo:'unconfirmed',cloudinary:'not_configured'});
+ assert.deepEqual(await inspectProviderBindings(env,async()=>{throw Error('offline')}),
+  {brevo:'unconfirmed',cloudinary:'unconfirmed'});
+});
